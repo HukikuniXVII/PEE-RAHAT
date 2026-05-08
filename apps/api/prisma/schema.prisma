@@ -1,0 +1,382 @@
+// Prisma schema for Pee Rahat — Phase 1 MVP.
+// All persistent state lives here; apps/web never touches the DB.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Identity ──────────────────────────────────────────────────────────────
+
+enum UserRole {
+  student
+  tutor
+  parent
+  admin
+}
+
+model User {
+  id            String        @id @default(uuid())
+  supabaseId    String        @unique
+  email         String        @unique
+  displayName   String
+  role          UserRole      @default(student)
+  avatarUrl     String?
+  createdAt     DateTime      @default(now())
+
+  tutorProfile  TutorProfile?
+  studentProfile StudentProfile?
+  kycSubmissions KycSubmission[]
+  bookingsAsStudent Booking[] @relation("StudentBookings")
+  reviews       TutorReview[]
+  posts         CommunityPost[]
+  replies       CommunityReply[]
+  upvotes       PostUpvote[]
+  reports       Report[]
+  paymentIntents PaymentIntent[]
+  sentMessages  ChatMessage[]
+  threadsAsStudent ChatThread[] @relation("StudentChat")
+  loginAuditLogs LoginAuditLog[]
+}
+
+model StudentProfile {
+  userId       String  @id
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schoolGrade  String?
+  pdpaConsentAt DateTime?
+}
+
+// ─── Tutors & KYC ──────────────────────────────────────────────────────────
+
+enum KycStatus {
+  not_started
+  pending
+  verified
+  rejected
+}
+
+model TutorProfile {
+  id           String    @id @default(uuid())
+  userId       String    @unique
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio          String
+  university   String
+  faculty      String
+  hourlyRate   Int
+  rating       Float     @default(0)
+  reviewCount  Int       @default(0)
+  introVideoUrl String?
+  isVerified   Boolean   @default(false)
+  subjects     String[]
+  createdAt    DateTime  @default(now())
+
+  bookings     Booking[]
+  reviews      TutorReview[]
+  sheets       StudySheet[]
+  threads      ChatThread[] @relation("TutorChat")
+  payouts      Payout[]
+
+  @@index([university])
+  @@index([rating])
+}
+
+model KycSubmission {
+  id                String    @id @default(uuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  idPhotoKey        String
+  selfieKey         String
+  transcriptKey     String
+  status            KycStatus @default(pending)
+  rejectionReason   String?
+  submittedAt       DateTime  @default(now())
+  reviewedAt        DateTime?
+  reviewedBy        String?
+  archivedAt        DateTime? // moved to cold storage (NFR-03)
+
+  @@index([status])
+}
+
+// ─── Bookings ──────────────────────────────────────────────────────────────
+
+enum BookingStatus {
+  requested
+  accepted
+  rejected
+  expired
+  paid
+  completed
+  reported
+  refunded
+  cancelled
+}
+
+model Booking {
+  id                  String        @id @default(uuid())
+  studentId           String
+  student             User          @relation("StudentBookings", fields: [studentId], references: [id])
+  tutorId             String
+  tutor               TutorProfile  @relation(fields: [tutorId], references: [id])
+  subject             String
+  status              BookingStatus @default(requested)
+  scheduledAt         DateTime
+  durationMinutes     Int
+  amountThb           Int
+  acceptDeadlineAt    DateTime
+  reportWindowEndsAt  DateTime?
+  createdAt           DateTime      @default(now())
+
+  paymentIntent       PaymentIntent?
+  review              TutorReview?
+  chatThread          ChatThread?
+
+  @@index([tutorId, status])
+  @@index([studentId, status])
+}
+
+model TutorReview {
+  id                 String       @id @default(uuid())
+  bookingId          String       @unique
+  booking            Booking      @relation(fields: [bookingId], references: [id])
+  studentId          String
+  student            User         @relation(fields: [studentId], references: [id])
+  tutorId            String
+  tutor              TutorProfile @relation(fields: [tutorId], references: [id])
+  rating             Int
+  text               String
+  createdAt          DateTime     @default(now())
+
+  @@index([tutorId])
+}
+
+// ─── Sheet Marketplace ────────────────────────────────────────────────────
+
+model StudySheet {
+  id                  String      @id @default(uuid())
+  sellerId            String
+  seller              TutorProfile @relation(fields: [sellerId], references: [id])
+  title               String
+  description         String
+  subject             String
+  priceThb            Int
+  rating              Float       @default(0)
+  reviewCount         Int         @default(0)
+  pdfObjectKey        String
+  previewImageObjectKeys String[]
+  introVideoUrl       String?
+  pageCount           Int         @default(0)
+  isSuspended         Boolean     @default(false)
+  createdAt           DateTime    @default(now())
+
+  paymentIntents      PaymentIntent[]
+
+  @@index([subject])
+  @@index([sellerId])
+}
+
+// ─── TCAS ──────────────────────────────────────────────────────────────────
+
+model TcasProgram {
+  id          String   @id @default(uuid())
+  university  String
+  faculty     String
+  major       String
+  round       String
+  minScore    Float
+  weights     Json
+  tags        String[]
+
+  @@unique([university, major, round])
+}
+
+model TcasDeadline {
+  id        String   @id @default(uuid())
+  title     String
+  date      DateTime
+  type      String
+}
+
+// ─── Quiz ──────────────────────────────────────────────────────────────────
+
+model QuizQuestion {
+  id            String   @id @default(uuid())
+  subject       String
+  topic         String
+  question      String
+  options       String[]
+  correctIndex  Int
+
+  @@index([subject])
+}
+
+model QuizSubmission {
+  id           String   @id @default(uuid())
+  userId       String
+  subject      String
+  scorePct     Float
+  weakTopics   String[]
+  createdAt    DateTime @default(now())
+}
+
+// ─── Community ─────────────────────────────────────────────────────────────
+
+model CommunityPost {
+  id           String   @id @default(uuid())
+  authorId     String
+  author       User     @relation(fields: [authorId], references: [id])
+  title        String
+  content      String
+  upvoteCount  Int      @default(0)
+  isHidden     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  replies      CommunityReply[]
+  upvotes      PostUpvote[]
+
+  @@index([createdAt])
+}
+
+model CommunityReply {
+  id        String   @id @default(uuid())
+  postId    String
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([postId])
+}
+
+model PostUpvote {
+  postId   String
+  post     CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@id([postId, userId])
+}
+
+// ─── Reports & moderation ─────────────────────────────────────────────────
+
+enum ReportTargetType {
+  post
+  reply
+  sheet
+  tutor
+  message
+}
+
+model Report {
+  id           String           @id @default(uuid())
+  reporterId   String
+  reporter     User             @relation(fields: [reporterId], references: [id])
+  targetType   ReportTargetType
+  targetId     String
+  reason       String
+  details      String
+  resolvedAt   DateTime?
+  createdAt    DateTime         @default(now())
+
+  @@index([targetType, targetId])
+}
+
+// ─── Payments & Escrow ─────────────────────────────────────────────────────
+
+enum PaymentItemType {
+  booking
+  sheet
+}
+
+enum PaymentStatus {
+  pending_transfer
+  slip_uploaded
+  verifying
+  verified
+  held_in_escrow
+  released
+  refunded
+  failed
+}
+
+model PaymentIntent {
+  id                String          @id @default(uuid())
+  payerId           String
+  payer             User            @relation(fields: [payerId], references: [id])
+  itemType          PaymentItemType
+  bookingId         String?         @unique
+  booking           Booking?        @relation(fields: [bookingId], references: [id])
+  sheetId           String?
+  sheet             StudySheet?     @relation(fields: [sheetId], references: [id])
+  amountThb         Int
+  promptPayQrPayload String
+  status            PaymentStatus   @default(pending_transfer)
+  slipObjectKey     String?
+  slipOkRef         String?
+  failureReason     String?
+  expiresAt         DateTime
+  releasedAt        DateTime?
+  createdAt         DateTime        @default(now())
+}
+
+model Payout {
+  id                String       @id @default(uuid())
+  tutorId           String
+  tutor             TutorProfile @relation(fields: [tutorId], references: [id])
+  periodStart       DateTime
+  periodEnd         DateTime
+  grossThb          Int
+  commissionThb     Int
+  withholdingTaxThb Int
+  netThb            Int
+  scheduledAt       DateTime
+  paidAt            DateTime?
+}
+
+// ─── Chat ──────────────────────────────────────────────────────────────────
+
+model ChatThread {
+  id         String   @id @default(uuid())
+  studentId  String
+  student    User     @relation("StudentChat", fields: [studentId], references: [id])
+  tutorId    String
+  tutor      TutorProfile @relation("TutorChat", fields: [tutorId], references: [id])
+  bookingId  String?  @unique
+  booking    Booking? @relation(fields: [bookingId], references: [id])
+  createdAt  DateTime @default(now())
+
+  messages   ChatMessage[]
+
+  @@unique([studentId, tutorId])
+}
+
+model ChatMessage {
+  id         String   @id @default(uuid())
+  threadId   String
+  thread     ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id])
+  body       String
+  redacted   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([threadId, createdAt])
+}
+
+// ─── Audit log (NFR-05) ────────────────────────────────────────────────────
+
+model LoginAuditLog {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  ip         String
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+}

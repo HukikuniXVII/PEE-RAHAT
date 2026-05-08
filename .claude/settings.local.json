@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm --version)",
+      "Bash(npm --version)",
+      "Bash(corepack enable *)",
+      "Bash(npm install *)",
+      "Bash(pnpm install *)",
+      "Bash(docker --version)",
+      "Bash(psql --version)",
+      "Bash(where docker *)",
+      "Bash(docker info *)",
+      "Read(//c/Program Files/Docker/Docker/**)",
+      "Read(//c/Program Files/Docker/Docker//**)",
+      "Bash(\"/c/Program Files/Docker/Docker/Docker Desktop.exe\")",
+      "Bash(disown)",
+      "Bash(docker compose *)",
+      "Bash(pnpm --filter @peerahat/api prisma:generate)",
+      "Bash(pnpm exec *)",
+      "Bash(DATABASE_URL=\"postgresql://postgres:postgres@localhost:5432/peerahat?schema=public\" pnpm exec prisma migrate dev --name init)",
+      "Bash(pnpm --filter @peerahat/api prisma:seed)",
+      "Bash(docker exec peerahat-pg *)",
+      "Bash(pnpm dev:api)",
+      "Bash(curl -fsS http://localhost:3001/api/tutors)",
+      "Bash(pnpm --filter @peerahat/api add date-fns)",
+      "Bash(pnpm --filter @peerahat/types build)",
+      "Bash(pnpm dev *)",
+      "Bash(curl -fsS http://localhost:3000)",
+      "Bash(curl -s http://localhost:3001/api/tutors)",
+      "Bash(curl -s http://localhost:3001/api/tcas/programs)",
+      "Bash(curl -s http://localhost:3001/api/sheets)",
+      "Bash(curl -sI http://localhost:3000)",
+      "Bash(curl -sI http://localhost:3000/tutors)",
+      "Bash(curl -sI http://localhost:3000/tcas)",
+      "Bash(curl -sI http://localhost:3000/sheets)",
+      "Bash(curl -sI http://localhost:3000/community)",
+      "Bash(curl -sI http://localhost:3000/quiz)",
+      "Bash(curl -sI http://localhost:3000/tutors/onboarding)",
+      "Bash(curl -s -o /dev/null -w \"web :3000 → %{http_code}\\\\n\" --max-time 2 http://localhost:3000)",
+      "Bash(curl -s -o /dev/null -w \"api :3001 → %{http_code}\\\\n\" --max-time 2 http://localhost:3001/api/tutors)"
+    ]
+  }
+}

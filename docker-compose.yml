@@ -1,0 +1,30 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: peerahat-pg
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: peerahat
+    ports:
+      - "5432:5432"
+    volumes:
+      - peerahat-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d peerahat"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Uncomment once BullMQ payout/escrow jobs are wired up.
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: peerahat-redis
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - peerahat-redis:/data
+
+volumes:
+  peerahat-pg:
+  # peerahat-redis:
