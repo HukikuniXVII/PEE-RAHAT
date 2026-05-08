@@ -1,8 +1,38 @@
+# Dependencies
 node_modules/
-build/
+.pnpm-store/
+
+# Build outputs
 dist/
+build/
+.next/
+.turbo/
+*.tsbuildinfo
+
+# Test
 coverage/
-.DS_Store
+
+# Logs
 *.log
-.env*
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Env
+.env
+.env.*
 !.env.example
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Prisma
+apps/api/prisma/migrations/dev/
+
+# Next.js
+next-env.d.ts.bak
