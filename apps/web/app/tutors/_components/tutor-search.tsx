@@ -6,8 +6,8 @@ import {
   type TutorSort,
   tutorSortSchema,
 } from "@peerahat/types";
-import { useQuery } from "@tanstack/react-query";
-import { Search } from "lucide-react";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { Loader2, Search } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 import { useEffect, useState } from "react";
 
@@ -21,6 +21,9 @@ interface Props {
   initialResult: TutorSearchResult;
 }
 
+const PAGE_SIZE = 20;
+const DEFAULT_SORT: TutorSort = "rating";
+
 export function TutorSearch({
   initialQuery,
   initialSubject,
@@ -28,32 +31,47 @@ export function TutorSearch({
 }: Props) {
   const [query, setQuery] = useState(initialQuery);
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
-  const [sort, setSort] = useState<TutorSort>("rating");
+  const [sort, setSort] = useState<TutorSort>(DEFAULT_SORT);
 
   useEffect(() => {
     const handle = setTimeout(() => setDebouncedQuery(query), 300);
     return () => clearTimeout(handle);
   }, [query]);
 
-  const { data, isFetching } = useQuery({
-    queryKey: [
-      "tutors",
-      "search",
-      { q: debouncedQuery, subject: initialSubject, sort },
-    ],
-    queryFn: () =>
-      createApiClient().tutors.search({
-        q: debouncedQuery || undefined,
-        subject: initialSubject === "All" ? undefined : initialSubject,
-        sort,
-        page: 1,
-        pageSize: 20,
-      }),
-    initialData: initialResult,
-    placeholderData: (prev) => prev,
-  });
+  // The SSR fetch from page.tsx ran with debouncedQuery=initialQuery,
+  // subject=initialSubject, sort=DEFAULT_SORT. Only seed the cache when
+  // the live filters still match — otherwise the user has already
+  // changed something and we want a fresh fetch.
+  const isInitialFilters =
+    debouncedQuery === initialQuery && sort === DEFAULT_SORT;
 
-  const result = data ?? initialResult;
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isFetching } =
+    useInfiniteQuery({
+      queryKey: [
+        "tutors",
+        "search",
+        { q: debouncedQuery, subject: initialSubject, sort },
+      ],
+      queryFn: ({ pageParam = 1 }) =>
+        createApiClient().tutors.search({
+          q: debouncedQuery || undefined,
+          subject: initialSubject === "All" ? undefined : initialSubject,
+          sort,
+          page: pageParam,
+          pageSize: PAGE_SIZE,
+        }),
+      initialPageParam: 1,
+      getNextPageParam: (lastPage) =>
+        lastPage.page * lastPage.pageSize < lastPage.total
+          ? lastPage.page + 1
+          : undefined,
+      initialData: isInitialFilters
+        ? { pages: [initialResult], pageParams: [1] }
+        : undefined,
+      placeholderData: (prev) => prev,
+    });
+
+  const tutors = data?.pages.flatMap((p) => p.items) ?? initialResult.items;
 
   return (
     <div className="space-y-8">
@@ -90,7 +108,7 @@ export function TutorSearch({
         </div>
       </div>
 
-      {isFetching && (
+      {isFetching && !isFetchingNextPage && (
         <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">
           Loading...
         </p>
@@ -98,16 +116,32 @@ export function TutorSearch({
 
       <div className="grid md:grid-cols-2 gap-6">
         <AnimatePresence mode="popLayout">
-          {result.items.map((tutor) => (
+          {tutors.map((tutor) => (
             <TutorCard key={tutor.id} tutor={tutor} />
           ))}
         </AnimatePresence>
       </div>
 
-      {result.items.length === 0 && !isFetching && (
+      {tutors.length === 0 && !isFetching && (
         <p className="text-center text-slate-400 py-12 font-medium">
           ไม่พบติวเตอร์ที่ตรงเงื่อนไข ลองปรับการค้นหาดู
         </p>
+      )}
+
+      {hasNextPage && (
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-100 text-slate-700 rounded-2xl font-bold text-xs hover:bg-slate-200 transition-all disabled:opacity-50"
+          >
+            {isFetchingNextPage && (
+              <Loader2 size={14} className="animate-spin" />
+            )}
+            Show more
+          </button>
+        </div>
       )}
     </div>
   );
