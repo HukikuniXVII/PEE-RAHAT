@@ -61,6 +61,72 @@ export class SheetsService {
     return this.toDto(row);
   }
 
+  /**
+   * FR-SM-01 step 1: hand the seller a presigned PUT URL so they can upload
+   * the PDF or a preview image directly to object storage. The returned
+   * objectKey must be passed back into create() below.
+   */
+  async requestUpload(
+    supabaseId: string,
+    kind: "pdf" | "preview",
+    contentType: string,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { supabaseId },
+      include: { tutorProfile: true },
+    });
+    if (!user) throw new BadRequestException();
+    if (!user.tutorProfile) {
+      throw new ForbiddenException("Only tutors can publish sheets");
+    }
+    return this.storage.signSheetUpload(user.id, kind, contentType);
+  }
+
+  /**
+   * FR-SM-01 step 2: persist the sheet metadata once the seller has
+   * uploaded the PDF and at least one preview image. Tutor must be
+   * verified (FR-TH-02 KYC complete) before listings go live.
+   */
+  async create(
+    supabaseId: string,
+    dto: {
+      title: string;
+      description: string;
+      subject: string;
+      priceThb: number;
+      pdfObjectKey: string;
+      previewImageObjectKeys: string[];
+      introVideoUrl?: string;
+    },
+  ): Promise<StudySheet> {
+    const user = await this.prisma.user.findUnique({
+      where: { supabaseId },
+      include: { tutorProfile: true },
+    });
+    if (!user) throw new BadRequestException();
+    if (!user.tutorProfile) {
+      throw new ForbiddenException("Only tutors can publish sheets");
+    }
+    if (!user.tutorProfile.isVerified) {
+      throw new ForbiddenException("Tutor profile must be Verified first");
+    }
+
+    const created = await this.prisma.studySheet.create({
+      data: {
+        sellerId: user.tutorProfile.id,
+        title: dto.title,
+        description: dto.description,
+        subject: dto.subject,
+        priceThb: dto.priceThb,
+        pdfObjectKey: dto.pdfObjectKey,
+        previewImageObjectKeys: dto.previewImageObjectKeys,
+        introVideoUrl: dto.introVideoUrl ?? null,
+      },
+      include: { seller: { include: { user: true } } },
+    });
+    return this.toDto(created);
+  }
+
   async issueDownload(supabaseId: string, sheetId: string) {
     const user = await this.prisma.user.findUnique({ where: { supabaseId } });
     if (!user) throw new BadRequestException();

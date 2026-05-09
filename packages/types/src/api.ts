@@ -26,6 +26,7 @@ export const API_PATHS = {
   sheets: "/sheets",
   sheetById: (id: string) => `/sheets/${id}`,
   sheetDownload: (id: string) => `/sheets/${id}/download`,
+  sheetUploadIntents: "/sheets/upload-intents",
   reportSheet: (id: string) => `/sheets/${id}/report`,
   tcasPrograms: "/tcas/programs",
   tcasWhatIf: "/tcas/what-if",

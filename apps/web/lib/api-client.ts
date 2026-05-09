@@ -12,6 +12,7 @@ import {
   type CreatePostDto,
   type CreateReplyDto,
   type CreateReviewDto,
+  type CreateSheetDto,
   type KycSubmitDto,
   type KycSubmission,
   type KycUploadIntent,
@@ -23,6 +24,8 @@ import {
   type ReportDto,
   type SendMessageDto,
   type SheetReportDto,
+  type SheetUploadIntent,
+  type SheetUploadKind,
   type SlipVerificationResult,
   type StudySheet,
   type Subject,
@@ -140,6 +143,21 @@ export function createApiClient(opts: ApiClientOptions = {}) {
       report: (dto: SheetReportDto) =>
         request<void>(
           API_PATHS.reportSheet(dto.sheetId),
+          { method: "POST", body: JSON.stringify(dto) },
+          token,
+        ),
+      requestUpload: (kind: SheetUploadKind, contentType: string) =>
+        request<SheetUploadIntent>(
+          API_PATHS.sheetUploadIntents,
+          {
+            method: "POST",
+            body: JSON.stringify({ kind, contentType }),
+          },
+          token,
+        ),
+      create: (dto: CreateSheetDto) =>
+        request<StudySheet>(
+          API_PATHS.sheets,
           { method: "POST", body: JSON.stringify(dto) },
           token,
         ),

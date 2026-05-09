@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { Subject } from "./tutor";
+import { type Subject, subjectSchema } from "./tutor";
 
 export const sheetReportReasonSchema = z.enum([
   "copyright",
@@ -36,15 +36,40 @@ export interface StudySheet {
   createdAt: string;
 }
 
-export interface CreateSheetDto {
-  title: string;
-  description: string;
-  subject: Subject;
-  priceThb: number;
-  pdfObjectKey: string;
-  previewImageObjectKeys: string[];
-  introVideoUrl?: string;
+export const sheetUploadKindSchema = z.enum(["pdf", "preview"]);
+
+export type SheetUploadKind = z.infer<typeof sheetUploadKindSchema>;
+
+export interface SheetUploadIntent {
+  kind: SheetUploadKind;
+  uploadUrl: string;
+  objectKey: string;
+  expiresAt: string;
 }
+
+export const sheetUploadIntentRequestSchema = z.object({
+  kind: sheetUploadKindSchema,
+  contentType: z.string().min(1),
+});
+
+export type SheetUploadIntentRequestDto = z.infer<
+  typeof sheetUploadIntentRequestSchema
+>;
+
+export const createSheetSchema = z.object({
+  title: z.string().trim().min(3).max(200),
+  description: z.string().trim().min(10).max(5000),
+  subject: subjectSchema,
+  priceThb: z.coerce.number().int().min(0).max(100_000),
+  pdfObjectKey: z.string().min(1),
+  previewImageObjectKeys: z.array(z.string().min(1)).min(1).max(8),
+  introVideoUrl: z.preprocess(
+    (v) => (v === "" || v === null ? undefined : v),
+    z.string().url().optional(),
+  ),
+});
+
+export type CreateSheetDto = z.infer<typeof createSheetSchema>;
 
 export type SheetReportDto = z.infer<typeof sheetReportSchema>;
 
