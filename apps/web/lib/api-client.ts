@@ -38,6 +38,7 @@ import {
   type TutorSearchQuery,
   type TutorSearchResult,
   type UploadSlipDto,
+  type User,
 } from "@peerahat/types";
 
 const baseUrl =
@@ -90,6 +91,9 @@ export function createApiClient(opts: ApiClientOptions = {}) {
   const token = opts.accessToken;
 
   return {
+    users: {
+      me: () => request<User>(API_PATHS.usersMe, {}, token),
+    },
     tutors: {
       search: (q: TutorSearchQuery) =>
         request<TutorSearchResult>(`${API_PATHS.tutors}${qs(q)}`, {}, token),

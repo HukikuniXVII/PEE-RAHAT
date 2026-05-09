@@ -16,6 +16,7 @@ export interface Page<T> {
 }
 
 export const API_PATHS = {
+  usersMe: "/users/me",
   tutors: "/tutors",
   tutorById: (id: string) => `/tutors/${id}`,
   tutorReviews: (id: string) => `/tutors/${id}/reviews`,

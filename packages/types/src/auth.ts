@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export type UserRole = "student" | "tutor" | "parent" | "admin";
 
 export interface User {
@@ -12,3 +14,18 @@ export interface User {
 export interface SessionUser extends User {
   emailVerified: boolean;
 }
+
+export const signInSchema = z.object({
+  email: z.string().trim().email(),
+  password: z.string().min(8).max(72),
+});
+
+export type SignInDto = z.infer<typeof signInSchema>;
+
+export const signUpSchema = z.object({
+  email: z.string().trim().email(),
+  password: z.string().min(8).max(72),
+  displayName: z.string().trim().min(2).max(60),
+});
+
+export type SignUpDto = z.infer<typeof signUpSchema>;
