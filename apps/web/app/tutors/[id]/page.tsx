@@ -8,7 +8,7 @@ import {
 import type { Route } from "next";
 import Link from "next/link";
 
-import { createApiClient } from "@/lib/api-client";
+import { asNotFound, createApiClient } from "@/lib/api-client";
 import { getServerAccessToken } from "@/lib/supabase/server";
 
 interface Props {
@@ -27,7 +27,7 @@ export default async function TutorProfilePage({ params }: Props) {
   const token = await getServerAccessToken();
   const api = createApiClient({ accessToken: token });
   const [tutor, reviews] = await Promise.all([
-    api.tutors.byId(params.id),
+    asNotFound(api.tutors.byId(params.id)),
     api.tutors.reviews(params.id),
   ]);
 

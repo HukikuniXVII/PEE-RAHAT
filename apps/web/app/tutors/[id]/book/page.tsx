@@ -1,5 +1,5 @@
-import { createApiClient } from "@/lib/api-client";
-import { getServerAccessToken } from "@/lib/supabase/server";
+import { asNotFound, createApiClient } from "@/lib/api-client";
+import { requireAuth } from "@/lib/auth";
 
 import { BookingForm } from "./_components/booking-form";
 
@@ -8,9 +8,9 @@ interface Props {
 }
 
 export default async function BookTutorPage({ params }: Props) {
-  const token = await getServerAccessToken();
+  const token = await requireAuth(`/tutors/${params.id}/book`);
   const api = createApiClient({ accessToken: token });
-  const tutor = await api.tutors.byId(params.id);
+  const tutor = await asNotFound(api.tutors.byId(params.id));
 
   return <BookingForm tutor={tutor} />;
 }

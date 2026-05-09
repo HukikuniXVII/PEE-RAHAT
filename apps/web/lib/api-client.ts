@@ -44,6 +44,26 @@ import {
 const baseUrl =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001/api";
 
+/**
+ * Convenience for Server Components: route 404s from an api-client call to
+ * the nearest not-found.tsx instead of letting them bubble up to error.tsx.
+ * Must be called from a Server Component (next/navigation's notFound throws
+ * a special signal that only Server Components catch).
+ *
+ * Usage: const tutor = await asNotFound(api.tutors.byId(id));
+ */
+export async function asNotFound<T>(promise: Promise<T>): Promise<T> {
+  try {
+    return await promise;
+  } catch (e) {
+    if ((e as { statusCode?: number }).statusCode === 404) {
+      const { notFound } = await import("next/navigation");
+      notFound();
+    }
+    throw e;
+  }
+}
+
 async function request<T>(
   path: string,
   init: RequestInit = {},
