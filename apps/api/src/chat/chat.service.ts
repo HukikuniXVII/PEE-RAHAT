@@ -25,17 +25,36 @@ export class ChatService {
       },
       include: {
         messages: { orderBy: { createdAt: "desc" }, take: 1 },
+        student: true,
+        tutor: { include: { user: true } },
       },
+      orderBy: { createdAt: "desc" },
     });
-    return rows.map((t) => ({
-      id: t.id,
-      studentId: t.studentId,
-      tutorId: t.tutorId,
-      bookingId: t.bookingId ?? undefined,
-      lastMessagePreview: t.messages[0]?.body ?? "",
-      lastMessageAt:
-        t.messages[0]?.createdAt.toISOString() ?? t.createdAt.toISOString(),
-    }));
+    return rows.map((t) => {
+      const isStudentSide = t.studentId === user.id;
+      const counterparty = isStudentSide
+        ? {
+            displayName: t.tutor.user.displayName,
+            avatarUrl: t.tutor.user.avatarUrl ?? undefined,
+            role: "tutor" as const,
+            tutorId: t.tutorId,
+          }
+        : {
+            displayName: t.student.displayName,
+            avatarUrl: t.student.avatarUrl ?? undefined,
+            role: "student" as const,
+          };
+      return {
+        id: t.id,
+        studentId: t.studentId,
+        tutorId: t.tutorId,
+        bookingId: t.bookingId ?? undefined,
+        lastMessagePreview: t.messages[0]?.body ?? "",
+        lastMessageAt:
+          t.messages[0]?.createdAt.toISOString() ?? t.createdAt.toISOString(),
+        counterparty,
+      };
+    });
   }
 
   /**
@@ -51,11 +70,18 @@ export class ChatService {
     if (!user) throw new BadRequestException();
     const tutor = await this.prisma.tutorProfile.findUnique({
       where: { id: tutorId },
+      include: { user: true },
     });
     if (!tutor) throw new NotFoundException();
     if (tutor.userId === user.id) {
       throw new BadRequestException("Cannot open a chat with yourself");
     }
+    const counterparty = {
+      displayName: tutor.user.displayName,
+      avatarUrl: tutor.user.avatarUrl ?? undefined,
+      role: "tutor" as const,
+      tutorId,
+    };
     const existing = await this.prisma.chatThread.findFirst({
       where: { studentId: user.id, tutorId },
       include: {
@@ -72,6 +98,7 @@ export class ChatService {
         lastMessageAt:
           existing.messages[0]?.createdAt.toISOString() ??
           existing.createdAt.toISOString(),
+        counterparty,
       };
     }
     const created = await this.prisma.chatThread.create({
@@ -84,6 +111,7 @@ export class ChatService {
       bookingId: created.bookingId ?? undefined,
       lastMessagePreview: "",
       lastMessageAt: created.createdAt.toISOString(),
+      counterparty,
     };
   }
 

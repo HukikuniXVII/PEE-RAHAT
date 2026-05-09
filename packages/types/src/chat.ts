@@ -34,6 +34,14 @@ export interface ChatMessage {
   createdAt: string;
 }
 
+export interface ChatThreadCounterparty {
+  displayName: string;
+  avatarUrl?: string;
+  role: "student" | "tutor";
+  /** Set when the counterparty is a tutor — lets the threads list link to /chat/[tutorId]. */
+  tutorId?: string;
+}
+
 export interface ChatThread {
   id: string;
   studentId: string;
@@ -41,6 +49,7 @@ export interface ChatThread {
   bookingId?: string;
   lastMessagePreview: string;
   lastMessageAt: string;
+  counterparty: ChatThreadCounterparty;
 }
 
 export const sendMessageSchema = z.object({

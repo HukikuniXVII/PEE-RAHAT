@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessagesSquare,
   Search,
   Users,
   X,
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
   { href: "/tcas", label: "TCAS Calc", icon: Calculator },
   { href: "/community", label: "Webboard", icon: Users },
   { href: "/bookings", label: "Bookings", icon: CalendarCheck },
+  { href: "/chat", label: "Chat", icon: MessagesSquare },
 ] as const;
 
 interface Props {
