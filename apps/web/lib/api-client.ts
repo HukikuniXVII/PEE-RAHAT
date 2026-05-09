@@ -2,6 +2,7 @@ import {
   API_PATHS,
   type ApiError,
   type Booking,
+  type BookingReportDto,
   type ChatMessage,
   type ChatThread,
   type CommunityPost,
@@ -107,7 +108,7 @@ export function createApiClient(opts: ApiClientOptions = {}) {
           { method: "POST" },
           token,
         ),
-      report: (id: string, dto: ReportDto) =>
+      report: (id: string, dto: BookingReportDto) =>
         request<void>(
           API_PATHS.reportBooking(id),
           { method: "POST", body: JSON.stringify(dto) },
