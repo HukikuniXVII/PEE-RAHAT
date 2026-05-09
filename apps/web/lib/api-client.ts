@@ -1,5 +1,6 @@
 import {
   API_PATHS,
+  type AdminReport,
   type ApiError,
   type Booking,
   type BookingReportDto,
@@ -113,6 +114,26 @@ export function createApiClient(opts: ApiClientOptions = {}) {
   return {
     users: {
       me: () => request<User>(API_PATHS.usersMe, {}, token),
+    },
+    admin: {
+      listReports: (
+        opts: {
+          page?: number;
+          pageSize?: number;
+          status?: "open" | "resolved";
+        } = {},
+      ) =>
+        request<Page<AdminReport>>(
+          `${API_PATHS.adminReports}${qs(opts)}`,
+          {},
+          token,
+        ),
+      resolveReport: (id: string) =>
+        request<AdminReport>(
+          API_PATHS.adminResolveReport(id),
+          { method: "POST" },
+          token,
+        ),
     },
     tutors: {
       search: (q: TutorSearchQuery) =>
@@ -235,8 +256,15 @@ export function createApiClient(opts: ApiClientOptions = {}) {
           { method: "POST" },
           token,
         ),
-      replies: (postId: string) =>
-        request<CommunityReply[]>(API_PATHS.postReplies(postId), {}, token),
+      replies: (
+        postId: string,
+        opts: { page?: number; pageSize?: number } = {},
+      ) =>
+        request<Page<CommunityReply>>(
+          `${API_PATHS.postReplies(postId)}${qs(opts)}`,
+          {},
+          token,
+        ),
       reply: (dto: CreateReplyDto) =>
         request<CommunityReply>(
           API_PATHS.postReplies(dto.postId),

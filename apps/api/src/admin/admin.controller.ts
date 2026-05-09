@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   UseGuards,
 } from "@nestjs/common";
 import { IsString } from "class-validator";
@@ -48,6 +49,30 @@ export class AdminController {
   async paymentsQueue(@CurrentUser() user: SupabaseJwtPayload) {
     await this.assertAdmin(user.sub);
     return this.admin.paymentsQueue();
+  }
+
+  @Get("reports")
+  async listReports(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+    @Query("status") status?: "open" | "resolved",
+  ) {
+    await this.assertAdmin(user.sub);
+    return this.admin.listReports({
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : undefined,
+      status,
+    });
+  }
+
+  @Post("reports/:id/resolve")
+  async resolveReport(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") id: string,
+  ) {
+    await this.assertAdmin(user.sub);
+    return this.admin.resolveReport(id);
   }
 
   private async assertAdmin(supabaseId: string) {

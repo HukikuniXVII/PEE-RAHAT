@@ -70,3 +70,17 @@ export async function requireAuth(currentPath: string): Promise<string> {
   }
   return token;
 }
+
+/**
+ * Use from an /admin/* Server Component. Wraps requireAuth, then calls
+ * /users/me to read the canonical role. Non-admins are redirected to "/"
+ * so the page never renders for them.
+ */
+export async function requireAdmin(currentPath: string): Promise<string> {
+  const token = await requireAuth(currentPath);
+  const me = await createApiClient({ accessToken: token }).users.me();
+  if (me.role !== "admin") {
+    redirect("/");
+  }
+  return token;
+}
