@@ -47,4 +47,5 @@ export const API_PATHS = {
   chatThreadById: (threadId: string) => `/chat/threads/${threadId}`,
   chatThreadWithTutor: (tutorId: string) => `/chat/threads/with/${tutorId}`,
   chatMessages: (threadId: string) => `/chat/threads/${threadId}/messages`,
+  chatThreadRead: (threadId: string) => `/chat/threads/${threadId}/read`,
 } as const;

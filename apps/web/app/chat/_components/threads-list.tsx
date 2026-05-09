@@ -75,13 +75,21 @@ export function ThreadsList({ initialThreads }: Props) {
     <div className="space-y-3">
       {threads.map((thread) => {
         const isStudentSide = thread.counterparty.role === "tutor";
+        const hasUnread = thread.unreadCount > 0;
         return (
           <Link
             key={thread.id}
             href={`/chat/thread/${thread.id}` as Route}
             className="block"
           >
-            <div className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-slate-100 hover:border-indigo-200 transition-all shadow-sm">
+            <div
+              className={cn(
+                "flex items-center gap-4 p-4 rounded-2xl border transition-all shadow-sm",
+                hasUnread
+                  ? "bg-indigo-50/40 border-indigo-100 hover:border-indigo-300"
+                  : "bg-white border-slate-100 hover:border-indigo-200",
+              )}
+            >
               {thread.counterparty.avatarUrl ? (
                 <img
                   src={thread.counterparty.avatarUrl}
@@ -95,12 +103,26 @@ export function ThreadsList({ initialThreads }: Props) {
               )}
               <div className="flex-1 min-w-0 space-y-1">
                 <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-sm font-bold text-slate-900 truncate">
+                  <h3
+                    className={cn(
+                      "text-sm truncate",
+                      hasUnread
+                        ? "font-black text-slate-900"
+                        : "font-bold text-slate-900",
+                    )}
+                  >
                     {thread.counterparty.displayName}
                   </h3>
-                  <span className="text-[10px] font-medium text-slate-400 shrink-0">
-                    {formatRelative(thread.lastMessageAt)}
-                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[10px] font-medium text-slate-400">
+                      {formatRelative(thread.lastMessageAt)}
+                    </span>
+                    {hasUnread && (
+                      <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-indigo-600 text-white text-[10px] font-black flex items-center justify-center">
+                        {thread.unreadCount > 99 ? "99+" : thread.unreadCount}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <span
@@ -113,7 +135,14 @@ export function ThreadsList({ initialThreads }: Props) {
                   >
                     {isStudentSide ? "Tutor" : "Student"}
                   </span>
-                  <p className="text-xs text-slate-500 truncate flex-1">
+                  <p
+                    className={cn(
+                      "text-xs truncate flex-1",
+                      hasUnread
+                        ? "font-bold text-slate-700"
+                        : "text-slate-500",
+                    )}
+                  >
                     {thread.lastMessagePreview || "ยังไม่มีข้อความ"}
                   </p>
                 </div>

@@ -341,16 +341,18 @@ model Payout {
 // ─── Chat ──────────────────────────────────────────────────────────────────
 
 model ChatThread {
-  id         String   @id @default(uuid())
-  studentId  String
-  student    User     @relation("StudentChat", fields: [studentId], references: [id])
-  tutorId    String
-  tutor      TutorProfile @relation("TutorChat", fields: [tutorId], references: [id])
-  bookingId  String?  @unique
-  booking    Booking? @relation(fields: [bookingId], references: [id])
-  createdAt  DateTime @default(now())
+  id                 String   @id @default(uuid())
+  studentId          String
+  student            User     @relation("StudentChat", fields: [studentId], references: [id])
+  tutorId            String
+  tutor              TutorProfile @relation("TutorChat", fields: [tutorId], references: [id])
+  bookingId          String?  @unique
+  booking            Booking? @relation(fields: [bookingId], references: [id])
+  studentLastReadAt  DateTime?
+  tutorLastReadAt    DateTime?
+  createdAt          DateTime @default(now())
 
-  messages   ChatMessage[]
+  messages           ChatMessage[]
 
   @@unique([studentId, tutorId])
 }

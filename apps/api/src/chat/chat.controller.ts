@@ -43,6 +43,14 @@ export class ChatController {
     return this.chat.threadById(user.sub, threadId);
   }
 
+  @Post("threads/:threadId/read")
+  markRead(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("threadId") threadId: string,
+  ) {
+    return this.chat.markRead(user.sub, threadId);
+  }
+
   @Get("threads/:threadId/messages")
   messages(
     @CurrentUser() user: SupabaseJwtPayload,

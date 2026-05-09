@@ -30,31 +30,73 @@ export class ChatService {
       },
       orderBy: { createdAt: "desc" },
     });
-    return rows.map((t) => {
-      const isStudentSide = t.studentId === user.id;
-      const counterparty = isStudentSide
-        ? {
-            displayName: t.tutor.user.displayName,
-            avatarUrl: t.tutor.user.avatarUrl ?? undefined,
-            role: "tutor" as const,
-            tutorId: t.tutorId,
-          }
-        : {
-            displayName: t.student.displayName,
-            avatarUrl: t.student.avatarUrl ?? undefined,
-            role: "student" as const,
-          };
-      return {
-        id: t.id,
-        studentId: t.studentId,
-        tutorId: t.tutorId,
-        bookingId: t.bookingId ?? undefined,
-        lastMessagePreview: t.messages[0]?.body ?? "",
-        lastMessageAt:
-          t.messages[0]?.createdAt.toISOString() ?? t.createdAt.toISOString(),
-        counterparty,
-        viewerUserId: user.id,
-      };
+    return Promise.all(
+      rows.map(async (t) => {
+        const isStudentSide = t.studentId === user.id;
+        const counterparty = isStudentSide
+          ? {
+              displayName: t.tutor.user.displayName,
+              avatarUrl: t.tutor.user.avatarUrl ?? undefined,
+              role: "tutor" as const,
+              tutorId: t.tutorId,
+            }
+          : {
+              displayName: t.student.displayName,
+              avatarUrl: t.student.avatarUrl ?? undefined,
+              role: "student" as const,
+            };
+        const lastReadAt = isStudentSide
+          ? t.studentLastReadAt
+          : t.tutorLastReadAt;
+        const unreadCount = await this.unreadCountFor(
+          t.id,
+          user.id,
+          lastReadAt,
+        );
+        return {
+          id: t.id,
+          studentId: t.studentId,
+          tutorId: t.tutorId,
+          bookingId: t.bookingId ?? undefined,
+          lastMessagePreview: t.messages[0]?.body ?? "",
+          lastMessageAt:
+            t.messages[0]?.createdAt.toISOString() ??
+            t.createdAt.toISOString(),
+          counterparty,
+          viewerUserId: user.id,
+          unreadCount,
+        };
+      }),
+    );
+  }
+
+  /**
+   * Update the calling viewer's last-read timestamp on the thread. Idempotent:
+   * advancing to a later timestamp is always safe; we don't go backwards.
+   * Called from the chat room on mount + after each new message arrives.
+   */
+  async markRead(supabaseId: string, threadId: string): Promise<void> {
+    const { user, thread } = await this.assertParticipant(supabaseId, threadId);
+    const isStudentSide = thread.studentId === user.id;
+    await this.prisma.chatThread.update({
+      where: { id: thread.id },
+      data: isStudentSide
+        ? { studentLastReadAt: new Date() }
+        : { tutorLastReadAt: new Date() },
+    });
+  }
+
+  private async unreadCountFor(
+    threadId: string,
+    viewerUserId: string,
+    lastReadAt: Date | null,
+  ): Promise<number> {
+    return this.prisma.chatMessage.count({
+      where: {
+        threadId,
+        authorId: { not: viewerUserId },
+        ...(lastReadAt ? { createdAt: { gt: lastReadAt } } : {}),
+      },
     });
   }
 
@@ -85,6 +127,10 @@ export class ChatService {
           avatarUrl: full.student.avatarUrl ?? undefined,
           role: "student" as const,
         };
+    const lastReadAt = isStudentSide
+      ? full.studentLastReadAt
+      : full.tutorLastReadAt;
+    const unreadCount = await this.unreadCountFor(full.id, user.id, lastReadAt);
     return {
       id: full.id,
       studentId: full.studentId,
@@ -96,6 +142,7 @@ export class ChatService {
         full.createdAt.toISOString(),
       counterparty,
       viewerUserId: user.id,
+      unreadCount,
     };
   }
 
@@ -131,6 +178,11 @@ export class ChatService {
       },
     });
     if (existing) {
+      const unreadCount = await this.unreadCountFor(
+        existing.id,
+        user.id,
+        existing.studentLastReadAt,
+      );
       return {
         id: existing.id,
         studentId: existing.studentId,
@@ -142,6 +194,7 @@ export class ChatService {
           existing.createdAt.toISOString(),
         counterparty,
         viewerUserId: user.id,
+        unreadCount,
       };
     }
     const created = await this.prisma.chatThread.create({
@@ -156,6 +209,7 @@ export class ChatService {
       lastMessageAt: created.createdAt.toISOString(),
       counterparty,
       viewerUserId: user.id,
+      unreadCount: 0,
     };
   }
 

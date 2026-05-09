@@ -285,6 +285,12 @@ export function createApiClient(opts: ApiClientOptions = {}) {
         ),
       threadById: (threadId: string) =>
         request<ChatThread>(API_PATHS.chatThreadById(threadId), {}, token),
+      markRead: (threadId: string) =>
+        request<void>(
+          API_PATHS.chatThreadRead(threadId),
+          { method: "POST" },
+          token,
+        ),
       messages: (threadId: string) =>
         request<ChatMessage[]>(API_PATHS.chatMessages(threadId), {}, token),
       send: (dto: SendMessageDto) =>

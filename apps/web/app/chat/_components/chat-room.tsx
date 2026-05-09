@@ -56,6 +56,19 @@ export function ChatRoom({ thread, initialMessages }: Props) {
   });
   const messages = messagesQuery.data ?? initialMessages;
 
+  const markRead = useMutation({
+    mutationFn: () => createApiClient().chat.markRead(thread.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chat", "threads"] });
+    },
+  });
+  // Mark-read on mount + each time a new message arrives. Backend takes
+  // the max(now, lastReadAt), so the call is idempotent.
+  useEffect(() => {
+    markRead.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [thread.id, messages.length]);
+
   const form = useForm<ComposerValues>({
     resolver: zodResolver(composerSchema),
     defaultValues: { body: "" },
