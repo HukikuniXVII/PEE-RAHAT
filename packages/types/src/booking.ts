@@ -28,6 +28,8 @@ export interface Booking {
   acceptDeadlineAt: string;
   reportWindowEndsAt?: string;
   hasReview: boolean;
+  /** Which side of the booking the calling user is on. */
+  viewerSide: "student" | "tutor";
   createdAt: string;
 }
 

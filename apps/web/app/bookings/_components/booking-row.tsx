@@ -2,19 +2,23 @@
 
 import type { Booking, BookingStatus } from "@peerahat/types";
 import { cn } from "@peerahat/ui";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CalendarClock,
   CheckCircle2,
   Clock,
+  Loader2,
   Star,
+  ThumbsUp,
   Wallet,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { PaymentDialog } from "@/components/payment-dialog";
+import { createApiClient } from "@/lib/api-client";
 
 import { ReportDialog } from "./report-dialog";
 import { ReviewDialog } from "./review-dialog";
@@ -64,12 +68,26 @@ export function BookingRow({ booking }: Props) {
 
   const status = STATUS_COPY[booking.status];
 
+  const isStudent = booking.viewerSide === "student";
   const reportWindowOpen =
+    isStudent &&
     booking.status === "completed" &&
     !!booking.reportWindowEndsAt &&
     new Date(booking.reportWindowEndsAt).getTime() > Date.now();
 
-  const reviewable = booking.status === "completed" && !booking.hasReview;
+  const reviewable =
+    isStudent && booking.status === "completed" && !booking.hasReview;
+  const acceptable =
+    booking.status === "requested" && booking.viewerSide === "tutor";
+
+  const accept = useMutation({
+    mutationFn: () => createApiClient().bookings.accept(booking.id),
+    meta: { toast: "กดรับงานไม่สำเร็จ" },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bookings", "mine"] });
+      toast.success("รับงานเรียบร้อย รอนักเรียนชำระเงิน");
+    },
+  });
 
   return (
     <motion.div
@@ -119,7 +137,22 @@ export function BookingRow({ booking }: Props) {
         </span>
 
         <div className="flex items-center gap-2">
-          {booking.status === "accepted" && (
+          {acceptable && (
+            <button
+              type="button"
+              onClick={() => accept.mutate()}
+              disabled={accept.isPending}
+              className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 transition-all flex items-center gap-2 disabled:opacity-50"
+            >
+              {accept.isPending ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <ThumbsUp size={14} />
+              )}
+              Accept (Tutor)
+            </button>
+          )}
+          {booking.status === "accepted" && booking.viewerSide === "student" && (
             <button
               type="button"
               onClick={() => setPaying(true)}

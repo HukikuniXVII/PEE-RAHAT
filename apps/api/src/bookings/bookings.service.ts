@@ -27,7 +27,12 @@ export class BookingsService {
       include: { review: { select: { id: true } } },
       orderBy: { scheduledAt: "desc" },
     });
-    return rows.map(({ review, ...b }) => ({ ...b, hasReview: !!review }));
+    return rows.map(({ review, ...b }) => ({
+      ...b,
+      hasReview: !!review,
+      viewerSide:
+        b.studentId === user.id ? ("student" as const) : ("tutor" as const),
+    }));
   }
 
   async create(supabaseId: string, input: CreateBookingInput) {
@@ -54,7 +59,7 @@ export class BookingsService {
         status: "requested",
       },
     });
-    return { ...created, hasReview: false };
+    return { ...created, hasReview: false, viewerSide: "student" as const };
   }
 
   async accept(supabaseId: string, bookingId: string) {
@@ -73,7 +78,7 @@ export class BookingsService {
       where: { id: bookingId },
       data: { status: "accepted" },
     });
-    return { ...updated, hasReview: false };
+    return { ...updated, hasReview: false, viewerSide: "tutor" as const };
   }
 
   async report(supabaseId: string, bookingId: string, dto: { reason: string; details: string }) {
