@@ -1,14 +1,15 @@
 "use client";
 
-import type {
-  TcasDeadline,
-  TcasProgram,
-  TcasScoreField,
-  TcasScores,
-  TcasWhatIfResult,
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  tcasScoresSchema,
+  type TcasDeadline,
+  type TcasProgram,
+  type TcasScoreField,
+  type TcasScores,
 } from "@peerahat/types";
 import { cn } from "@peerahat/ui";
-import { motion } from "motion/react";
+import { useQuery } from "@tanstack/react-query";
 import {
   AlertCircle,
   ArrowRight,
@@ -17,17 +18,19 @@ import {
   Info,
   Search,
 } from "lucide-react";
+import { motion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useForm, useWatch } from "react-hook-form";
 
 import { createApiClient } from "@/lib/api-client";
 
 interface Props {
-  programs: TcasProgram[];
-  deadlines: TcasDeadline[];
+  initialPrograms: TcasProgram[];
+  initialDeadlines: TcasDeadline[];
 }
 
-const FIELDS: Array<{ name: TcasScoreField; label: string }> = [
+const FIELDS: Array<{ name: Exclude<TcasScoreField, "gpax">; label: string }> = [
   { name: "tGat", label: "TGAT" },
   { name: "tPat1", label: "TPAT 1" },
   { name: "tPat3", label: "TPAT 3" },
@@ -47,28 +50,67 @@ function fieldLabel(field: TcasScoreField): string {
     .replace("tPat", "TPAT");
 }
 
-export function TcasCalculator({ programs, deadlines }: Props) {
-  const [scores, setScores] = useState<TcasScores>({ gpax: 3.5 });
-  const [target, setTarget] = useState<TcasProgram | null>(programs[0] ?? null);
+function subjectFromField(field: TcasScoreField): string {
+  if (field.startsWith("aLevelMath")) return "Math";
+  if (field === "aLevelPhy") return "Physics";
+  if (field === "aLevelChe") return "Chemistry";
+  if (field === "aLevelBio") return "Biology";
+  if (field === "aLevelEng") return "English";
+  if (field === "aLevelSoc") return "Social";
+  if (field === "aLevelThai") return "Thai";
+  return "All";
+}
+
+const numberFromInput = (v: unknown) =>
+  v === "" || v === null || v === undefined ? undefined : Number(v);
+
+export function TcasCalculator({ initialPrograms, initialDeadlines }: Props) {
+  const programsQuery = useQuery({
+    queryKey: ["tcas", "programs"],
+    queryFn: () => createApiClient().tcas.programs(),
+    initialData: initialPrograms,
+  });
+  const deadlinesQuery = useQuery({
+    queryKey: ["tcas", "deadlines"],
+    queryFn: () => createApiClient().tcas.deadlines(),
+    initialData: initialDeadlines,
+  });
+  const programs = programsQuery.data ?? [];
+  const deadlines = deadlinesQuery.data ?? [];
+
+  const [target, setTarget] = useState<TcasProgram | null>(
+    programs[0] ?? null,
+  );
   const [search, setSearch] = useState("");
   const [round, setRound] = useState<"3" | "4">("3");
-  const [result, setResult] = useState<TcasWhatIfResult | null>(null);
 
+  const form = useForm<TcasScores>({
+    resolver: zodResolver(tcasScoresSchema),
+    defaultValues: { gpax: 3.5 },
+    mode: "onChange",
+  });
+  const { register } = form;
+  const scores = useWatch({ control: form.control }) as TcasScores;
+
+  const [debouncedScores, setDebouncedScores] = useState<TcasScores>({
+    gpax: 3.5,
+  });
   useEffect(() => {
-    if (!target) return;
-    const handle = setTimeout(async () => {
-      try {
-        const r = await createApiClient().tcas.whatIf({
-          programId: target.id,
-          scores,
-        });
-        setResult(r);
-      } catch {
-        // surface errors via toast in real impl
-      }
-    }, 200);
+    const handle = setTimeout(() => setDebouncedScores(scores), 200);
     return () => clearTimeout(handle);
-  }, [scores, target]);
+  }, [scores]);
+
+  const whatIf = useQuery({
+    queryKey: ["tcas", "whatIf", target?.id, debouncedScores],
+    enabled: !!target?.id,
+    queryFn: () =>
+      createApiClient().tcas.whatIf({
+        programId: target!.id,
+        scores: debouncedScores,
+      }),
+    placeholderData: (prev) => prev,
+  });
+  const result = whatIf.data ?? null;
 
   const filtered = useMemo(
     () =>
@@ -89,7 +131,10 @@ export function TcasCalculator({ programs, deadlines }: Props) {
     <div className="space-y-8">
       <div className="grid lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+          <form
+            onSubmit={(e) => e.preventDefault()}
+            className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6"
+          >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white">
                 <Calculator size={24} />
@@ -109,15 +154,9 @@ export function TcasCalculator({ programs, deadlines }: Props) {
                   step="0.01"
                   min="0"
                   max="4"
-                  value={scores.gpax ?? ""}
-                  onChange={(e) =>
-                    setScores((p) => ({
-                      ...p,
-                      gpax: parseFloat(e.target.value) || 0,
-                    }))
-                  }
                   className="w-full bg-transparent text-sm font-bold focus:outline-none placeholder:text-slate-300"
                   placeholder="3.50"
+                  {...register("gpax", { setValueAs: numberFromInput })}
                 />
               </div>
               {FIELDS.map((field) => {
@@ -151,15 +190,11 @@ export function TcasCalculator({ programs, deadlines }: Props) {
                       type="number"
                       min="0"
                       max="100"
-                      value={scores[field.name] ?? ""}
-                      onChange={(e) =>
-                        setScores((p) => ({
-                          ...p,
-                          [field.name]: parseFloat(e.target.value) || 0,
-                        }))
-                      }
                       className="w-full bg-transparent text-sm font-bold focus:outline-none placeholder:text-slate-300"
                       placeholder="0"
+                      {...register(field.name, {
+                        setValueAs: numberFromInput,
+                      })}
                     />
                   </div>
                 );
@@ -173,6 +208,7 @@ export function TcasCalculator({ programs, deadlines }: Props) {
                 {(["3", "4"] as const).map((r) => (
                   <button
                     key={r}
+                    type="button"
                     onClick={() => setRound(r)}
                     className={cn(
                       "px-4 py-1 text-[10px] font-bold rounded-md transition-all",
@@ -186,7 +222,7 @@ export function TcasCalculator({ programs, deadlines }: Props) {
                 ))}
               </div>
             </div>
-          </div>
+          </form>
 
           {target && result && (
             <div className="space-y-4">
@@ -207,7 +243,9 @@ export function TcasCalculator({ programs, deadlines }: Props) {
                     ) : (
                       <AlertCircle size={16} className="text-rose-600" />
                     )}
-                    <span className={isSafe ? "text-emerald-600" : "text-rose-600"}>
+                    <span
+                      className={isSafe ? "text-emerald-600" : "text-rose-600"}
+                    >
                       {isSafe ? "Safe Zone" : "Risk Zone"}
                     </span>
                   </div>
@@ -295,8 +333,11 @@ export function TcasCalculator({ programs, deadlines }: Props) {
                     {result.planB.map((p) => (
                       <button
                         key={p.id}
+                        type="button"
                         onClick={() =>
-                          setTarget(programs.find((x) => x.id === p.id) ?? target)
+                          setTarget(
+                            programs.find((x) => x.id === p.id) ?? target,
+                          )
                         }
                         className="p-4 bg-white border border-slate-200 rounded-2xl text-left hover:border-indigo-600 transition-all"
                       >
@@ -347,6 +388,7 @@ export function TcasCalculator({ programs, deadlines }: Props) {
               {filtered.map((u) => (
                 <button
                   key={u.id}
+                  type="button"
                   onClick={() => setTarget(u)}
                   className={cn(
                     "w-full p-4 rounded-2xl border text-left transition-all",
@@ -423,15 +465,4 @@ export function TcasCalculator({ programs, deadlines }: Props) {
       </div>
     </div>
   );
-}
-
-function subjectFromField(field: TcasScoreField): string {
-  if (field.startsWith("aLevelMath")) return "Math";
-  if (field === "aLevelPhy") return "Physics";
-  if (field === "aLevelChe") return "Chemistry";
-  if (field === "aLevelBio") return "Biology";
-  if (field === "aLevelEng") return "English";
-  if (field === "aLevelSoc") return "Social";
-  if (field === "aLevelThai") return "Thai";
-  return "All";
 }

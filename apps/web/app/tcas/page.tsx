@@ -1,6 +1,7 @@
-import { TcasCalculator } from "@/components/tcas-calculator";
 import { createApiClient } from "@/lib/api-client";
 import { getServerAccessToken } from "@/lib/supabase/server";
+
+import { TcasCalculator } from "./_components/tcas-calculator";
 
 export default async function TcasPage() {
   const token = await getServerAccessToken();
@@ -10,5 +11,7 @@ export default async function TcasPage() {
     api.tcas.deadlines(),
   ]);
 
-  return <TcasCalculator programs={programs} deadlines={deadlines} />;
+  return (
+    <TcasCalculator initialPrograms={programs} initialDeadlines={deadlines} />
+  );
 }
