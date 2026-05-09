@@ -38,6 +38,55 @@ export class ChatService {
     }));
   }
 
+  /**
+   * Resolve the canonical thread between the calling user (as student) and the
+   * given tutor profile, creating one if it does not exist. Used by
+   * /chat/[tutorId] entry-points from tutor-card and the profile page.
+   */
+  async openWithTutor(
+    supabaseId: string,
+    tutorId: string,
+  ): Promise<ChatThread> {
+    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
+    if (!user) throw new BadRequestException();
+    const tutor = await this.prisma.tutorProfile.findUnique({
+      where: { id: tutorId },
+    });
+    if (!tutor) throw new NotFoundException();
+    if (tutor.userId === user.id) {
+      throw new BadRequestException("Cannot open a chat with yourself");
+    }
+    const existing = await this.prisma.chatThread.findFirst({
+      where: { studentId: user.id, tutorId },
+      include: {
+        messages: { orderBy: { createdAt: "desc" }, take: 1 },
+      },
+    });
+    if (existing) {
+      return {
+        id: existing.id,
+        studentId: existing.studentId,
+        tutorId: existing.tutorId,
+        bookingId: existing.bookingId ?? undefined,
+        lastMessagePreview: existing.messages[0]?.body ?? "",
+        lastMessageAt:
+          existing.messages[0]?.createdAt.toISOString() ??
+          existing.createdAt.toISOString(),
+      };
+    }
+    const created = await this.prisma.chatThread.create({
+      data: { studentId: user.id, tutorId },
+    });
+    return {
+      id: created.id,
+      studentId: created.studentId,
+      tutorId: created.tutorId,
+      bookingId: created.bookingId ?? undefined,
+      lastMessagePreview: "",
+      lastMessageAt: created.createdAt.toISOString(),
+    };
+  }
+
   async messages(supabaseId: string, threadId: string): Promise<ChatMessage[]> {
     await this.assertParticipant(supabaseId, threadId);
     const rows = await this.prisma.chatMessage.findMany({

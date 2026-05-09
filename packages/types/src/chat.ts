@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 /**
  * Anti-bypass filter (FR-PM-08).
  * Authoritative enforcement happens server-side in apps/api.
@@ -18,6 +20,11 @@ export const BYPASS_KEYWORDS = [
 
 export const TEN_DIGIT_REGEX = /\d{10}/;
 
+export function detectBypassAttempt(body: string): boolean {
+  if (TEN_DIGIT_REGEX.test(body)) return true;
+  return BYPASS_KEYWORDS.some((re) => re.test(body));
+}
+
 export interface ChatMessage {
   id: string;
   threadId: string;
@@ -36,7 +43,9 @@ export interface ChatThread {
   lastMessageAt: string;
 }
 
-export interface SendMessageDto {
-  threadId: string;
-  body: string;
-}
+export const sendMessageSchema = z.object({
+  threadId: z.string().min(1),
+  body: z.string().trim().min(1).max(2000),
+});
+
+export type SendMessageDto = z.infer<typeof sendMessageSchema>;

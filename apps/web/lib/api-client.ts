@@ -228,6 +228,12 @@ export function createApiClient(opts: ApiClientOptions = {}) {
     },
     chat: {
       threads: () => request<ChatThread[]>(API_PATHS.chatThreads, {}, token),
+      openWithTutor: (tutorId: string) =>
+        request<ChatThread>(
+          API_PATHS.chatThreadWithTutor(tutorId),
+          { method: "POST" },
+          token,
+        ),
       messages: (threadId: string) =>
         request<ChatMessage[]>(API_PATHS.chatMessages(threadId), {}, token),
       send: (dto: SendMessageDto) =>
