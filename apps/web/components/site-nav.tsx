@@ -4,6 +4,7 @@ import { cn } from "@peerahat/ui";
 import { AnimatePresence, motion } from "motion/react";
 import {
   BookOpen,
+  CalendarCheck,
   Calculator,
   GraduationCap,
   LayoutDashboard,
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { href: "/sheets", label: "Sheets", icon: BookOpen },
   { href: "/tcas", label: "TCAS Calc", icon: Calculator },
   { href: "/community", label: "Webboard", icon: Users },
+  { href: "/bookings", label: "Bookings", icon: CalendarCheck },
 ] as const;
 
 export function SiteNav() {
@@ -54,7 +56,7 @@ export function SiteNav() {
             {NAV_ITEMS.map((item) => (
               <Link
                 key={item.href}
-                href={item.href}
+                href={item.href as Route}
                 className={cn(
                   "px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2",
                   isActive(item.href)
@@ -98,7 +100,7 @@ export function SiteNav() {
             {NAV_ITEMS.map((item) => (
               <Link
                 key={item.href}
-                href={item.href}
+                href={item.href as Route}
                 onClick={() => setIsMenuOpen(false)}
                 className={cn(
                   "w-full text-left px-5 py-4 rounded-2xl text-base font-bold flex items-center gap-4 transition-all",
