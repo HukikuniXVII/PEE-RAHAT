@@ -1,4 +1,5 @@
 import { GraduationCap } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 
 export function SiteFooter() {
@@ -15,16 +16,25 @@ export function SiteFooter() {
             </span>
           </Link>
           <div className="flex gap-8 text-sm font-bold text-slate-400">
-            <Link href="/legal/terms" className="hover:text-indigo-600">
+            <Link
+              href={"/legal/terms" as Route}
+              className="hover:text-indigo-600"
+            >
               Terms
             </Link>
-            <Link href="/legal/privacy" className="hover:text-indigo-600">
+            <Link
+              href={"/legal/privacy" as Route}
+              className="hover:text-indigo-600"
+            >
               Privacy
             </Link>
-            <Link href="/contact" className="hover:text-indigo-600">
+            <Link
+              href={"/contact" as Route}
+              className="hover:text-indigo-600"
+            >
               Contact
             </Link>
-            <Link href="/help" className="hover:text-indigo-600">
+            <Link href={"/help" as Route} className="hover:text-indigo-600">
               Help
             </Link>
           </div>

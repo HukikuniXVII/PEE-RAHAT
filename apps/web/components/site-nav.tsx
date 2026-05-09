@@ -12,6 +12,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -67,7 +68,7 @@ export function SiteNav() {
             ))}
             <div className="w-px h-6 bg-slate-100 mx-4" />
             <Link
-              href="/login"
+              href={"/login" as Route}
               className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-black hover:bg-black shadow-xl shadow-slate-200 transition-all uppercase tracking-widest"
             >
               Login

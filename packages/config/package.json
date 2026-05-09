@@ -12,5 +12,11 @@
     "./eslint/nest": "./eslint/nest.cjs",
     "./tailwind/preset": "./tailwind/preset.ts"
   },
-  "files": ["tsconfig", "eslint", "tailwind"]
+  "files": ["tsconfig", "eslint", "tailwind"],
+  "peerDependencies": {
+    "tailwindcss": "^3.4.14"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.14"
+  }
 }
