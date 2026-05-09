@@ -16,6 +16,8 @@ import {
   Star,
 } from "lucide-react";
 import { motion } from "motion/react";
+import type { Route } from "next";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -156,9 +158,14 @@ export function SheetGrid({ initial, initialSubject, initialQuery }: Props) {
                     Report
                   </button>
                 </div>
-                <h4 className="font-bold text-xl text-slate-800 leading-tight line-clamp-2">
-                  {sheet.title}
-                </h4>
+                <Link
+                  href={`/sheets/${sheet.id}` as Route}
+                  className="block"
+                >
+                  <h4 className="font-bold text-xl text-slate-800 leading-tight line-clamp-2 hover:text-indigo-600 transition-colors">
+                    {sheet.title}
+                  </h4>
+                </Link>
                 <div className="flex items-center gap-2 pt-1">
                   <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 text-xs font-black">
                     {sheet.sellerUniversity[0]}

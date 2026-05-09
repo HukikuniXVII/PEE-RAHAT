@@ -8,6 +8,7 @@ import {
   Star,
   Users,
 } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 
 import { TutorCard } from "@/app/tutors/_components/tutor-card";
@@ -176,7 +177,7 @@ export default async function HomePage() {
             {latestSheets.items.map((sheet) => (
               <Link
                 key={sheet.id}
-                href="/sheets"
+                href={`/sheets/${sheet.id}` as Route}
                 className="group bg-white rounded-[32px] border border-slate-200 overflow-hidden hover:border-indigo-600 hover:shadow-2xl transition-all"
               >
                 <div className="aspect-[5/3] bg-slate-50 relative overflow-hidden">
