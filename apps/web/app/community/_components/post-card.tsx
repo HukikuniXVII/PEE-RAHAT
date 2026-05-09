@@ -2,7 +2,12 @@
 
 import type { CommunityPost, Page } from "@peerahat/types";
 import { cn } from "@peerahat/ui";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  type InfiniteData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowBigUp,
@@ -35,42 +40,47 @@ export function PostCard({ post }: Props) {
   });
   const replies = repliesQuery.data ?? [];
 
+  const patchPostInPages = (
+    old: InfiniteData<Page<CommunityPost>> | undefined,
+    patch: (p: CommunityPost) => CommunityPost,
+  ): InfiniteData<Page<CommunityPost>> | undefined => {
+    if (!old) return old;
+    return {
+      ...old,
+      pages: old.pages.map((page) => ({
+        ...page,
+        items: page.items.map((p) => (p.id === post.id ? patch(p) : p)),
+      })),
+    };
+  };
+
   const upvote = useMutation({
     mutationFn: () => createApiClient().community.upvote(post.id),
     meta: { toast: "Upvote ไม่สำเร็จ ลองอีกครั้ง" },
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: POSTS_KEY });
-      const prev = queryClient.getQueryData<Page<CommunityPost>>(POSTS_KEY);
-      queryClient.setQueryData<Page<CommunityPost>>(POSTS_KEY, (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          items: old.items.map((p) =>
-            p.id === post.id
-              ? {
-                  ...p,
-                  upvotes: p.upvotes + (p.hasUpvoted ? -1 : 1),
-                  hasUpvoted: !p.hasUpvoted,
-                }
-              : p,
-          ),
-        };
-      });
+      const prev =
+        queryClient.getQueryData<InfiniteData<Page<CommunityPost>>>(POSTS_KEY);
+      queryClient.setQueryData<InfiniteData<Page<CommunityPost>>>(
+        POSTS_KEY,
+        (old) =>
+          patchPostInPages(old, (p) => ({
+            ...p,
+            upvotes: p.upvotes + (p.hasUpvoted ? -1 : 1),
+            hasUpvoted: !p.hasUpvoted,
+          })),
+      );
       return { prev };
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(POSTS_KEY, ctx.prev);
     },
     onSuccess: (data) => {
-      queryClient.setQueryData<Page<CommunityPost>>(POSTS_KEY, (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          items: old.items.map((p) =>
-            p.id === post.id ? { ...p, upvotes: data.upvotes } : p,
-          ),
-        };
-      });
+      queryClient.setQueryData<InfiniteData<Page<CommunityPost>>>(
+        POSTS_KEY,
+        (old) =>
+          patchPostInPages(old, (p) => ({ ...p, upvotes: data.upvotes })),
+      );
     },
   });
 

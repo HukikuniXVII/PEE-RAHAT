@@ -7,7 +7,11 @@ import {
   type Page,
   createPostSchema,
 } from "@peerahat/types";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  type InfiniteData,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { User } from "lucide-react";
 import { useForm } from "react-hook-form";
 
@@ -28,12 +32,25 @@ export function PostComposer() {
   const createPost = useMutation({
     mutationFn: (dto: CreatePostDto) => createApiClient().community.create(dto),
     onSuccess: (created) => {
-      queryClient.setQueryData<Page<CommunityPost>>(
+      // Prepend the new post to the first cached page so it shows up
+      // immediately at the top without a network round-trip.
+      queryClient.setQueryData<InfiniteData<Page<CommunityPost>>>(
         ["community", "posts"],
-        (old) =>
-          old
-            ? { ...old, items: [created, ...old.items], total: old.total + 1 }
-            : old,
+        (old) => {
+          if (!old || old.pages.length === 0) return old;
+          const [first, ...rest] = old.pages;
+          return {
+            ...old,
+            pages: [
+              {
+                ...first!,
+                items: [created, ...first!.items],
+                total: first!.total + 1,
+              },
+              ...rest,
+            ],
+          };
+        },
       );
       form.reset();
     },
