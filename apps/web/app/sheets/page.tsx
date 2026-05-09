@@ -22,10 +22,12 @@ export default async function SheetsPage({ searchParams }: Props) {
   const api = createApiClient({ accessToken: token });
   const subject = parseSubjectParam(searchParams.subject);
   const initialQuery = searchParams.q ?? "";
-  const initial = await api.sheets.list(
-    subject === "All" ? undefined : subject,
-    initialQuery || undefined,
-  );
+  const initial = await api.sheets.list({
+    subject: subject === "All" ? undefined : subject,
+    q: initialQuery || undefined,
+    page: 1,
+    pageSize: 20,
+  });
 
   return (
     <div className="space-y-8">

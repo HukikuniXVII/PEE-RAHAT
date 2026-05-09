@@ -16,7 +16,14 @@ export class SheetsService {
     private readonly storage: StorageService,
   ) {}
 
-  async list(query: { subject?: string; q?: string }): Promise<Page<StudySheet>> {
+  async list(query: {
+    subject?: string;
+    q?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<Page<StudySheet>> {
+    const page = Math.max(1, query.page ?? 1);
+    const pageSize = Math.min(50, Math.max(1, query.pageSize ?? 20));
     const where: Parameters<typeof this.prisma.studySheet.findMany>[0] extends
       | { where?: infer W }
       | undefined
@@ -38,7 +45,8 @@ export class SheetsService {
       this.prisma.studySheet.findMany({
         where,
         orderBy: { createdAt: "desc" },
-        take: 30,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
         include: { seller: { include: { user: true } } },
       }),
       this.prisma.studySheet.count({ where }),
@@ -47,8 +55,8 @@ export class SheetsService {
     return {
       items: rows.map((r) => this.toDto(r)),
       total,
-      page: 1,
-      pageSize: 30,
+      page,
+      pageSize,
     };
   }
 

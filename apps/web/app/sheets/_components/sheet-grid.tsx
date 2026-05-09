@@ -7,8 +7,14 @@ import {
   subjectSchema,
 } from "@peerahat/types";
 import { cn } from "@peerahat/ui";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Search, ShieldCheck, Star } from "lucide-react";
+import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
+import {
+  AlertTriangle,
+  Loader2,
+  Search,
+  ShieldCheck,
+  Star,
+} from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -36,17 +42,31 @@ export function SheetGrid({ initial, initialSubject, initialQuery }: Props) {
     return () => clearTimeout(handle);
   }, [query]);
 
-  const { data } = useQuery({
-    queryKey: ["sheets", "list", { subject, q: debouncedQuery }],
-    queryFn: () =>
-      createApiClient().sheets.list(
-        subject === "All" ? undefined : (subject as Subject),
-        debouncedQuery || undefined,
-      ),
-    initialData: initial,
-    placeholderData: (prev) => prev,
-  });
-  const items = data?.items ?? initial.items;
+  const isInitialFilters =
+    subject === initialSubject && debouncedQuery === initialQuery;
+
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useInfiniteQuery({
+      queryKey: ["sheets", "list", { subject, q: debouncedQuery }],
+      queryFn: ({ pageParam = 1 }) =>
+        createApiClient().sheets.list({
+          subject: subject === "All" ? undefined : (subject as Subject),
+          q: debouncedQuery || undefined,
+          page: pageParam,
+          pageSize: initial.pageSize,
+        }),
+      initialPageParam: 1,
+      getNextPageParam: (lastPage) =>
+        lastPage.page * lastPage.pageSize < lastPage.total
+          ? lastPage.page + 1
+          : undefined,
+      // Only seed the cache when the user hasn't changed filters yet.
+      initialData: isInitialFilters
+        ? { pages: [initial], pageParams: [1] }
+        : undefined,
+      placeholderData: (prev) => prev,
+    });
+  const items = data?.pages.flatMap((p) => p.items) ?? initial.items;
 
   const reportMutation = useMutation({
     mutationFn: (sheetId: string) =>
@@ -175,6 +195,22 @@ export function SheetGrid({ initial, initialSubject, initialQuery }: Props) {
           </motion.div>
         ))}
       </div>
+
+      {hasNextPage && (
+        <div className="flex justify-center pt-2">
+          <button
+            type="button"
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-100 text-slate-700 rounded-2xl font-bold text-xs hover:bg-slate-200 transition-all disabled:opacity-50"
+          >
+            {isFetchingNextPage && (
+              <Loader2 size={14} className="animate-spin" />
+            )}
+            Show more
+          </button>
+        </div>
+      )}
 
       <div className="p-8 bg-slate-50 rounded-[40px] border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="flex items-center gap-4">

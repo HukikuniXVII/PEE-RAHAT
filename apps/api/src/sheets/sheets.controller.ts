@@ -56,8 +56,18 @@ export class SheetsController {
   constructor(private readonly sheets: SheetsService) {}
 
   @Get()
-  list(@Query("subject") subject?: string, @Query("q") q?: string) {
-    return this.sheets.list({ subject, q });
+  list(
+    @Query("subject") subject?: string,
+    @Query("q") q?: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+  ) {
+    return this.sheets.list({
+      subject,
+      q,
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : undefined,
+    });
   }
 
   @Get(":id")

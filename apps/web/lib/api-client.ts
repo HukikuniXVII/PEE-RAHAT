@@ -157,9 +157,16 @@ export function createApiClient(opts: ApiClientOptions = {}) {
         ),
     },
     sheets: {
-      list: (subject?: Subject, q?: string) =>
+      list: (
+        opts: {
+          subject?: Subject;
+          q?: string;
+          page?: number;
+          pageSize?: number;
+        } = {},
+      ) =>
         request<Page<StudySheet>>(
-          `${API_PATHS.sheets}${qs({ subject, q })}`,
+          `${API_PATHS.sheets}${qs(opts)}`,
           {},
           token,
         ),
