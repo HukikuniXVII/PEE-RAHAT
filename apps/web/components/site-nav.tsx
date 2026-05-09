@@ -1,6 +1,8 @@
 "use client";
 
+import type { ChatThread } from "@peerahat/types";
 import { cn } from "@peerahat/ui";
+import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import {
   BookOpen,
@@ -21,6 +23,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { createApiClient } from "@/lib/api-client";
 import type { InitialUser } from "@/lib/auth";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -36,6 +39,7 @@ const NAV_ITEMS = [
 
 interface Props {
   initialUser: InitialUser | null;
+  initialThreads: ChatThread[];
 }
 
 function initialsOf(name: string): string {
@@ -47,13 +51,24 @@ function initialsOf(name: string): string {
     .join("") || "?";
 }
 
-export function SiteNav({ initialUser }: Props) {
+export function SiteNav({ initialUser, initialThreads }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [user, setUser] = useState<InitialUser | null>(initialUser);
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
+
+  const threadsQuery = useQuery({
+    queryKey: ["chat", "threads"],
+    queryFn: () => createApiClient().chat.threads(),
+    initialData: initialThreads,
+    enabled: !!user,
+  });
+  const totalUnread = (threadsQuery.data ?? []).reduce(
+    (sum, t) => sum + t.unreadCount,
+    0,
+  );
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -116,21 +131,29 @@ export function SiteNav({ initialUser }: Props) {
           </Link>
 
           <div className="hidden md:flex items-center gap-1">
-            {NAV_ITEMS.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href as Route}
-                className={cn(
-                  "px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2",
-                  isActive(item.href)
-                    ? "text-indigo-600 bg-indigo-50"
-                    : "text-slate-400 hover:text-slate-800 hover:bg-slate-50",
-                )}
-              >
-                <item.icon size={18} />
-                {item.label}
-              </Link>
-            ))}
+            {NAV_ITEMS.map((item) => {
+              const showUnread = item.href === "/chat" && totalUnread > 0;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href as Route}
+                  className={cn(
+                    "px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2",
+                    isActive(item.href)
+                      ? "text-indigo-600 bg-indigo-50"
+                      : "text-slate-400 hover:text-slate-800 hover:bg-slate-50",
+                  )}
+                >
+                  <item.icon size={18} />
+                  {item.label}
+                  {showUnread && (
+                    <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-indigo-600 text-white text-[10px] font-black flex items-center justify-center">
+                      {totalUnread > 99 ? "99+" : totalUnread}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
             <div className="w-px h-6 bg-slate-100 mx-4" />
             {user ? (
               <div className="relative" ref={accountRef}>
@@ -231,22 +254,30 @@ export function SiteNav({ initialUser }: Props) {
             exit={{ opacity: 0, y: -20 }}
             className="md:hidden bg-white border-b border-slate-100 px-4 py-6 space-y-2 shadow-2xl"
           >
-            {NAV_ITEMS.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href as Route}
-                onClick={() => setIsMenuOpen(false)}
-                className={cn(
-                  "w-full text-left px-5 py-4 rounded-2xl text-base font-bold flex items-center gap-4 transition-all",
-                  isActive(item.href)
-                    ? "bg-indigo-50 text-indigo-700"
-                    : "text-slate-600 hover:bg-slate-50",
-                )}
-              >
-                <item.icon size={22} />
-                {item.label}
-              </Link>
-            ))}
+            {NAV_ITEMS.map((item) => {
+              const showUnread = item.href === "/chat" && totalUnread > 0;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href as Route}
+                  onClick={() => setIsMenuOpen(false)}
+                  className={cn(
+                    "w-full text-left px-5 py-4 rounded-2xl text-base font-bold flex items-center gap-4 transition-all",
+                    isActive(item.href)
+                      ? "bg-indigo-50 text-indigo-700"
+                      : "text-slate-600 hover:bg-slate-50",
+                  )}
+                >
+                  <item.icon size={22} />
+                  <span className="flex-1">{item.label}</span>
+                  {showUnread && (
+                    <span className="min-w-[22px] h-[22px] px-2 rounded-full bg-indigo-600 text-white text-xs font-black flex items-center justify-center">
+                      {totalUnread > 99 ? "99+" : totalUnread}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
             <div className="h-px bg-slate-100 my-2" />
             {user ? (
               <>

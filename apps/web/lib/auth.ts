@@ -1,10 +1,27 @@
+import type { ChatThread } from "@peerahat/types";
 import { redirect } from "next/navigation";
 
+import { createApiClient } from "./api-client";
 import { createSupabaseServerClient, getServerAccessToken } from "./supabase/server";
 
 export interface InitialUser {
   displayName: string;
   email: string;
+}
+
+/**
+ * Server-side fetch of the calling viewer's chat threads, used to seed the
+ * site-nav unread-count badge without a hydration flash. Returns [] when
+ * unauthed or when the request fails (the badge is non-critical UX).
+ */
+export async function getInitialThreads(): Promise<ChatThread[]> {
+  const token = await getServerAccessToken();
+  if (!token) return [];
+  try {
+    return await createApiClient({ accessToken: token }).chat.threads();
+  } catch {
+    return [];
+  }
 }
 
 /**

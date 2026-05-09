@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 
 import { SiteFooter } from "@/components/site-footer";
 import { SiteNav } from "@/components/site-nav";
-import { getInitialUser } from "@/lib/auth";
+import { getInitialThreads, getInitialUser } from "@/lib/auth";
 
 import { Providers } from "./providers";
 import "./globals.css";
@@ -25,12 +25,18 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const initialUser = await getInitialUser();
+  const [initialUser, initialThreads] = await Promise.all([
+    getInitialUser(),
+    getInitialThreads(),
+  ]);
   return (
     <html lang="th">
       <body className="min-h-screen bg-white text-slate-900 font-sans antialiased">
         <Providers>
-          <SiteNav initialUser={initialUser} />
+          <SiteNav
+            initialUser={initialUser}
+            initialThreads={initialThreads}
+          />
           <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
             {children}
           </main>
