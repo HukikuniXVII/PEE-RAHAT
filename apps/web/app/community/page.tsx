@@ -1,6 +1,7 @@
-import { CommunityFeed } from "@/components/community-feed";
 import { createApiClient } from "@/lib/api-client";
 import { getServerAccessToken } from "@/lib/supabase/server";
+
+import { CommunityFeed } from "./_components/community-feed";
 
 export default async function CommunityPage() {
   const token = await getServerAccessToken();
@@ -15,7 +16,7 @@ export default async function CommunityPage() {
           พื้นที่แลกเปลี่ยนเทคนิคการเรียนสำหรับเด็ก TCAS โดยเฉพาะ
         </p>
       </div>
-      <CommunityFeed initial={initial.items} />
+      <CommunityFeed initialPage={initial} />
     </div>
   );
 }

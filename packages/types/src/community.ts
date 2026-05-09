@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export interface CommunityPost {
   id: string;
   authorId: string;
@@ -21,22 +23,38 @@ export interface CommunityReply {
   createdAt: string;
 }
 
-export interface CreatePostDto {
-  title: string;
-  content: string;
-  consentPdpaAccepted: boolean;
-}
+export const createPostSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  content: z.string().trim().min(1).max(10_000),
+  consentPdpaAccepted: z.boolean().refine((v) => v === true, {
+    message: "PDPA consent required",
+  }),
+});
 
-export interface CreateReplyDto {
-  postId: string;
-  content: string;
-}
+export type CreatePostDto = z.infer<typeof createPostSchema>;
 
-export type ReportTargetType = "post" | "reply" | "sheet" | "tutor" | "message";
+export const createReplySchema = z.object({
+  postId: z.string().min(1),
+  content: z.string().trim().min(1).max(10_000),
+});
 
-export interface ReportDto {
-  targetType: ReportTargetType;
-  targetId: string;
-  reason: string;
-  details: string;
-}
+export type CreateReplyDto = z.infer<typeof createReplySchema>;
+
+export const reportTargetTypeSchema = z.enum([
+  "post",
+  "reply",
+  "sheet",
+  "tutor",
+  "message",
+]);
+
+export type ReportTargetType = z.infer<typeof reportTargetTypeSchema>;
+
+export const reportSchema = z.object({
+  targetType: reportTargetTypeSchema,
+  targetId: z.string().min(1),
+  reason: z.string().min(1),
+  details: z.string().min(1).max(2000),
+});
+
+export type ReportDto = z.infer<typeof reportSchema>;
