@@ -11,16 +11,10 @@ import Link from "next/link";
 import { asNotFound, createApiClient } from "@/lib/api-client";
 import { getServerAccessToken } from "@/lib/supabase/server";
 
+import { ReviewsSection } from "./_components/reviews-section";
+
 interface Props {
   params: { id: string };
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
 }
 
 export default async function TutorProfilePage({ params }: Props) {
@@ -28,7 +22,7 @@ export default async function TutorProfilePage({ params }: Props) {
   const api = createApiClient({ accessToken: token });
   const [tutor, reviews] = await Promise.all([
     asNotFound(api.tutors.byId(params.id)),
-    api.tutors.reviews(params.id),
+    api.tutors.reviews(params.id, { page: 1, pageSize: 10 }),
   ]);
 
   return (
@@ -111,47 +105,7 @@ export default async function TutorProfilePage({ params }: Props) {
           </section>
         )}
 
-        <section className="bg-white rounded-[32px] border border-slate-200 shadow-sm p-8 space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-              Reviews ({reviews.total})
-            </h2>
-            <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600">
-              <Star size={12} fill="currentColor" />
-              {tutor.rating.toFixed(1)} avg
-            </span>
-          </div>
-          {reviews.items.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-8 font-medium">
-              ยังไม่มีรีวิว
-            </p>
-          ) : (
-            <ul className="space-y-6">
-              {reviews.items.map((review) => (
-                <li
-                  key={review.id}
-                  className="border-b border-slate-100 pb-6 last:border-0 last:pb-0 space-y-2"
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-bold text-slate-800">
-                      {review.studentDisplayName}
-                    </p>
-                    <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600">
-                      <Star size={12} fill="currentColor" />
-                      {review.rating}
-                    </span>
-                  </div>
-                  <p className="text-sm text-slate-600 leading-relaxed">
-                    {review.text}
-                  </p>
-                  <p className="text-[10px] text-slate-400 font-medium">
-                    {formatDate(review.createdAt)}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <ReviewsSection tutorId={tutor.id} initialPage={reviews} />
       </main>
 
       <aside className="lg:col-span-1 space-y-6 lg:sticky lg:top-24 self-start">

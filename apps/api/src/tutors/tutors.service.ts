@@ -83,18 +83,28 @@ export class TutorsService {
     return this.toDto(row);
   }
 
-  async listReviews(id: string): Promise<{
+  async listReviews(
+    id: string,
+    pageInput?: number,
+    pageSizeInput?: number,
+  ): Promise<{
     items: TutorReview[];
     total: number;
     page: number;
     pageSize: number;
   }> {
-    const rows = await this.prisma.tutorReview.findMany({
-      where: { tutorId: id },
-      orderBy: { createdAt: "desc" },
-      include: { student: true },
-      take: 50,
-    });
+    const page = Math.max(1, pageInput ?? 1);
+    const pageSize = Math.min(50, Math.max(1, pageSizeInput ?? 10));
+    const [rows, total] = await Promise.all([
+      this.prisma.tutorReview.findMany({
+        where: { tutorId: id },
+        orderBy: { createdAt: "desc" },
+        include: { student: true },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.tutorReview.count({ where: { tutorId: id } }),
+    ]);
     return {
       items: rows.map((r) => ({
         id: r.id,
@@ -106,9 +116,9 @@ export class TutorsService {
         text: r.text,
         createdAt: r.createdAt.toISOString(),
       })),
-      total: rows.length,
-      page: 1,
-      pageSize: 50,
+      total,
+      page,
+      pageSize,
     };
   }
 

@@ -61,13 +61,21 @@ export class TutorsController {
   }
 
   @Get(":id/reviews")
-  reviews(@Param("id") id: string): Promise<{
+  reviews(
+    @Param("id") id: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+  ): Promise<{
     items: TutorReview[];
     total: number;
     page: number;
     pageSize: number;
   }> {
-    return this.tutors.listReviews(id);
+    return this.tutors.listReviews(
+      id,
+      page ? Number(page) : undefined,
+      pageSize ? Number(pageSize) : undefined,
+    );
   }
 
   @Post(":id/reviews")

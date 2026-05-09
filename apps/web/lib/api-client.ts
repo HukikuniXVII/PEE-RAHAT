@@ -119,8 +119,15 @@ export function createApiClient(opts: ApiClientOptions = {}) {
         request<TutorSearchResult>(`${API_PATHS.tutors}${qs(q)}`, {}, token),
       byId: (id: string) =>
         request<Tutor>(API_PATHS.tutorById(id), {}, token),
-      reviews: (id: string) =>
-        request<Page<TutorReview>>(API_PATHS.tutorReviews(id), {}, token),
+      reviews: (
+        id: string,
+        opts: { page?: number; pageSize?: number } = {},
+      ) =>
+        request<Page<TutorReview>>(
+          `${API_PATHS.tutorReviews(id)}${qs(opts)}`,
+          {},
+          token,
+        ),
       review: (tutorId: string, dto: CreateReviewDto) =>
         request<TutorReview>(
           API_PATHS.tutorReviews(tutorId),
