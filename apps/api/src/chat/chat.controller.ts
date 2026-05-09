@@ -35,6 +35,14 @@ export class ChatController {
     return this.chat.openWithTutor(user.sub, tutorId);
   }
 
+  @Get("threads/:threadId")
+  threadById(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("threadId") threadId: string,
+  ) {
+    return this.chat.threadById(user.sub, threadId);
+  }
+
   @Get("threads/:threadId/messages")
   messages(
     @CurrentUser() user: SupabaseJwtPayload,

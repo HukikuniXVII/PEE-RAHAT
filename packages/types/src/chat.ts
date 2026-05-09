@@ -50,6 +50,8 @@ export interface ChatThread {
   lastMessagePreview: string;
   lastMessageAt: string;
   counterparty: ChatThreadCounterparty;
+  /** The User.id of the calling viewer — lets the client align bubbles without knowing the role. */
+  viewerUserId: string;
 }
 
 export const sendMessageSchema = z.object({

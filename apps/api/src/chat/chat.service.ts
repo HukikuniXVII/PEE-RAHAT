@@ -53,8 +53,50 @@ export class ChatService {
         lastMessageAt:
           t.messages[0]?.createdAt.toISOString() ?? t.createdAt.toISOString(),
         counterparty,
+        viewerUserId: user.id,
       };
     });
+  }
+
+  /**
+   * Resolve a thread by its primary id. Used by /chat/thread/[threadId]
+   * which works for either side of the conversation (tutor or student).
+   */
+  async threadById(supabaseId: string, threadId: string): Promise<ChatThread> {
+    const { user, thread } = await this.assertParticipant(supabaseId, threadId);
+    const full = await this.prisma.chatThread.findUniqueOrThrow({
+      where: { id: thread.id },
+      include: {
+        messages: { orderBy: { createdAt: "desc" }, take: 1 },
+        student: true,
+        tutor: { include: { user: true } },
+      },
+    });
+    const isStudentSide = full.studentId === user.id;
+    const counterparty = isStudentSide
+      ? {
+          displayName: full.tutor.user.displayName,
+          avatarUrl: full.tutor.user.avatarUrl ?? undefined,
+          role: "tutor" as const,
+          tutorId: full.tutorId,
+        }
+      : {
+          displayName: full.student.displayName,
+          avatarUrl: full.student.avatarUrl ?? undefined,
+          role: "student" as const,
+        };
+    return {
+      id: full.id,
+      studentId: full.studentId,
+      tutorId: full.tutorId,
+      bookingId: full.bookingId ?? undefined,
+      lastMessagePreview: full.messages[0]?.body ?? "",
+      lastMessageAt:
+        full.messages[0]?.createdAt.toISOString() ??
+        full.createdAt.toISOString(),
+      counterparty,
+      viewerUserId: user.id,
+    };
   }
 
   /**
@@ -99,6 +141,7 @@ export class ChatService {
           existing.messages[0]?.createdAt.toISOString() ??
           existing.createdAt.toISOString(),
         counterparty,
+        viewerUserId: user.id,
       };
     }
     const created = await this.prisma.chatThread.create({
@@ -112,6 +155,7 @@ export class ChatService {
       lastMessagePreview: "",
       lastMessageAt: created.createdAt.toISOString(),
       counterparty,
+      viewerUserId: user.id,
     };
   }
 

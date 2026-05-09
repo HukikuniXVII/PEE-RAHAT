@@ -4,7 +4,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   type ChatMessage,
   type ChatThread,
-  type Tutor,
   detectBypassAttempt,
   sendMessageSchema,
 } from "@peerahat/types";
@@ -23,7 +22,6 @@ type ComposerValues = z.infer<typeof composerSchema>;
 
 interface Props {
   thread: ChatThread;
-  tutor: Tutor;
   initialMessages: ChatMessage[];
 }
 
@@ -34,9 +32,21 @@ function formatTime(iso: string): string {
   });
 }
 
-export function ChatRoom({ thread, tutor, initialMessages }: Props) {
+function initialsOf(name: string): string {
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((s) => s[0]?.toUpperCase() ?? "")
+      .join("") || "?"
+  );
+}
+
+export function ChatRoom({ thread, initialMessages }: Props) {
   const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { counterparty } = thread;
 
   const messagesQuery = useQuery({
     queryKey: ["chat", "messages", thread.id],
@@ -72,22 +82,28 @@ export function ChatRoom({ thread, tutor, initialMessages }: Props) {
     });
   }, [messages.length]);
 
-  const isMine = (m: ChatMessage) => m.authorId === thread.studentId;
+  const isMine = (m: ChatMessage) => m.authorId === thread.viewerUserId;
 
   return (
     <div className="max-w-3xl mx-auto bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[80vh]">
       <header className="px-6 py-5 border-b border-slate-100 flex items-center gap-4">
-        <img
-          src={tutor.avatarUrl}
-          alt={tutor.displayName}
-          className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-100 object-cover"
-        />
-        <div className="flex-1">
-          <h2 className="text-lg font-bold text-slate-900">
-            {tutor.displayName}
+        {counterparty.avatarUrl ? (
+          <img
+            src={counterparty.avatarUrl}
+            alt={counterparty.displayName}
+            className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-100 object-cover"
+          />
+        ) : (
+          <span className="w-12 h-12 rounded-2xl bg-indigo-600 text-white text-sm font-black flex items-center justify-center">
+            {initialsOf(counterparty.displayName)}
+          </span>
+        )}
+        <div className="flex-1 min-w-0">
+          <h2 className="text-lg font-bold text-slate-900 truncate">
+            {counterparty.displayName}
           </h2>
-          <p className="text-[11px] text-slate-400 font-medium">
-            {tutor.faculty} • {tutor.university}
+          <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-600">
+            {counterparty.role === "tutor" ? "Tutor" : "Student"}
           </p>
         </div>
         <span className="hidden sm:inline-flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-bold rounded-full">

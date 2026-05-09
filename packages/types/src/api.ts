@@ -44,6 +44,7 @@ export const API_PATHS = {
   paymentIntents: "/payments/intents",
   uploadSlip: "/payments/slips",
   chatThreads: "/chat/threads",
+  chatThreadById: (threadId: string) => `/chat/threads/${threadId}`,
   chatThreadWithTutor: (tutorId: string) => `/chat/threads/with/${tutorId}`,
   chatMessages: (threadId: string) => `/chat/threads/${threadId}/messages`,
 } as const;
