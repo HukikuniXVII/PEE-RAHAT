@@ -1,16 +1,23 @@
 "use client";
 
-import type { Subject, TutorSearchResult } from "@peerahat/types";
-import { AnimatePresence } from "motion/react";
+import {
+  type Subject,
+  type TutorSearchResult,
+  type TutorSort,
+  tutorSortSchema,
+} from "@peerahat/types";
+import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
+import { AnimatePresence } from "motion/react";
 import { useEffect, useState } from "react";
 
-import { TutorCard } from "@/components/tutor-card";
 import { createApiClient } from "@/lib/api-client";
+
+import { TutorCard } from "./tutor-card";
 
 interface Props {
   initialQuery: string;
-  initialSubject: string;
+  initialSubject: Subject | "All";
   initialResult: TutorSearchResult;
 }
 
@@ -20,33 +27,33 @@ export function TutorSearch({
   initialResult,
 }: Props) {
   const [query, setQuery] = useState(initialQuery);
-  const [result, setResult] = useState(initialResult);
-  const [sort, setSort] =
-    useState<"rating" | "priceAsc" | "newest">("rating");
-  const [loading, setLoading] = useState(false);
+  const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
+  const [sort, setSort] = useState<TutorSort>("rating");
 
   useEffect(() => {
-    const handle = setTimeout(async () => {
-      setLoading(true);
-      try {
-        const api = createApiClient();
-        const next = await api.tutors.search({
-          q: query || undefined,
-          subject:
-            initialSubject === "All"
-              ? undefined
-              : (initialSubject as Subject),
-          sort,
-          page: 1,
-          pageSize: 20,
-        });
-        setResult(next);
-      } finally {
-        setLoading(false);
-      }
-    }, 300);
+    const handle = setTimeout(() => setDebouncedQuery(query), 300);
     return () => clearTimeout(handle);
-  }, [query, sort, initialSubject]);
+  }, [query]);
+
+  const { data, isFetching } = useQuery({
+    queryKey: [
+      "tutors",
+      "search",
+      { q: debouncedQuery, subject: initialSubject, sort },
+    ],
+    queryFn: () =>
+      createApiClient().tutors.search({
+        q: debouncedQuery || undefined,
+        subject: initialSubject === "All" ? undefined : initialSubject,
+        sort,
+        page: 1,
+        pageSize: 20,
+      }),
+    initialData: initialResult,
+    placeholderData: (prev) => prev,
+  });
+
+  const result = data ?? initialResult;
 
   return (
     <div className="space-y-8">
@@ -70,9 +77,10 @@ export function TutorSearch({
           </span>
           <select
             value={sort}
-            onChange={(e) =>
-              setSort(e.target.value as "rating" | "priceAsc" | "newest")
-            }
+            onChange={(e) => {
+              const parsed = tutorSortSchema.safeParse(e.target.value);
+              if (parsed.success) setSort(parsed.data);
+            }}
             className="text-sm font-bold text-slate-800 bg-slate-50 px-4 py-2 rounded-xl border-none focus:ring-0"
           >
             <option value="rating">Highest Rating</option>
@@ -82,7 +90,7 @@ export function TutorSearch({
         </div>
       </div>
 
-      {loading && (
+      {isFetching && (
         <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">
           Loading...
         </p>
@@ -96,7 +104,7 @@ export function TutorSearch({
         </AnimatePresence>
       </div>
 
-      {result.items.length === 0 && !loading && (
+      {result.items.length === 0 && !isFetching && (
         <p className="text-center text-slate-400 py-12 font-medium">
           ไม่พบติวเตอร์ที่ตรงเงื่อนไข ลองปรับการค้นหาดู
         </p>

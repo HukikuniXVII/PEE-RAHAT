@@ -1,35 +1,30 @@
+import { type Subject, subjectSchema } from "@peerahat/types";
 import { Sparkles, Star, UserPlus } from "lucide-react";
 import Link from "next/link";
 
-import { TutorSearch } from "@/components/tutor-search";
 import { createApiClient } from "@/lib/api-client";
 import { getServerAccessToken } from "@/lib/supabase/server";
+
+import { TutorSearch } from "./_components/tutor-search";
 
 interface Props {
   searchParams: { subject?: string; q?: string };
 }
 
-const SUBJECTS = [
-  "All",
-  "Math",
-  "Physics",
-  "Chemistry",
-  "Biology",
-  "English",
-  "Social",
-  "Thai",
-] as const;
+const SUBJECTS = ["All", ...subjectSchema.options] as const;
+
+function parseSubjectParam(raw: string | undefined): Subject | "All" {
+  if (!raw || raw === "All") return "All";
+  return subjectSchema.safeParse(raw).data ?? "All";
+}
 
 export default async function TutorsPage({ searchParams }: Props) {
   const token = await getServerAccessToken();
   const api = createApiClient({ accessToken: token });
+  const subject = parseSubjectParam(searchParams.subject);
   const initial = await api.tutors.search({
     q: searchParams.q,
-    subject:
-      searchParams.subject && searchParams.subject !== "All"
-        ? // biome-ignore lint: type is widened on purpose for the URL bridge
-          (searchParams.subject as never)
-        : undefined,
+    subject: subject === "All" ? undefined : subject,
     page: 1,
     pageSize: 20,
   });
@@ -84,23 +79,19 @@ export default async function TutorsPage({ searchParams }: Props) {
               Filter by Subject
             </h4>
             <div className="flex flex-wrap gap-2 lg:flex-col">
-              {SUBJECTS.map((subject) => {
-                const active = (searchParams.subject ?? "All") === subject;
+              {SUBJECTS.map((s) => {
+                const active = subject === s;
                 return (
                   <Link
-                    key={subject}
-                    href={
-                      subject === "All"
-                        ? "/tutors"
-                        : `/tutors?subject=${subject}`
-                    }
+                    key={s}
+                    href={s === "All" ? "/tutors" : `/tutors?subject=${s}`}
                     className={
                       active
                         ? "px-4 py-2 rounded-xl text-sm font-bold bg-indigo-600 text-white shadow-lg shadow-indigo-100 text-left"
                         : "px-4 py-2 rounded-xl text-sm font-bold bg-white text-slate-500 border border-slate-200 hover:border-indigo-600 text-left"
                     }
                   >
-                    {subject}
+                    {s}
                   </Link>
                 );
               })}
@@ -127,7 +118,7 @@ export default async function TutorsPage({ searchParams }: Props) {
         <div className="lg:col-span-3">
           <TutorSearch
             initialQuery={searchParams.q ?? ""}
-            initialSubject={searchParams.subject ?? "All"}
+            initialSubject={subject}
             initialResult={initial}
           />
         </div>

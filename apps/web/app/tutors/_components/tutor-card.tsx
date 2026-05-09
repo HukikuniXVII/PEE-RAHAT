@@ -1,8 +1,9 @@
 "use client";
 
 import type { Tutor } from "@peerahat/types";
-import { motion } from "motion/react";
 import { MessageSquare, ShieldCheck, Star } from "lucide-react";
+import { motion } from "motion/react";
+import type { Route } from "next";
 import Link from "next/link";
 
 interface Props {
@@ -76,14 +77,14 @@ export function TutorCard({ tutor }: Props) {
           </div>
           <div className="flex gap-2">
             <Link
-              href={`/chat/${tutor.id}`}
+              href={`/chat/${tutor.id}` as Route}
               className="p-3 bg-slate-100 text-slate-600 rounded-2xl hover:bg-slate-200 transition-all"
               aria-label={`Chat with ${tutor.displayName}`}
             >
               <MessageSquare size={18} />
             </Link>
             <Link
-              href={`/tutors/${tutor.id}/book`}
+              href={`/tutors/${tutor.id}/book` as Route}
               className="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all"
             >
               Book Session

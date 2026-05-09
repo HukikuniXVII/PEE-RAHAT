@@ -67,7 +67,7 @@ async function request<T>(
   return (await res.json()) as T;
 }
 
-function qs(params: Record<string, unknown>): string {
+function qs(params: object): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === null || value === "") continue;

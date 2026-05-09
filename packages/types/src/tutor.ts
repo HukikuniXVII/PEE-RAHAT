@@ -1,11 +1,25 @@
-export type Subject =
-  | "Math"
-  | "Physics"
-  | "Chemistry"
-  | "Biology"
-  | "English"
-  | "Social"
-  | "Thai";
+import { z } from "zod";
+
+export const subjectSchema = z.enum([
+  "Math",
+  "Physics",
+  "Chemistry",
+  "Biology",
+  "English",
+  "Social",
+  "Thai",
+]);
+
+export type Subject = z.infer<typeof subjectSchema>;
+
+export const tutorSortSchema = z.enum([
+  "rating",
+  "priceAsc",
+  "priceDesc",
+  "newest",
+]);
+
+export type TutorSort = z.infer<typeof tutorSortSchema>;
 
 export interface Tutor {
   id: string;
@@ -34,18 +48,20 @@ export interface TutorReview {
   createdAt: string;
 }
 
-export interface TutorSearchQuery {
-  q?: string;
-  subject?: Subject;
-  university?: string;
-  minRating?: number;
-  minPrice?: number;
-  maxPrice?: number;
-  availableOn?: string;
-  sort?: "rating" | "priceAsc" | "priceDesc" | "newest";
-  page?: number;
-  pageSize?: number;
-}
+export const tutorSearchQuerySchema = z.object({
+  q: z.string().optional(),
+  subject: subjectSchema.optional(),
+  university: z.string().optional(),
+  minRating: z.coerce.number().min(0).max(5).optional(),
+  minPrice: z.coerce.number().min(0).optional(),
+  maxPrice: z.coerce.number().min(0).optional(),
+  availableOn: z.string().optional(),
+  sort: tutorSortSchema.optional(),
+  page: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce.number().int().min(1).max(100).optional(),
+});
+
+export type TutorSearchQuery = z.infer<typeof tutorSearchQuerySchema>;
 
 export interface TutorSearchResult {
   items: Tutor[];
