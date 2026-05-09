@@ -40,6 +40,8 @@ export interface ChatThreadCounterparty {
   role: "student" | "tutor";
   /** Set when the counterparty is a tutor — lets the threads list link to /chat/[tutorId]. */
   tutorId?: string;
+  /** Free-form subtitle (e.g. "Faculty • University" for tutor counterparties). */
+  subtitle?: string;
 }
 
 export interface ChatThread {

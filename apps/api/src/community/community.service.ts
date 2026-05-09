@@ -80,21 +80,42 @@ export class CommunityService {
     return { upvotes: updated.upvoteCount };
   }
 
-  async replies(postId: string): Promise<CommunityReply[]> {
-    const rows = await this.prisma.communityReply.findMany({
-      where: { postId },
-      orderBy: { createdAt: "asc" },
-      include: { author: { include: { tutorProfile: true } } },
-    });
-    return rows.map((r) => ({
-      id: r.id,
-      postId: r.postId,
-      authorId: r.authorId,
-      authorDisplayName: r.author.displayName,
-      authorBadge: this.badgeFor(r.author),
-      content: r.content,
-      createdAt: r.createdAt.toISOString(),
-    }));
+  async replies(
+    postId: string,
+    pageInput?: number,
+    pageSizeInput?: number,
+  ): Promise<{
+    items: CommunityReply[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
+    const page = Math.max(1, pageInput ?? 1);
+    const pageSize = Math.min(50, Math.max(1, pageSizeInput ?? 10));
+    const [rows, total] = await Promise.all([
+      this.prisma.communityReply.findMany({
+        where: { postId },
+        orderBy: { createdAt: "asc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: { author: { include: { tutorProfile: true } } },
+      }),
+      this.prisma.communityReply.count({ where: { postId } }),
+    ]);
+    return {
+      items: rows.map((r) => ({
+        id: r.id,
+        postId: r.postId,
+        authorId: r.authorId,
+        authorDisplayName: r.author.displayName,
+        authorBadge: this.badgeFor(r.author),
+        content: r.content,
+        createdAt: r.createdAt.toISOString(),
+      })),
+      total,
+      page,
+      pageSize,
+    };
   }
 
   async reply(supabaseId: string, postId: string, content: string) {

@@ -118,6 +118,11 @@ export function ChatRoom({ thread, initialMessages }: Props) {
           <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-600">
             {counterparty.role === "tutor" ? "Tutor" : "Student"}
           </p>
+          {counterparty.subtitle && (
+            <p className="text-[11px] text-slate-400 font-medium truncate">
+              {counterparty.subtitle}
+            </p>
+          )}
         </div>
         <span className="hidden sm:inline-flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-bold rounded-full">
           <ShieldCheck size={12} />

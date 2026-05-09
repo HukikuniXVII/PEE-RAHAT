@@ -3,9 +3,10 @@
 import type { ChatThread } from "@peerahat/types";
 import { cn } from "@peerahat/ui";
 import { useQuery } from "@tanstack/react-query";
-import { MessagesSquare, ShieldCheck, User } from "lucide-react";
+import { MessagesSquare, Search, ShieldCheck } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
+import { useMemo, useState } from "react";
 
 import { createApiClient } from "@/lib/api-client";
 
@@ -47,9 +48,25 @@ export function ThreadsList({ initialThreads }: Props) {
     initialData: initialThreads,
     refetchInterval: 30_000,
   });
-  const threads = data ?? initialThreads;
+  const allThreads = data ?? initialThreads;
+  const [search, setSearch] = useState("");
 
-  if (threads.length === 0) {
+  const threads = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return allThreads;
+    return allThreads.filter((t) => {
+      const haystack = [
+        t.counterparty.displayName,
+        t.counterparty.subtitle ?? "",
+        t.lastMessagePreview,
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [allThreads, search]);
+
+  if (allThreads.length === 0) {
     return (
       <div className="bg-white p-12 rounded-[32px] border border-slate-200 shadow-sm text-center space-y-4">
         <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-2xl flex items-center justify-center mx-auto">
@@ -73,6 +90,26 @@ export function ThreadsList({ initialThreads }: Props) {
 
   return (
     <div className="space-y-3">
+      <div className="relative">
+        <Search
+          size={16}
+          className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+        />
+        <input
+          type="text"
+          placeholder="ค้นหาบทสนทนา..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+        />
+      </div>
+
+      {threads.length === 0 ? (
+        <p className="text-center text-xs text-slate-400 py-8 font-medium">
+          ไม่พบบทสนทนาที่ตรงกับ "{search}"
+        </p>
+      ) : null}
+
       {threads.map((thread) => {
         const isStudentSide = thread.counterparty.role === "tutor";
         const hasUnread = thread.unreadCount > 0;

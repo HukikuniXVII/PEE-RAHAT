@@ -53,8 +53,16 @@ export class CommunityController {
   }
 
   @Get("community/posts/:id/replies")
-  replies(@Param("id") id: string) {
-    return this.community.replies(id);
+  replies(
+    @Param("id") id: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+  ) {
+    return this.community.replies(
+      id,
+      page ? Number(page) : undefined,
+      pageSize ? Number(pageSize) : undefined,
+    );
   }
 
   @Post("community/posts/:id/replies")

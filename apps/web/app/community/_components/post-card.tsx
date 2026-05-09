@@ -4,14 +4,15 @@ import type { CommunityPost, Page } from "@peerahat/types";
 import { cn } from "@peerahat/ui";
 import {
   type InfiniteData,
+  useInfiniteQuery,
   useMutation,
-  useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowBigUp,
   ChevronDown,
+  Loader2,
   MessageCircle,
   User,
 } from "lucide-react";
@@ -33,12 +34,21 @@ export function PostCard({ post }: Props) {
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
 
-  const repliesQuery = useQuery({
+  const repliesQuery = useInfiniteQuery({
     queryKey: ["community", "replies", post.id],
-    queryFn: () => createApiClient().community.replies(post.id),
+    queryFn: ({ pageParam = 1 }) =>
+      createApiClient().community.replies(post.id, {
+        page: pageParam,
+        pageSize: 10,
+      }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.page * lastPage.pageSize < lastPage.total
+        ? lastPage.page + 1
+        : undefined,
     enabled: expanded,
   });
-  const replies = repliesQuery.data ?? [];
+  const replies = repliesQuery.data?.pages.flatMap((p) => p.items) ?? [];
 
   const patchPostInPages = (
     old: InfiniteData<Page<CommunityPost>> | undefined,
@@ -221,6 +231,19 @@ export function PostCard({ post }: Props) {
                     </div>
                   </div>
                 ))}
+                {repliesQuery.hasNextPage && (
+                  <button
+                    type="button"
+                    onClick={() => repliesQuery.fetchNextPage()}
+                    disabled={repliesQuery.isFetchingNextPage}
+                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 inline-flex items-center gap-1 pl-6"
+                  >
+                    {repliesQuery.isFetchingNextPage && (
+                      <Loader2 size={10} className="animate-spin" />
+                    )}
+                    โหลดความคิดเห็นเพิ่มเติม
+                  </button>
+                )}
                 <ReplyComposer postId={post.id} />
               </motion.div>
             )}

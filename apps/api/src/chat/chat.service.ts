@@ -39,6 +39,7 @@ export class ChatService {
               avatarUrl: t.tutor.user.avatarUrl ?? undefined,
               role: "tutor" as const,
               tutorId: t.tutorId,
+              subtitle: `${t.tutor.faculty} • ${t.tutor.university}`,
             }
           : {
               displayName: t.student.displayName,
@@ -121,6 +122,7 @@ export class ChatService {
           avatarUrl: full.tutor.user.avatarUrl ?? undefined,
           role: "tutor" as const,
           tutorId: full.tutorId,
+          subtitle: `${full.tutor.faculty} • ${full.tutor.university}`,
         }
       : {
           displayName: full.student.displayName,
@@ -170,6 +172,7 @@ export class ChatService {
       avatarUrl: tutor.user.avatarUrl ?? undefined,
       role: "tutor" as const,
       tutorId,
+      subtitle: `${tutor.faculty} • ${tutor.university}`,
     };
     const existing = await this.prisma.chatThread.findFirst({
       where: { studentId: user.id, tutorId },
