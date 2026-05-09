@@ -28,10 +28,7 @@ export function SiteFooter() {
             >
               Privacy
             </Link>
-            <Link
-              href={"/contact" as Route}
-              className="hover:text-indigo-600"
-            >
+            <Link href={"/contact" as Route} className="hover:text-indigo-600">
               Contact
             </Link>
             <Link href={"/help" as Route} className="hover:text-indigo-600">
