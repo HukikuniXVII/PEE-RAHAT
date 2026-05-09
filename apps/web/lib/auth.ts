@@ -1,6 +1,29 @@
 import { redirect } from "next/navigation";
 
-import { getServerAccessToken } from "./supabase/server";
+import { createSupabaseServerClient, getServerAccessToken } from "./supabase/server";
+
+export interface InitialUser {
+  displayName: string;
+  email: string;
+}
+
+/**
+ * Read the calling Supabase principal's display name + email from cookies so
+ * the server-rendered nav can show the right state (account chip vs Login)
+ * without a hydration flash. Returns null when unauthed.
+ */
+export async function getInitialUser(): Promise<InitialUser | null> {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) return null;
+  const meta = (data.user.user_metadata ?? {}) as { displayName?: string };
+  const fallback = data.user.email?.split("@")[0] ?? "User";
+  return {
+    displayName: meta.displayName ?? fallback,
+    email: data.user.email ?? "",
+  };
+}
 
 /**
  * Constrain a `next` redirect target to a same-origin relative path so a

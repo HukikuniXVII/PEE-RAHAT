@@ -6,8 +6,10 @@ import {
   BookOpen,
   CalendarCheck,
   Calculator,
+  ChevronDown,
   GraduationCap,
   LayoutDashboard,
+  LogOut,
   Menu,
   Search,
   Users,
@@ -15,8 +17,11 @@ import {
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+
+import type { InitialUser } from "@/lib/auth";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home", icon: LayoutDashboard },
@@ -27,12 +32,68 @@ const NAV_ITEMS = [
   { href: "/bookings", label: "Bookings", icon: CalendarCheck },
 ] as const;
 
-export function SiteNav() {
+interface Props {
+  initialUser: InitialUser | null;
+}
+
+function initialsOf(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((s) => s[0]?.toUpperCase() ?? "")
+    .join("") || "?";
+}
+
+export function SiteNav({ initialUser }: Props) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [user, setUser] = useState<InitialUser | null>(initialUser);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const accountRef = useRef<HTMLDivElement>(null);
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
+
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        setUser(null);
+        return;
+      }
+      const meta = (session.user.user_metadata ?? {}) as { displayName?: string };
+      const fallback = session.user.email?.split("@")[0] ?? "User";
+      setUser({
+        displayName: meta.displayName ?? fallback,
+        email: session.user.email ?? "",
+      });
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!accountOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (
+        accountRef.current &&
+        !accountRef.current.contains(e.target as Node)
+      ) {
+        setAccountOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [accountOpen]);
+
+  const handleSignOut = async () => {
+    const supabase = createSupabaseBrowserClient();
+    await supabase.auth.signOut();
+    setAccountOpen(false);
+    router.push("/");
+    router.refresh();
+  };
 
   return (
     <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100">
@@ -69,12 +130,83 @@ export function SiteNav() {
               </Link>
             ))}
             <div className="w-px h-6 bg-slate-100 mx-4" />
-            <Link
-              href={"/login" as Route}
-              className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-black hover:bg-black shadow-xl shadow-slate-200 transition-all uppercase tracking-widest"
-            >
-              Login
-            </Link>
+            {user ? (
+              <div className="relative" ref={accountRef}>
+                <button
+                  type="button"
+                  onClick={() => setAccountOpen((v) => !v)}
+                  className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-all"
+                  aria-haspopup="menu"
+                  aria-expanded={accountOpen}
+                >
+                  <span className="w-8 h-8 rounded-xl bg-indigo-600 text-white text-xs font-black flex items-center justify-center">
+                    {initialsOf(user.displayName)}
+                  </span>
+                  <span className="text-xs font-bold text-slate-700 max-w-[120px] truncate">
+                    {user.displayName}
+                  </span>
+                  <ChevronDown
+                    size={14}
+                    className={cn(
+                      "text-slate-400 transition-transform",
+                      accountOpen && "rotate-180",
+                    )}
+                  />
+                </button>
+                <AnimatePresence>
+                  {accountOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      role="menu"
+                      className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl border border-slate-100 shadow-xl p-2 space-y-1"
+                    >
+                      <div className="px-3 py-2">
+                        <p className="text-xs font-bold text-slate-700 truncate">
+                          {user.displayName}
+                        </p>
+                        <p className="text-[10px] text-slate-400 truncate">
+                          {user.email}
+                        </p>
+                      </div>
+                      <div className="h-px bg-slate-100 mx-1" />
+                      <Link
+                        href={"/bookings" as Route}
+                        onClick={() => setAccountOpen(false)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50"
+                      >
+                        <CalendarCheck size={14} />
+                        My Bookings
+                      </Link>
+                      <Link
+                        href={"/tutors/onboarding" as Route}
+                        onClick={() => setAccountOpen(false)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50"
+                      >
+                        <GraduationCap size={14} />
+                        เป็นพี่ติว (KYC)
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={handleSignOut}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50"
+                      >
+                        <LogOut size={14} />
+                        Sign Out
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ) : (
+              <Link
+                href={"/login" as Route}
+                className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-black hover:bg-black shadow-xl shadow-slate-200 transition-all uppercase tracking-widest"
+              >
+                Login
+              </Link>
+            )}
           </div>
 
           <div className="md:hidden">
@@ -113,6 +245,44 @@ export function SiteNav() {
                 {item.label}
               </Link>
             ))}
+            <div className="h-px bg-slate-100 my-2" />
+            {user ? (
+              <>
+                <div className="px-5 py-3 flex items-center gap-3">
+                  <span className="w-10 h-10 rounded-xl bg-indigo-600 text-white text-xs font-black flex items-center justify-center">
+                    {initialsOf(user.displayName)}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-slate-700 truncate">
+                      {user.displayName}
+                    </p>
+                    <p className="text-[10px] text-slate-400 truncate">
+                      {user.email}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    void handleSignOut();
+                  }}
+                  className="w-full text-left px-5 py-4 rounded-2xl text-base font-bold flex items-center gap-4 text-rose-600 hover:bg-rose-50"
+                >
+                  <LogOut size={20} />
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <Link
+                href={"/login" as Route}
+                onClick={() => setIsMenuOpen(false)}
+                className="w-full text-left px-5 py-4 rounded-2xl text-base font-bold flex items-center gap-4 bg-slate-900 text-white"
+              >
+                <LogOut size={20} className="rotate-180" />
+                Login
+              </Link>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

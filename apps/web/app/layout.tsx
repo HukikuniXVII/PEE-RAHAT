@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 
 import { SiteFooter } from "@/components/site-footer";
 import { SiteNav } from "@/components/site-nav";
+import { getInitialUser } from "@/lib/auth";
 
 import { Providers } from "./providers";
 import "./globals.css";
@@ -19,16 +20,17 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const initialUser = await getInitialUser();
   return (
     <html lang="th">
       <body className="min-h-screen bg-white text-slate-900 font-sans antialiased">
         <Providers>
-          <SiteNav />
+          <SiteNav initialUser={initialUser} />
           <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
             {children}
           </main>
