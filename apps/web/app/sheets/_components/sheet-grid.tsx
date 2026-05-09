@@ -11,6 +11,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Search, ShieldCheck, Star } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { PaymentDialog } from "@/components/payment-dialog";
 import { createApiClient } from "@/lib/api-client";
@@ -54,6 +55,10 @@ export function SheetGrid({ initial, initialSubject, initialQuery }: Props) {
         reason: "copyright",
         details: "Reported via UI",
       }),
+    meta: { toast: "ส่งรายงานไม่สำเร็จ" },
+    onSuccess: () => {
+      toast.success("ส่งรายงานเรียบร้อย ทีมงานจะตรวจสอบโดยเร็ว");
+    },
   });
 
   return (
