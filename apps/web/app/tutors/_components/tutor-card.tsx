@@ -34,14 +34,17 @@ export function TutorCard({ tutor }: Props) {
                 </div>
               )}
             </div>
-            <div>
+            <Link
+              href={`/tutors/${tutor.id}` as Route}
+              className="block focus:outline-none"
+            >
               <h3 className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
                 {tutor.displayName}
               </h3>
               <p className="text-xs text-slate-400 font-medium">
                 {tutor.faculty}
               </p>
-            </div>
+            </Link>
           </div>
           <div className="flex items-center gap-1 px-2 py-1 bg-amber-50 rounded-lg text-amber-600 font-bold text-xs">
             <Star size={12} fill="currentColor" />
