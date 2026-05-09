@@ -1,5 +1,17 @@
-import { BookOpen, Calculator, Search, ShieldCheck, Sparkles, Users } from "lucide-react";
+import {
+  ArrowRight,
+  BookOpen,
+  Calculator,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
+
+import { TutorCard } from "@/app/tutors/_components/tutor-card";
+import { createApiClient } from "@/lib/api-client";
 
 const PILLARS = [
   {
@@ -27,12 +39,21 @@ const PILLARS = [
     href: "/community",
     label: "Webboard",
     icon: Users,
-    description:
-      "พื้นที่แลกเปลี่ยนกระทู้สำหรับเด็ก ม.ปลาย และรุ่นพี่มหาลัย",
+    description: "พื้นที่แลกเปลี่ยนกระทู้สำหรับเด็ก ม.ปลาย และรุ่นพี่มหาลัย",
   },
 ] as const;
 
-export default function HomePage() {
+export default async function HomePage() {
+  const api = createApiClient();
+  const [featuredTutors, latestSheets] = await Promise.all([
+    api.tutors
+      .search({ sort: "rating", page: 1, pageSize: 4 })
+      .catch(() => ({ items: [], total: 0, page: 1, pageSize: 4 })),
+    api.sheets
+      .list({ page: 1, pageSize: 3 })
+      .catch(() => ({ items: [], total: 0, page: 1, pageSize: 3 })),
+  ]);
+
   return (
     <div className="space-y-24">
       <section className="relative rounded-[48px] overflow-hidden bg-slate-900 p-8 md:p-20 text-white shadow-2xl shadow-slate-200">
@@ -104,6 +125,95 @@ export default function HomePage() {
           ))}
         </div>
       </section>
+
+      {featuredTutors.items.length > 0 && (
+        <section className="space-y-8">
+          <div className="flex items-end justify-between gap-6 flex-wrap">
+            <div className="space-y-2">
+              <p className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em]">
+                Featured Tutors
+              </p>
+              <h2 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
+                พี่ติวคะแนนสูงสุดในเดือนนี้
+              </h2>
+            </div>
+            <Link
+              href="/tutors"
+              className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors"
+            >
+              ดูทั้งหมด
+              <ArrowRight size={16} />
+            </Link>
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {featuredTutors.items.map((tutor) => (
+              <TutorCard key={tutor.id} tutor={tutor} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {latestSheets.items.length > 0 && (
+        <section className="space-y-8">
+          <div className="flex items-end justify-between gap-6 flex-wrap">
+            <div className="space-y-2">
+              <p className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em]">
+                Latest Sheets
+              </p>
+              <h2 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
+                ชีทใหม่จากพี่ๆ มหาวิทยาลัย
+              </h2>
+            </div>
+            <Link
+              href="/sheets"
+              className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors"
+            >
+              ดูทั้งหมด
+              <ArrowRight size={16} />
+            </Link>
+          </div>
+          <div className="grid md:grid-cols-3 gap-6">
+            {latestSheets.items.map((sheet) => (
+              <Link
+                key={sheet.id}
+                href="/sheets"
+                className="group bg-white rounded-[32px] border border-slate-200 overflow-hidden hover:border-indigo-600 hover:shadow-2xl transition-all"
+              >
+                <div className="aspect-[5/3] bg-slate-50 relative overflow-hidden">
+                  <img
+                    src={
+                      sheet.previewImageUrls[0] ??
+                      "https://images.unsplash.com/photo-1544640808-32ca72ac7f67?w=400&q=80"
+                    }
+                    alt={sheet.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <div className="absolute top-3 left-3 px-2 py-0.5 bg-white/90 backdrop-blur rounded-lg text-[9px] font-black uppercase tracking-tighter">
+                    {sheet.subject}
+                  </div>
+                </div>
+                <div className="p-6 space-y-3">
+                  <h3 className="font-bold text-slate-900 line-clamp-2 group-hover:text-indigo-600 transition-colors">
+                    {sheet.title}
+                  </h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    {sheet.sellerUniversity} • {sheet.sellerFaculty}
+                  </p>
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                    <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600">
+                      <Star size={12} fill="currentColor" />
+                      {sheet.rating.toFixed(1)}
+                    </span>
+                    <span className="font-black text-lg text-slate-900">
+                      ฿{sheet.priceThb.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="bg-slate-50 rounded-[48px] p-12 md:p-20 text-center space-y-12 border border-slate-100">
         <div className="max-w-3xl mx-auto space-y-6">
