@@ -1,4 +1,13 @@
-import { Controller, Get, Param, Query } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from "@nestjs/common";
+import { IsInt, IsString, Max, Min } from "class-validator";
 import type {
   Subject,
   Tutor,
@@ -6,7 +15,16 @@ import type {
   TutorSearchResult,
 } from "@peerahat/types";
 
+import { CurrentUser } from "../auth/current-user.decorator";
+import { SupabaseAuthGuard } from "../auth/auth.guard";
+import type { SupabaseJwtPayload } from "../auth/supabase-jwt.strategy";
 import { TutorsService } from "./tutors.service";
+
+class CreateReviewDto {
+  @IsString() bookingId!: string;
+  @IsInt() @Min(1) @Max(5) rating!: number;
+  @IsString() text!: string;
+}
 
 @Controller("tutors")
 export class TutorsController {
@@ -50,5 +68,15 @@ export class TutorsController {
     pageSize: number;
   }> {
     return this.tutors.listReviews(id);
+  }
+
+  @Post(":id/reviews")
+  @UseGuards(SupabaseAuthGuard)
+  createReview(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") tutorId: string,
+    @Body() dto: CreateReviewDto,
+  ): Promise<TutorReview> {
+    return this.tutors.createReview(user.sub, tutorId, dto);
   }
 }

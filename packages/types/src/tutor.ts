@@ -48,6 +48,24 @@ export interface TutorReview {
   createdAt: string;
 }
 
+export const reviewRatingSchema = z.union([
+  z.literal(1),
+  z.literal(2),
+  z.literal(3),
+  z.literal(4),
+  z.literal(5),
+]);
+
+export type ReviewRating = z.infer<typeof reviewRatingSchema>;
+
+export const createReviewSchema = z.object({
+  bookingId: z.string().min(1),
+  rating: reviewRatingSchema,
+  text: z.string().trim().min(1).max(2000),
+});
+
+export type CreateReviewDto = z.infer<typeof createReviewSchema>;
+
 export const tutorSearchQuerySchema = z.object({
   q: z.string().optional(),
   subject: subjectSchema.optional(),

@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import type {
   Subject,
   Tutor,
@@ -103,6 +109,70 @@ export class TutorsService {
       total: rows.length,
       page: 1,
       pageSize: 50,
+    };
+  }
+
+  /**
+   * FR-TH-09: only the student of a completed booking can submit a review,
+   * one per booking. Updates the tutor's aggregate rating + reviewCount on
+   * commit so listings stay in sync.
+   */
+  async createReview(
+    supabaseId: string,
+    tutorId: string,
+    dto: { bookingId: string; rating: number; text: string },
+  ): Promise<TutorReview> {
+    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
+    if (!user) throw new BadRequestException();
+
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: dto.bookingId },
+    });
+    if (!booking) throw new NotFoundException("Booking not found");
+    if (booking.studentId !== user.id) throw new ForbiddenException();
+    if (booking.tutorId !== tutorId) {
+      throw new BadRequestException("Tutor mismatch");
+    }
+    if (booking.status !== "completed") {
+      throw new BadRequestException("Booking not completed");
+    }
+
+    const existing = await this.prisma.tutorReview.findUnique({
+      where: { bookingId: dto.bookingId },
+    });
+    if (existing) throw new ConflictException("Already reviewed");
+
+    const created = await this.prisma.tutorReview.create({
+      data: {
+        bookingId: dto.bookingId,
+        studentId: user.id,
+        tutorId,
+        rating: dto.rating,
+        text: dto.text,
+      },
+      include: { student: true },
+    });
+
+    const allReviews = await this.prisma.tutorReview.findMany({
+      where: { tutorId },
+      select: { rating: true },
+    });
+    const avg =
+      allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length;
+    await this.prisma.tutorProfile.update({
+      where: { id: tutorId },
+      data: { rating: avg, reviewCount: allReviews.length },
+    });
+
+    return {
+      id: created.id,
+      bookingId: created.bookingId,
+      studentId: created.studentId,
+      studentDisplayName: created.student.displayName,
+      tutorId: created.tutorId,
+      rating: created.rating as 1 | 2 | 3 | 4 | 5,
+      text: created.text,
+      createdAt: created.createdAt.toISOString(),
     };
   }
 

@@ -17,15 +17,17 @@ export class BookingsService {
   async listForUser(supabaseId: string) {
     const user = await this.prisma.user.findUnique({ where: { supabaseId } });
     if (!user) return [];
-    return this.prisma.booking.findMany({
+    const rows = await this.prisma.booking.findMany({
       where: {
         OR: [
           { studentId: user.id },
           { tutor: { userId: user.id } },
         ],
       },
+      include: { review: { select: { id: true } } },
       orderBy: { scheduledAt: "desc" },
     });
+    return rows.map(({ review, ...b }) => ({ ...b, hasReview: !!review }));
   }
 
   async create(supabaseId: string, input: CreateBookingInput) {
@@ -40,7 +42,7 @@ export class BookingsService {
       tutor.hourlyRate * (input.durationMinutes / 60),
     );
 
-    return this.prisma.booking.create({
+    const created = await this.prisma.booking.create({
       data: {
         studentId: user.id,
         tutorId: input.tutorId,
@@ -52,6 +54,7 @@ export class BookingsService {
         status: "requested",
       },
     });
+    return { ...created, hasReview: false };
   }
 
   async accept(supabaseId: string, bookingId: string) {
@@ -66,10 +69,11 @@ export class BookingsService {
     if (booking.status !== "requested") {
       throw new BadRequestException("Booking is not in requested state");
     }
-    return this.prisma.booking.update({
+    const updated = await this.prisma.booking.update({
       where: { id: bookingId },
       data: { status: "accepted" },
     });
+    return { ...updated, hasReview: false };
   }
 
   async report(supabaseId: string, bookingId: string, dto: { reason: string; details: string }) {

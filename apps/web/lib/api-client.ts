@@ -11,6 +11,7 @@ import {
   type CreatePaymentIntentDto,
   type CreatePostDto,
   type CreateReplyDto,
+  type CreateReviewDto,
   type KycSubmitDto,
   type KycSubmission,
   type KycUploadIntent,
@@ -93,6 +94,12 @@ export function createApiClient(opts: ApiClientOptions = {}) {
         request<Tutor>(API_PATHS.tutorById(id), {}, token),
       reviews: (id: string) =>
         request<Page<TutorReview>>(API_PATHS.tutorReviews(id), {}, token),
+      review: (tutorId: string, dto: CreateReviewDto) =>
+        request<TutorReview>(
+          API_PATHS.tutorReviews(tutorId),
+          { method: "POST", body: JSON.stringify(dto) },
+          token,
+        ),
     },
     bookings: {
       create: (dto: CreateBookingDto) =>

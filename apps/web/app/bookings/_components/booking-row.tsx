@@ -8,6 +8,7 @@ import {
   CalendarClock,
   CheckCircle2,
   Clock,
+  Star,
   Wallet,
 } from "lucide-react";
 import { motion } from "motion/react";
@@ -16,6 +17,7 @@ import { useState } from "react";
 import { PaymentDialog } from "@/components/payment-dialog";
 
 import { ReportDialog } from "./report-dialog";
+import { ReviewDialog } from "./review-dialog";
 
 interface Props {
   booking: Booking;
@@ -58,6 +60,7 @@ export function BookingRow({ booking }: Props) {
   const queryClient = useQueryClient();
   const [paying, setPaying] = useState(false);
   const [reporting, setReporting] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
 
   const status = STATUS_COPY[booking.status];
 
@@ -65,6 +68,8 @@ export function BookingRow({ booking }: Props) {
     booking.status === "completed" &&
     !!booking.reportWindowEndsAt &&
     new Date(booking.reportWindowEndsAt).getTime() > Date.now();
+
+  const reviewable = booking.status === "completed" && !booking.hasReview;
 
   return (
     <motion.div
@@ -124,6 +129,22 @@ export function BookingRow({ booking }: Props) {
               Pay Now
             </button>
           )}
+          {reviewable && (
+            <button
+              type="button"
+              onClick={() => setReviewing(true)}
+              className="px-4 py-2.5 bg-amber-500 text-white rounded-xl font-bold text-sm hover:bg-amber-600 transition-all flex items-center gap-2"
+            >
+              <Star size={14} fill="currentColor" />
+              Leave Review
+            </button>
+          )}
+          {booking.status === "completed" && booking.hasReview && (
+            <span className="text-[11px] font-bold text-amber-600 inline-flex items-center gap-1.5">
+              <Star size={14} fill="currentColor" />
+              รีวิวแล้ว
+            </span>
+          )}
           {reportWindowOpen && (
             <button
               type="button"
@@ -163,6 +184,20 @@ export function BookingRow({ booking }: Props) {
           onReported={() =>
             queryClient.invalidateQueries({ queryKey: ["bookings", "mine"] })
           }
+        />
+      )}
+
+      {reviewing && (
+        <ReviewDialog
+          bookingId={booking.id}
+          tutorId={booking.tutorId}
+          onClose={() => setReviewing(false)}
+          onReviewed={() => {
+            queryClient.invalidateQueries({ queryKey: ["bookings", "mine"] });
+            queryClient.invalidateQueries({
+              queryKey: ["tutors", "byId", booking.tutorId],
+            });
+          }}
         />
       )}
     </motion.div>

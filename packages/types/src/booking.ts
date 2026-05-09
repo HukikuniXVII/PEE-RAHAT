@@ -27,6 +27,7 @@ export interface Booking {
   amountThb: number;
   acceptDeadlineAt: string;
   reportWindowEndsAt?: string;
+  hasReview: boolean;
   createdAt: string;
 }
 
