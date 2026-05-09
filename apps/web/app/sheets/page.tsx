@@ -1,23 +1,30 @@
+import { type Subject, subjectSchema } from "@peerahat/types";
 import { BookOpen, ChevronRight } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 
-import { SheetGrid } from "@/components/sheet-grid";
 import { createApiClient } from "@/lib/api-client";
 import { getServerAccessToken } from "@/lib/supabase/server";
+
+import { SheetGrid } from "./_components/sheet-grid";
 
 interface Props {
   searchParams: { subject?: string; q?: string };
 }
 
+function parseSubjectParam(raw: string | undefined): Subject | "All" {
+  if (!raw || raw === "All") return "All";
+  return subjectSchema.safeParse(raw).data ?? "All";
+}
+
 export default async function SheetsPage({ searchParams }: Props) {
   const token = await getServerAccessToken();
   const api = createApiClient({ accessToken: token });
+  const subject = parseSubjectParam(searchParams.subject);
+  const initialQuery = searchParams.q ?? "";
   const initial = await api.sheets.list(
-    searchParams.subject && searchParams.subject !== "All"
-      ? // biome-ignore lint: bridged from URL param
-        (searchParams.subject as never)
-      : undefined,
-    searchParams.q,
+    subject === "All" ? undefined : subject,
+    initialQuery || undefined,
   );
 
   return (
@@ -48,7 +55,7 @@ export default async function SheetsPage({ searchParams }: Props) {
           </div>
         </div>
         <Link
-          href="/sheets/upload"
+          href={"/sheets/upload" as Route}
           className="bg-slate-900 p-6 rounded-3xl text-white shadow-xl shadow-slate-200 flex flex-col justify-center gap-3 group"
         >
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
@@ -64,7 +71,11 @@ export default async function SheetsPage({ searchParams }: Props) {
         </Link>
       </div>
 
-      <SheetGrid initial={initial} initialSubject={searchParams.subject ?? "All"} />
+      <SheetGrid
+        initial={initial}
+        initialSubject={subject}
+        initialQuery={initialQuery}
+      />
     </div>
   );
 }

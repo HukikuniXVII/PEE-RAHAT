@@ -1,4 +1,21 @@
+import { z } from "zod";
+
 import type { Subject } from "./tutor";
+
+export const sheetReportReasonSchema = z.enum([
+  "copyright",
+  "fraud",
+  "lowQuality",
+  "other",
+]);
+
+export type SheetReportReason = z.infer<typeof sheetReportReasonSchema>;
+
+export const sheetReportSchema = z.object({
+  sheetId: z.string().min(1),
+  reason: sheetReportReasonSchema,
+  details: z.string().min(1).max(2000),
+});
 
 export interface StudySheet {
   id: string;
@@ -29,11 +46,7 @@ export interface CreateSheetDto {
   introVideoUrl?: string;
 }
 
-export interface SheetReportDto {
-  sheetId: string;
-  reason: "copyright" | "fraud" | "lowQuality" | "other";
-  details: string;
-}
+export type SheetReportDto = z.infer<typeof sheetReportSchema>;
 
 export interface SheetDownloadTicket {
   url: string;

@@ -1,52 +1,60 @@
 "use client";
 
-import type { Page, StudySheet, Subject } from "@peerahat/types";
-import { cn } from "@peerahat/ui";
-import { motion } from "motion/react";
 import {
-  AlertTriangle,
-  Search,
-  ShieldCheck,
-  Star,
-} from "lucide-react";
+  type Page,
+  type StudySheet,
+  type Subject,
+  subjectSchema,
+} from "@peerahat/types";
+import { cn } from "@peerahat/ui";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { AlertTriangle, Search, ShieldCheck, Star } from "lucide-react";
+import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 
 import { PaymentDialog } from "@/components/payment-dialog";
 import { createApiClient } from "@/lib/api-client";
 
-const SUBJECTS = [
-  "All",
-  "Math",
-  "Physics",
-  "Chemistry",
-  "Biology",
-  "English",
-  "Social",
-  "Thai",
-] as const;
+const SUBJECTS = ["All", ...subjectSchema.options] as const;
+type SubjectFilter = (typeof SUBJECTS)[number];
 
 interface Props {
   initial: Page<StudySheet>;
-  initialSubject: string;
+  initialSubject: SubjectFilter;
+  initialQuery: string;
 }
 
-export function SheetGrid({ initial, initialSubject }: Props) {
-  const [subject, setSubject] = useState(initialSubject);
-  const [query, setQuery] = useState("");
-  const [items, setItems] = useState<StudySheet[]>(initial.items);
+export function SheetGrid({ initial, initialSubject, initialQuery }: Props) {
+  const [subject, setSubject] = useState<SubjectFilter>(initialSubject);
+  const [query, setQuery] = useState(initialQuery);
+  const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   const [purchasing, setPurchasing] = useState<StudySheet | null>(null);
 
   useEffect(() => {
-    const handle = setTimeout(async () => {
-      const api = createApiClient();
-      const next = await api.sheets.list(
-        subject === "All" ? undefined : (subject as Subject),
-        query || undefined,
-      );
-      setItems(next.items);
-    }, 300);
+    const handle = setTimeout(() => setDebouncedQuery(query), 300);
     return () => clearTimeout(handle);
-  }, [subject, query]);
+  }, [query]);
+
+  const { data } = useQuery({
+    queryKey: ["sheets", "list", { subject, q: debouncedQuery }],
+    queryFn: () =>
+      createApiClient().sheets.list(
+        subject === "All" ? undefined : (subject as Subject),
+        debouncedQuery || undefined,
+      ),
+    initialData: initial,
+    placeholderData: (prev) => prev,
+  });
+  const items = data?.items ?? initial.items;
+
+  const reportMutation = useMutation({
+    mutationFn: (sheetId: string) =>
+      createApiClient().sheets.report({
+        sheetId,
+        reason: "copyright",
+        details: "Reported via UI",
+      }),
+  });
 
   return (
     <div className="space-y-8">
@@ -55,6 +63,7 @@ export function SheetGrid({ initial, initialSubject }: Props) {
           {SUBJECTS.slice(0, 6).map((cat) => (
             <button
               key={cat}
+              type="button"
               onClick={() => setSubject(cat)}
               className={cn(
                 "px-5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap",
@@ -113,14 +122,10 @@ export function SheetGrid({ initial, initialSubject }: Props) {
                     {sheet.rating.toFixed(1)}
                   </div>
                   <button
-                    onClick={() =>
-                      void createApiClient().sheets.report({
-                        sheetId: sheet.id,
-                        reason: "copyright",
-                        details: "Reported via UI",
-                      })
-                    }
-                    className="text-[10px] font-bold text-slate-300 hover:text-red-400 flex items-center gap-1 transition-colors"
+                    type="button"
+                    disabled={reportMutation.isPending}
+                    onClick={() => reportMutation.mutate(sheet.id)}
+                    className="text-[10px] font-bold text-slate-300 hover:text-red-400 flex items-center gap-1 transition-colors disabled:opacity-50"
                   >
                     <AlertTriangle size={12} />
                     Report
@@ -154,6 +159,7 @@ export function SheetGrid({ initial, initialSubject }: Props) {
                   </p>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setPurchasing(sheet)}
                   className="px-8 py-3 bg-indigo-600 text-white rounded-[20px] font-black text-sm shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all transform hover:-translate-y-1"
                 >
