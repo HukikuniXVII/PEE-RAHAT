@@ -1,12 +1,12 @@
 import { createApiClient } from "@/lib/api-client";
-import { getServerAccessToken } from "@/lib/supabase/server";
+import { requireAuth } from "@/lib/auth";
 
 import { BookingsList } from "./_components/bookings-list";
 
 export default async function BookingsPage() {
-  const token = await getServerAccessToken();
+  const token = await requireAuth("/bookings");
   const api = createApiClient({ accessToken: token });
-  const initial = token ? await api.bookings.mine() : [];
+  const initial = await api.bookings.mine();
 
   return (
     <div className="max-w-3xl mx-auto space-y-8 pb-20">

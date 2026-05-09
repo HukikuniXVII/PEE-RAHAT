@@ -15,6 +15,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { createApiClient } from "@/lib/api-client";
+import { sanitizeNextPath } from "@/lib/auth";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type Mode = "signIn" | "signUp";
@@ -22,7 +23,7 @@ type Mode = "signIn" | "signUp";
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("next") ?? "/";
+  const redirectTo = sanitizeNextPath(searchParams.get("next"));
 
   const [mode, setMode] = useState<Mode>("signIn");
   const [error, setError] = useState<string | null>(null);
