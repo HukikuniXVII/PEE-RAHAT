@@ -81,21 +81,57 @@ export class BookingsService {
     return { ...updated, hasReview: false, viewerSide: "tutor" as const };
   }
 
-  async report(supabaseId: string, bookingId: string, dto: { reason: string; details: string }) {
+  /**
+   * FR-PM-05: student report inside the 24h window. Creates the Report
+   * row and immediately freezes the linked escrow so admin has time to
+   * review before the release timer fires. Mirrors AdminService.freezeBooking
+   * for the payment-side effects but is owner-scoped (only the booking's
+   * student can call this).
+   */
+  async report(
+    supabaseId: string,
+    bookingId: string,
+    dto: { reason: string; details: string },
+  ) {
     const user = await this.prisma.user.findUnique({ where: { supabaseId } });
     if (!user) throw new BadRequestException();
-    await this.prisma.report.create({
-      data: {
-        reporterId: user.id,
-        targetType: "booking",
-        targetId: bookingId,
-        reason: dto.reason,
-        details: dto.details,
-      },
-    });
-    await this.prisma.booking.update({
+    const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
-      data: { status: "reported" },
+      include: { paymentIntent: true },
+    });
+    if (!booking) throw new NotFoundException();
+    if (booking.studentId !== user.id) throw new ForbiddenException();
+    if (
+      !booking.reportWindowEndsAt ||
+      booking.reportWindowEndsAt.getTime() < Date.now()
+    ) {
+      throw new BadRequestException("Report window is not open");
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.report.create({
+        data: {
+          reporterId: user.id,
+          targetType: "booking",
+          targetId: bookingId,
+          reason: dto.reason,
+          details: dto.details,
+        },
+      });
+      // Only freeze if escrow is still holding. If it already released
+      // into a payout (FR-PM-06) or was refunded, the dispute is handled
+      // out-of-band by admin via the existing /admin/bookings/:id/freeze
+      // path which has wider authority.
+      if (booking.paymentIntent?.status === "held_in_escrow") {
+        await tx.paymentIntent.update({
+          where: { id: booking.paymentIntent.id },
+          data: { status: "disputed" },
+        });
+      }
+      await tx.booking.update({
+        where: { id: bookingId },
+        data: { status: "reported" },
+      });
     });
   }
 }
