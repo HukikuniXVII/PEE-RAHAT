@@ -18,9 +18,15 @@ export class PayoutsService {
 
   /**
    * Aggregate every released-escrow booking inside the period into one
-   * Payout per tutor. Idempotent: a tutor with no eligible bookings is
-   * skipped; bookings already attached to a prior Payout are not
-   * re-counted (TODO: requires a Booking → Payout link, see schema TODO).
+   * Payout per tutor. Idempotent at the intent level: each PaymentIntent
+   * carries a payoutId once consumed, and the eligibility query filters
+   * `payoutId: null` so a second call for an overlapping window can
+   * never re-count the same release.
+   *
+   * TODO: concurrent admin invocations can still race (both see the same
+   * unlinked set). A SERIALIZABLE transaction or Postgres advisory lock
+   * around the whole method would close that gap; manual flow makes it
+   * unlikely in Phase 1.
    */
   async computeForPeriod(periodStart: Date, periodEnd: Date) {
     if (periodEnd <= periodStart) {
@@ -32,28 +38,39 @@ export class PayoutsService {
         itemType: "booking",
         releasedAt: { gte: periodStart, lt: periodEnd },
         bookingId: { not: null },
+        payoutId: null,
       },
       include: { booking: true },
     });
 
-    const byTutor = new Map<string, number>();
+    const byTutor = new Map<string, { gross: number; intentIds: string[] }>();
     for (const intent of releasedIntents) {
       if (!intent.booking) continue;
       const tutorId = intent.booking.tutorId;
-      byTutor.set(tutorId, (byTutor.get(tutorId) ?? 0) + intent.amountThb);
+      const bucket = byTutor.get(tutorId) ?? { gross: 0, intentIds: [] };
+      bucket.gross += intent.amountThb;
+      bucket.intentIds.push(intent.id);
+      byTutor.set(tutorId, bucket);
     }
 
     const created = [];
-    for (const [tutorId, gross] of byTutor) {
-      const pricing = pricePayout(gross);
-      const payout = await this.prisma.payout.create({
-        data: {
-          tutorId,
-          periodStart,
-          periodEnd,
-          ...pricing,
-          scheduledAt: periodEnd,
-        },
+    for (const [tutorId, bucket] of byTutor) {
+      const pricing = pricePayout(bucket.gross);
+      const payout = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.payout.create({
+          data: {
+            tutorId,
+            periodStart,
+            periodEnd,
+            ...pricing,
+            scheduledAt: periodEnd,
+          },
+        });
+        await tx.paymentIntent.updateMany({
+          where: { id: { in: bucket.intentIds } },
+          data: { payoutId: created.id },
+        });
+        return created;
       });
       created.push(payout);
     }

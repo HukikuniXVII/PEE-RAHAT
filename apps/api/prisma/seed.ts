@@ -280,54 +280,10 @@ async function seed() {
     });
   }
 
-  // PaymentIntents for B3 (held_in_escrow), B4 (released, within payout
-  // window), B5 (disputed via admin freeze — FR-PM-05).
-  const intents = [
-    {
-      id: "seed-pi-3",
-      bookingId: "seed-booking-3",
-      amountThb: 400,
-      status: "held_in_escrow" as const,
-      releasedAt: null as Date | null,
-      expiresAt: addHours(now, 1),
-    },
-    {
-      id: "seed-pi-4",
-      bookingId: "seed-booking-4",
-      amountThb: 350,
-      status: "released" as const,
-      releasedAt: addDays(now, -5),
-      expiresAt: addDays(now, -8),
-    },
-    {
-      id: "seed-pi-5",
-      bookingId: "seed-booking-5",
-      amountThb: 400,
-      status: "disputed" as const,
-      releasedAt: null,
-      expiresAt: addDays(now, -1),
-    },
-  ];
-  for (const i of intents) {
-    await prisma.paymentIntent.upsert({
-      where: { id: i.id },
-      update: { status: i.status, releasedAt: i.releasedAt },
-      create: {
-        id: i.id,
-        payerId: ning.id,
-        itemType: "booking",
-        bookingId: i.bookingId,
-        amountThb: i.amountThb,
-        promptPayQrPayload: `promptpay-stub:amount=${i.amountThb}`,
-        status: i.status,
-        releasedAt: i.releasedAt,
-        expiresAt: i.expiresAt,
-      },
-    });
-  }
-
-  // ─── Payout for the released intent (FR-PM-06 + FR-PM-07) ──────────────
-  // Picks up B4 only (B3 still held, B5 disputed, B1/B2 no intent).
+  // ─── Payout first, then intents — so B4's intent can be linked to it ──
+  // (FR-PM-06 + FR-PM-07). seed-pi-4 carries payoutId = seed-payout-1,
+  // which makes it ineligible for re-counting on a second compute call —
+  // that's the idempotency proof.
   const periodStart = addDays(now, -30);
   const periodEnd = now;
   const payoutPricing = pricePayout(350);
@@ -343,6 +299,60 @@ async function seed() {
       scheduledAt: periodEnd,
     },
   });
+
+  // PaymentIntents for B3 (held_in_escrow), B4 (released + linked to
+  // seed-payout-1), B5 (disputed via admin freeze — FR-PM-05).
+  const intents = [
+    {
+      id: "seed-pi-3",
+      bookingId: "seed-booking-3",
+      amountThb: 400,
+      status: "held_in_escrow" as const,
+      releasedAt: null as Date | null,
+      expiresAt: addHours(now, 1),
+      payoutId: null as string | null,
+    },
+    {
+      id: "seed-pi-4",
+      bookingId: "seed-booking-4",
+      amountThb: 350,
+      status: "released" as const,
+      releasedAt: addDays(now, -5),
+      expiresAt: addDays(now, -8),
+      payoutId: "seed-payout-1",
+    },
+    {
+      id: "seed-pi-5",
+      bookingId: "seed-booking-5",
+      amountThb: 400,
+      status: "disputed" as const,
+      releasedAt: null,
+      expiresAt: addDays(now, -1),
+      payoutId: null,
+    },
+  ];
+  for (const i of intents) {
+    await prisma.paymentIntent.upsert({
+      where: { id: i.id },
+      update: {
+        status: i.status,
+        releasedAt: i.releasedAt,
+        payoutId: i.payoutId,
+      },
+      create: {
+        id: i.id,
+        payerId: ning.id,
+        itemType: "booking",
+        bookingId: i.bookingId,
+        amountThb: i.amountThb,
+        promptPayQrPayload: `promptpay-stub:amount=${i.amountThb}`,
+        status: i.status,
+        releasedAt: i.releasedAt,
+        expiresAt: i.expiresAt,
+        payoutId: i.payoutId,
+      },
+    });
+  }
 
   // ─── Community: post + 2 replies + 1 upvote + 1 report ─────────────────
   const post = await prisma.communityPost.upsert({
