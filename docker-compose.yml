@@ -16,15 +16,21 @@ services:
       timeout: 3s
       retries: 10
 
-  # Uncomment once BullMQ payout/escrow jobs are wired up.
-  # redis:
-  #   image: redis:7-alpine
-  #   container_name: peerahat-redis
-  #   ports:
-  #     - "6379:6379"
-  #   volumes:
-  #     - peerahat-redis:/data
+  # Backs BullMQ jobs for payout batches (FR-PM-06) and escrow release
+  # (FR-PM-05). Container name kept stable for app-side IORedis config.
+  redis:
+    image: redis:7-alpine
+    container_name: peerahat-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - peerahat-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
 volumes:
   peerahat-pg:
-  # peerahat-redis:
+  peerahat-redis:
