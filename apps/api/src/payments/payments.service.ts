@@ -13,6 +13,7 @@ import type {
 import { addHours } from "date-fns";
 
 import { PrismaService } from "../prisma/prisma.service";
+import { encodePromptPayPayload } from "./promptpay";
 import { SlipOkClient } from "./slip-ok.client";
 
 @Injectable()
@@ -136,8 +137,19 @@ export class PaymentsService {
   }
 
   private buildPromptPayPayload(amountThb: number): string {
-    // TODO: replace with real EMVCo PromptPay payload using merchant ID.
-    return `promptpay-stub:amount=${amountThb}`;
+    const merchantId = process.env.PROMPTPAY_MERCHANT_ID;
+    if (!merchantId) {
+      if (process.env.NODE_ENV === "production") {
+        throw new Error(
+          "PROMPTPAY_MERCHANT_ID is not set — cannot generate PromptPay QR. Configure it in the production env (10-digit mobile, 13-digit NID, or 15-digit e-wallet id).",
+        );
+      }
+      // Dev fallback so localhost flows keep working without config.
+      // Production throws above so a missing env never silently ships
+      // an unscannable QR.
+      return `promptpay-stub:amount=${amountThb}`;
+    }
+    return encodePromptPayPayload({ merchantId, amountThb });
   }
 
   /**
