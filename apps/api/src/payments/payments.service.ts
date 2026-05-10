@@ -139,4 +139,41 @@ export class PaymentsService {
     // TODO: replace with real EMVCo PromptPay payload using merchant ID.
     return `promptpay-stub:amount=${amountThb}`;
   }
+
+  /**
+   * FR-PM-05: when the 24h report window closes without a dispute, flip the
+   * intent from `held_in_escrow` to `released` and mark the booking complete
+   * so the next payout batch (FR-PM-06) can pick it up.
+   *
+   * Stub: real implementation will run as a BullMQ scheduled job; this method
+   * is the pure transition the job will call. Disputed intents (admin freeze)
+   * are excluded so they stay out of payouts.
+   */
+  async releaseExpiredEscrow(now: Date = new Date()): Promise<{ released: number }> {
+    const due = await this.prisma.booking.findMany({
+      where: {
+        status: "paid",
+        reportWindowEndsAt: { lte: now },
+        paymentIntent: { status: "held_in_escrow" },
+      },
+      include: { paymentIntent: true },
+    });
+
+    let released = 0;
+    for (const booking of due) {
+      if (!booking.paymentIntent) continue;
+      await this.prisma.$transaction([
+        this.prisma.paymentIntent.update({
+          where: { id: booking.paymentIntent.id },
+          data: { status: "released", releasedAt: now },
+        }),
+        this.prisma.booking.update({
+          where: { id: booking.id },
+          data: { status: "completed" },
+        }),
+      ]);
+      released += 1;
+    }
+    return { released };
+  }
 }

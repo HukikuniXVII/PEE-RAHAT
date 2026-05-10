@@ -8,7 +8,8 @@ export type PaymentStatus =
   | "held_in_escrow"
   | "released"
   | "refunded"
-  | "failed";
+  | "failed"
+  | "disputed";
 
 export interface PaymentIntent {
   id: string;

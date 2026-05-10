@@ -110,4 +110,29 @@ export class AdminService {
       orderBy: { createdAt: "asc" },
     });
   }
+
+  /**
+   * FR-PM-05: admin response to a Report-Issue. Marks the linked payment
+   * intent `disputed` so it never enters the next payout batch (FR-PM-06)
+   * and records the dispute on the booking. Resolution (refund vs release)
+   * happens via separate admin actions once the dispute is investigated.
+   */
+  async freezeBooking(bookingId: string) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { paymentIntent: true },
+    });
+    if (!booking) throw new NotFoundException();
+
+    if (booking.paymentIntent) {
+      await this.prisma.paymentIntent.update({
+        where: { id: booking.paymentIntent.id },
+        data: { status: "disputed" },
+      });
+    }
+    return this.prisma.booking.update({
+      where: { id: bookingId },
+      data: { status: "reported" },
+    });
+  }
 }

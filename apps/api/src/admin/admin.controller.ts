@@ -75,6 +75,17 @@ export class AdminController {
     return this.admin.resolveReport(id);
   }
 
+  // FR-PM-05: dispute freeze. Triggered when a student files Report-Issue
+  // within the 24h window — blocks escrow release until admin adjudicates.
+  @Post("bookings/:id/freeze")
+  async freezeBooking(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") id: string,
+  ) {
+    await this.assertAdmin(user.sub);
+    return this.admin.freezeBooking(id);
+  }
+
   private async assertAdmin(supabaseId: string) {
     const u = await this.prisma.user.findUnique({ where: { supabaseId } });
     if (!u || u.role !== "admin") throw new ForbiddenException();

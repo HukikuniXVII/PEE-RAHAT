@@ -302,6 +302,7 @@ enum PaymentStatus {
   released
   refunded
   failed
+  disputed
 }
 
 model PaymentIntent {
