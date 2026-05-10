@@ -7,6 +7,7 @@ import { BookingsModule } from "./bookings/bookings.module";
 import { ChatModule } from "./chat/chat.module";
 import { CommonModule } from "./common/common.module";
 import { CommunityModule } from "./community/community.module";
+import { JobsModule } from "./jobs/jobs.module";
 import { KycModule } from "./kyc/kyc.module";
 import { PaymentsModule } from "./payments/payments.module";
 import { PrismaModule } from "./prisma/prisma.module";
@@ -35,6 +36,7 @@ import { UsersModule } from "./users/users.module";
     ChatModule,
     PaymentsModule,
     AdminModule,
+    JobsModule,
   ],
 })
 export class AppModule {}

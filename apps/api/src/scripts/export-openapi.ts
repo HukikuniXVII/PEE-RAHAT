@@ -1,3 +1,8 @@
+// Skip JobsModule scheduling — this script only needs route metadata,
+// not a live worker. Must run before the AppModule import so JobsService
+// sees the env var on its onModuleInit.
+process.env.JOBS_ENABLED = "false";
+
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 

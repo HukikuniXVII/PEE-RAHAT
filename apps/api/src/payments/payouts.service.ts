@@ -94,6 +94,23 @@ export class PayoutsService {
     });
   }
 
+  /**
+   * Wrapper for the cron job (15th + 30th of each month). Picks the
+   * window as `[max(periodEnd of any prior payout) … now]` so windows
+   * are always contiguous; falls back to 60 days ago on first run.
+   * Idempotent for the same reasons computeForPeriod is — already-linked
+   * intents are excluded by payoutId IS NULL.
+   */
+  async runScheduledPayout() {
+    const last = await this.prisma.payout.findFirst({
+      orderBy: { periodEnd: "desc" },
+    });
+    const periodStart =
+      last?.periodEnd ?? new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+    const periodEnd = new Date();
+    return this.computeForPeriod(periodStart, periodEnd);
+  }
+
   async markPaid(payoutId: string) {
     const existing = await this.prisma.payout.findUnique({ where: { id: payoutId } });
     if (!existing) throw new NotFoundException();
