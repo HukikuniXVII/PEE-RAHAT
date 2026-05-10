@@ -21,6 +21,10 @@ class ReviewKycDto {
   @IsString() reason?: string;
 }
 
+class RejectSlipDto {
+  @IsString() reason!: string;
+}
+
 @Controller("admin")
 @UseGuards(SupabaseAuthGuard)
 export class AdminController {
@@ -49,6 +53,27 @@ export class AdminController {
   async paymentsQueue(@CurrentUser() user: SupabaseJwtPayload) {
     await this.assertAdmin(user.sub);
     return this.admin.paymentsQueue();
+  }
+
+  // FR-PM-01: manual override on top of SlipOK for slips that need a human
+  // (timeouts, foreign-bank transfers, ambiguous evidence).
+  @Post("payments/:id/approve")
+  async approveSlip(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") id: string,
+  ) {
+    await this.assertAdmin(user.sub);
+    return this.admin.approveSlip(id);
+  }
+
+  @Post("payments/:id/reject")
+  async rejectSlip(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") id: string,
+    @Body() dto: RejectSlipDto,
+  ) {
+    await this.assertAdmin(user.sub);
+    return this.admin.rejectSlip(id, dto.reason);
   }
 
   @Get("reports")

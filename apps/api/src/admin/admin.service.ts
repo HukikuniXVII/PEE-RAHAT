@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import type { AdminReport, ReportTargetType } from "@peerahat/types";
 
 import { PrismaService } from "../prisma/prisma.service";
@@ -108,6 +108,50 @@ export class AdminService {
     return this.prisma.paymentIntent.findMany({
       where: { status: { in: ["slip_uploaded", "verifying"] } },
       orderBy: { createdAt: "asc" },
+    });
+  }
+
+  /**
+   * FR-PM-01: manual override for cases SlipOK can't decide on its own
+   * (timeouts, ambiguous slip, foreign-bank transfers). Approving moves
+   * funds into escrow and starts the booking's 24h report window
+   * (FR-PM-05) — same end-state as a clean SlipOK pass.
+   */
+  async approveSlip(intentId: string) {
+    const intent = await this.prisma.paymentIntent.findUnique({
+      where: { id: intentId },
+    });
+    if (!intent) throw new NotFoundException();
+    if (
+      intent.status !== "slip_uploaded" &&
+      intent.status !== "verifying" &&
+      intent.status !== "failed"
+    ) {
+      throw new BadRequestException("Intent is not awaiting admin review");
+    }
+
+    const updated = await this.prisma.paymentIntent.update({
+      where: { id: intentId },
+      data: { status: "held_in_escrow", failureReason: null },
+    });
+    if (intent.bookingId) {
+      const reportWindowEndsAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      await this.prisma.booking.update({
+        where: { id: intent.bookingId },
+        data: { status: "paid", reportWindowEndsAt },
+      });
+    }
+    return updated;
+  }
+
+  async rejectSlip(intentId: string, reason: string) {
+    const intent = await this.prisma.paymentIntent.findUnique({
+      where: { id: intentId },
+    });
+    if (!intent) throw new NotFoundException();
+    return this.prisma.paymentIntent.update({
+      where: { id: intentId },
+      data: { status: "failed", failureReason: reason },
     });
   }
 
