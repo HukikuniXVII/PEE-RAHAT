@@ -15,7 +15,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { createApiClient } from "@/lib/api-client";
-import { sanitizeNextPath } from "@/lib/auth";
+import { sanitizeNextPath } from "@/lib/auth-utils";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type Mode = "signIn" | "signUp";

@@ -2,12 +2,11 @@ import type { ChatThread } from "@peerahat/types";
 import { redirect } from "next/navigation";
 
 import { createApiClient } from "./api-client";
+import { sanitizeNextPath, type InitialUser } from "./auth-utils";
 import { createSupabaseServerClient, getServerAccessToken } from "./supabase/server";
 
-export interface InitialUser {
-  displayName: string;
-  email: string;
-}
+export type { InitialUser } from "./auth-utils";
+export { sanitizeNextPath } from "./auth-utils";
 
 /**
  * Server-side fetch of the calling viewer's chat threads, used to seed the
@@ -40,17 +39,6 @@ export async function getInitialUser(): Promise<InitialUser | null> {
     displayName: meta.displayName ?? fallback,
     email: data.user.email ?? "",
   };
-}
-
-/**
- * Constrain a `next` redirect target to a same-origin relative path so a
- * malicious link like `?next=//evil.com/...` can't bounce the user off-site.
- */
-export function sanitizeNextPath(raw: string | undefined | null): string {
-  if (!raw) return "/";
-  if (!raw.startsWith("/")) return "/";
-  if (raw.startsWith("//")) return "/";
-  return raw;
 }
 
 /**

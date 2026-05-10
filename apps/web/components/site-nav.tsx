@@ -24,7 +24,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { createApiClient } from "@/lib/api-client";
-import type { InitialUser } from "@/lib/auth";
+import type { InitialUser } from "@/lib/auth-utils";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const NAV_ITEMS = [
