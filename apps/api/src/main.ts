@@ -10,8 +10,10 @@ try {
 
 import { ValidationPipe, type INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
+import { SwaggerModule } from "@nestjs/swagger";
 
 import { AppModule } from "./app.module";
+import { buildOpenApiConfig } from "./openapi.config";
 
 async function bootstrap() {
   const app: INestApplication = await NestFactory.create(AppModule);
@@ -28,6 +30,9 @@ async function bootstrap() {
     origin: process.env.WEB_ORIGIN ?? "http://localhost:3000",
     credentials: true,
   });
+
+  const document = SwaggerModule.createDocument(app, buildOpenApiConfig());
+  SwaggerModule.setup("api/docs", app, document);
 
   const port = Number(process.env.PORT ?? 3001);
   await app.listen(port, "0.0.0.0");

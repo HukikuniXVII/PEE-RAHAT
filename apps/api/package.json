@@ -12,6 +12,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx --env-file=.env prisma/seed.ts",
+    "openapi:export": "pnpm build && node dist/src/scripts/export-openapi.js",
     "clean": "rimraf dist"
   },
   "dependencies": {
@@ -21,6 +22,7 @@
     "@nestjs/jwt": "^10.2.0",
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.4.7",
+    "@nestjs/swagger": "^7.4.2",
     "@peerahat/types": "workspace:*",
     "@prisma/client": "^5.21.1",
     "@supabase/supabase-js": "^2.45.4",

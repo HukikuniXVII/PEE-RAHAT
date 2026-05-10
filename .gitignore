@@ -34,5 +34,8 @@ pnpm-debug.log*
 # Prisma
 apps/api/prisma/migrations/dev/
 
+# Generated API spec
+apps/api/openapi.json
+
 # Next.js
 next-env.d.ts.bak
