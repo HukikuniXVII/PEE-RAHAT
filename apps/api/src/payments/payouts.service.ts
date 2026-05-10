@@ -1,19 +1,16 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 
 import { PrismaService } from "../prisma/prisma.service";
+import { pricePayout } from "./pricing";
 
 /**
  * FR-PM-06: payouts batch the 15th and 30th of each month.
  * FR-PM-07: 3% withholding tax deducted per Thai law.
  *
- * Phase 1 commission is flat 20% (per requirements §11 — tiered
- * commission FR-PM-04 is Phase 2).
- *
  * This service is the pure computation layer the cron / admin
  * trigger will call; no scheduler is wired yet (TODO: BullMQ).
+ * Pricing constants live in ./pricing so the seed can import them.
  */
-const PHASE_1_COMMISSION_PCT = 20;
-const WITHHOLDING_TAX_PCT = 3;
 
 @Injectable()
 export class PayoutsService {
@@ -48,19 +45,13 @@ export class PayoutsService {
 
     const created = [];
     for (const [tutorId, gross] of byTutor) {
-      const commission = Math.round((gross * PHASE_1_COMMISSION_PCT) / 100);
-      const afterCommission = gross - commission;
-      const withholding = Math.round((afterCommission * WITHHOLDING_TAX_PCT) / 100);
-      const net = afterCommission - withholding;
+      const pricing = pricePayout(gross);
       const payout = await this.prisma.payout.create({
         data: {
           tutorId,
           periodStart,
           periodEnd,
-          grossThb: gross,
-          commissionThb: commission,
-          withholdingTaxThb: withholding,
-          netThb: net,
+          ...pricing,
           scheduledAt: periodEnd,
         },
       });
