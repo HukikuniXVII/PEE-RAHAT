@@ -21,6 +21,7 @@ const TARGET_COLOR: Record<string, string> = {
   sheet: "bg-amber-50 text-amber-600",
   tutor: "bg-rose-50 text-rose-600",
   message: "bg-slate-100 text-slate-500",
+  booking: "bg-rose-50 text-rose-600",
 };
 
 function formatDateTime(iso: string): string {

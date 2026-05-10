@@ -270,6 +270,7 @@ enum ReportTargetType {
   sheet
   tutor
   message
+  booking
 }
 
 model Report {

@@ -87,7 +87,7 @@ export class BookingsService {
     await this.prisma.report.create({
       data: {
         reporterId: user.id,
-        targetType: "post",
+        targetType: "booking",
         targetId: bookingId,
         reason: dto.reason,
         details: dto.details,

@@ -46,6 +46,7 @@ export const reportTargetTypeSchema = z.enum([
   "sheet",
   "tutor",
   "message",
+  "booking",
 ]);
 
 export type ReportTargetType = z.infer<typeof reportTargetTypeSchema>;
