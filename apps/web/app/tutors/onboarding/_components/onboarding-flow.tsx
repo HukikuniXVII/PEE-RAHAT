@@ -193,7 +193,22 @@ export function OnboardingFlow() {
             </div>
           </div>
 
-          <div className="aspect-square bg-slate-50 rounded-[40px] border-2 border-dashed border-slate-200 hover:border-indigo-600 transition-all flex flex-col items-center justify-center gap-4 p-8">
+          <label
+            className={cn(
+              "aspect-square bg-slate-50 rounded-[40px] border-2 border-dashed border-slate-200 hover:border-indigo-600 transition-all flex flex-col items-center justify-center gap-4 p-8",
+              busy ? "cursor-not-allowed opacity-60" : "cursor-pointer",
+            )}
+          >
+            <input
+              type="file"
+              accept="image/*,application/pdf"
+              className="sr-only"
+              disabled={busy}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) upload.mutate({ field: currentField, file: f });
+              }}
+            />
             <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center text-slate-400">
               <FieldIcon size={32} />
             </div>
@@ -203,20 +218,10 @@ export function OnboardingFlow() {
             <p className="text-xs text-slate-400 text-center">
               JPG, PNG, PDF (ไม่เกิน 5MB)
             </p>
-            <label className="mt-2 px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all cursor-pointer">
+            <span className="mt-2 px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">
               {upload.isPending ? "Uploading..." : "เลือกไฟล์"}
-              <input
-                type="file"
-                accept="image/*,application/pdf"
-                className="hidden"
-                disabled={busy}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) upload.mutate({ field: currentField, file: f });
-                }}
-              />
-            </label>
-          </div>
+            </span>
+          </label>
         </div>
 
         {allUploaded && (
