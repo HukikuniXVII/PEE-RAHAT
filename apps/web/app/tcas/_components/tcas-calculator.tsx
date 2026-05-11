@@ -8,7 +8,7 @@ import {
   type TcasScoreField,
   type TcasScores,
 } from "@peerahat/types";
-import { cn } from "@peerahat/ui";
+import { buttonVariants, cn } from "@peerahat/ui";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -313,7 +313,7 @@ export function TcasCalculator({ initialPrograms, initialDeadlines }: Props) {
                         </div>
                         <Link
                           href={`/tutors?subject=${subjectFromField(s.field)}`}
-                          className="px-3 py-2 bg-indigo-600 text-white rounded-lg text-[10px] font-bold whitespace-nowrap hover:bg-indigo-700"
+                          className={buttonVariants({ size: "compact" })}
                         >
                           Find Tutor
                         </Link>
