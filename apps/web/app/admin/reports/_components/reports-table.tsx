@@ -1,7 +1,7 @@
 "use client";
 
 import type { AdminReport, Page } from "@peerahat/types";
-import { cn } from "@peerahat/ui";
+import { Button, cn } from "@peerahat/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { useState } from "react";
@@ -139,13 +139,13 @@ export function ReportsTable({ initialPage }: Props) {
                         Resolved
                       </span>
                     ) : (
-                      <button
-                        type="button"
+                      <Button
+                        variant="success"
+                        size="compact"
                         onClick={() => resolve.mutate(r.id)}
                         disabled={
                           resolve.isPending && resolve.variables === r.id
                         }
-                        className="inline-flex items-center gap-1 px-3 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-bold hover:bg-emerald-700 transition-all disabled:opacity-50"
                       >
                         {resolve.isPending && resolve.variables === r.id ? (
                           <Loader2 size={12} className="animate-spin" />
@@ -153,7 +153,7 @@ export function ReportsTable({ initialPage }: Props) {
                           <CheckCircle2 size={12} />
                         )}
                         Resolve
-                      </button>
+                      </Button>
                     )}
                   </td>
                 </tr>
