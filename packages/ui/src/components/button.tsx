@@ -11,6 +11,7 @@ export const buttonVariants = cva(
         default: "bg-indigo-600 text-white hover:bg-indigo-700",
         secondary: "bg-slate-900 text-white hover:bg-black",
         success: "bg-emerald-600 text-white hover:bg-emerald-700",
+        muted: "bg-slate-100 text-slate-600 hover:bg-slate-200",
         outline:
           "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50",
         ghost: "text-slate-700 hover:bg-slate-50",
