@@ -7,7 +7,7 @@ import {
   signInSchema,
   signUpSchema,
 } from "@peerahat/types";
-import { cn } from "@peerahat/ui";
+import { Button, cn } from "@peerahat/ui";
 import { CheckCircle2, GraduationCap, Loader2, ShieldCheck } from "lucide-react";
 import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -182,11 +182,11 @@ export function LoginForm() {
         ))}
       </div>
 
-      <button
-        type="button"
+      <Button
+        variant="outline"
         onClick={onGoogleSignIn}
         disabled={busy}
-        className="w-full py-3 bg-white border border-slate-200 rounded-2xl font-bold text-sm text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+        className="w-full gap-3"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
           <path
@@ -207,7 +207,7 @@ export function LoginForm() {
           />
         </svg>
         เข้าสู่ระบบด้วย Google
-      </button>
+      </Button>
 
       <div className="flex items-center gap-3">
         <span className="h-px flex-1 bg-slate-100" />
@@ -251,14 +251,14 @@ export function LoginForm() {
               </p>
             )}
           </div>
-          <button
+          <Button
             type="submit"
             disabled={!signInForm.formState.isValid || busy}
-            className="w-full py-3.5 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full"
           >
             {busy && <Loader2 size={16} className="animate-spin" />}
             เข้าสู่ระบบ
-          </button>
+          </Button>
         </form>
       ) : (
         <form onSubmit={onSignUp} className="space-y-4">
@@ -310,14 +310,14 @@ export function LoginForm() {
               </p>
             )}
           </div>
-          <button
+          <Button
             type="submit"
             disabled={!signUpForm.formState.isValid || busy}
-            className="w-full py-3.5 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full"
           >
             {busy && <Loader2 size={16} className="animate-spin" />}
             สมัครสมาชิก
-          </button>
+          </Button>
         </form>
       )}
 
