@@ -65,6 +65,26 @@ export async function asNotFound<T>(promise: Promise<T>): Promise<T> {
   }
 }
 
+/**
+ * When no explicit token is passed (the common case for client components
+ * calling `createApiClient()` inside React Query callbacks), look up the
+ * current Supabase session from the browser's cookie store and use its
+ * access token. Server-side callers still pass tokens explicitly via
+ * `createApiClient({ accessToken })`; this fallback is guarded on `window`
+ * so it stays a no-op during SSR.
+ */
+async function getBrowserAccessToken(): Promise<string | undefined> {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const { createSupabaseBrowserClient } = await import("./supabase/client");
+    const supabase = createSupabaseBrowserClient();
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token;
+  } catch {
+    return undefined;
+  }
+}
+
 async function request<T>(
   path: string,
   init: RequestInit = {},
@@ -74,7 +94,8 @@ async function request<T>(
   if (init.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  const tokenToUse = accessToken ?? (await getBrowserAccessToken());
+  if (tokenToUse) headers.set("Authorization", `Bearer ${tokenToUse}`);
 
   const res = await fetch(`${baseUrl}${path}`, {
     ...init,
