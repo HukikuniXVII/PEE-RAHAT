@@ -73,7 +73,7 @@ pnpm dev:api   # http://localhost:3001/api
 - [x] Booking flow page (`/tutors/[id]/book`)
 - [x] Chat page (`/chat/[threadId]`)
 - [x] Sheet upload page (`/sheets/upload`)
-- [ ] OAuth callback route (`/login` email+password is done; Supabase OAuth flow still pending)
+- [x] OAuth callback route (`/auth/callback` + Google sign-in on `/login`; LINE Login deferred — needs custom OIDC config)
 - [x] Service worker for offline PWA (NFR-10)
 - [ ] Real shadcn/ui Button/Card/Dialog primitives in `@peerahat/ui`
 
