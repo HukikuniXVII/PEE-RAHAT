@@ -1,7 +1,15 @@
 "use client";
 
 import type { PaymentIntent, PaymentItemType } from "@peerahat/types";
-import { cn } from "@peerahat/ui";
+import {
+  Button,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  cn,
+} from "@peerahat/ui";
 import { motion } from "motion/react";
 import {
   AlertTriangle,
@@ -72,29 +80,23 @@ export function PaymentDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="w-full max-w-xl bg-white rounded-[40px] border border-slate-200 shadow-2xl overflow-hidden"
-      >
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="rounded-[40px] p-0">
         <div className="bg-indigo-600 p-8 text-white">
           <div className="flex justify-between items-start mb-6">
             <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
               <ShieldCheck size={28} />
             </div>
-            <button
-              onClick={onClose}
-              className="text-white/60 hover:text-white transition-colors"
-            >
+            <DialogClose className="text-white/60 hover:text-white transition-colors">
               ยกเลิก
-            </button>
+            </DialogClose>
           </div>
-          <h2 className="text-3xl font-black mb-2">Escrow Payment</h2>
-          <p className="text-indigo-100 text-sm">
+          <DialogTitle className="text-3xl text-white mb-2">
+            Escrow Payment
+          </DialogTitle>
+          <DialogDescription className="text-indigo-100">
             เงินของคุณจะถูกเก็บไว้ที่ Pee Rahat จนกว่าการเรียนจะสำเร็จ
-          </p>
+          </DialogDescription>
         </div>
 
         <div className="p-8 space-y-8">
@@ -146,13 +148,14 @@ export function PaymentDialog({
                     สามารถตรวจสอบความถูกต้องได้ทันที
                   </p>
                 </div>
-                <button
+                <Button
                   onClick={() => setStep(2)}
                   disabled={!intent}
-                  className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  size="lg"
+                  className="w-full"
                 >
                   โอนเงินเรียบร้อยแล้ว <ArrowRight size={18} />
-                </button>
+                </Button>
               </div>
             </motion.div>
           )}
@@ -226,12 +229,14 @@ export function PaymentDialog({
                   ผู้รับจะได้รับการแจ้งเตือนเพื่อเตรียมการสอน / ส่งมอบไฟล์
                 </p>
               </div>
-              <button
+              <Button
                 onClick={onClose}
-                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-black transition-all"
+                variant="secondary"
+                size="lg"
+                className="w-full"
               >
                 เสร็จสิ้น
-              </button>
+              </Button>
             </motion.div>
           )}
 
@@ -252,7 +257,7 @@ export function PaymentDialog({
             DBD E-commerce
           </div>
         </div>
-      </motion.div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
