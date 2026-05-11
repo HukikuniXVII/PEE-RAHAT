@@ -1,6 +1,7 @@
 "use client";
 
 import type { CommunityPost, Page } from "@peerahat/types";
+import { Button } from "@peerahat/ui";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 
@@ -39,17 +40,17 @@ export function CommunityFeed({ initialPage }: Props) {
       </div>
       {hasNextPage && (
         <div className="flex justify-center pt-2">
-          <button
-            type="button"
+          <Button
+            variant="muted"
+            size="sm"
             onClick={() => fetchNextPage()}
             disabled={isFetchingNextPage}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-100 text-slate-700 rounded-2xl font-bold text-xs hover:bg-slate-200 transition-all disabled:opacity-50"
           >
             {isFetchingNextPage && (
               <Loader2 size={14} className="animate-spin" />
             )}
             Show more
-          </button>
+          </Button>
         </div>
       )}
     </div>

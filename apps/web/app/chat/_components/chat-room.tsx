@@ -7,7 +7,7 @@ import {
   detectBypassAttempt,
   sendMessageSchema,
 } from "@peerahat/types";
-import { cn } from "@peerahat/ui";
+import { Button, cn } from "@peerahat/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Send, ShieldCheck } from "lucide-react";
 import { motion } from "motion/react";
@@ -204,13 +204,14 @@ export function ChatRoom({ thread, initialMessages }: Props) {
             className="flex-1 bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none resize-none min-h-[44px] max-h-32"
             {...form.register("body")}
           />
-          <button
+          <Button
             type="submit"
+            size="icon"
             disabled={!form.formState.isValid || send.isPending}
-            className="shrink-0 w-12 h-12 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center"
+            className="shrink-0 w-12 h-12"
           >
             <Send size={18} />
-          </button>
+          </Button>
         </div>
         {send.error && (
           <p className="text-[11px] text-rose-600 font-medium">

@@ -6,7 +6,7 @@ import {
   type KycSubmitDto,
   kycSubmitSchema,
 } from "@peerahat/types";
-import { cn } from "@peerahat/ui";
+import { Button, cn } from "@peerahat/ui";
 import { useMutation } from "@tanstack/react-query";
 import {
   Camera,
@@ -232,13 +232,15 @@ export function OnboardingFlow() {
                 ใช้เอกสารเหล่านี้เพื่อการยืนยันตัวตนเท่านั้น
               </span>
             </label>
-            <button
+            <Button
               type="submit"
+              variant="secondary"
+              size="lg"
               disabled={!form.formState.isValid || busy}
-              className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-black transition-all disabled:opacity-50"
+              className="w-full"
             >
               ส่งเอกสารเพื่อตรวจสอบ
-            </button>
+            </Button>
           </div>
         )}
 
