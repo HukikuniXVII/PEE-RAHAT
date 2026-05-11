@@ -40,6 +40,7 @@ services:
   #   S3_SECRET_ACCESS_KEY=minioadmin
   #   S3_BUCKET_KYC=peerahat-kyc
   #   S3_BUCKET_SHEETS=peerahat-sheets
+  #   S3_BUCKET_KYC_ARCHIVE=peerahat-kyc-archive
   minio:
     image: minio/minio:latest
     container_name: peerahat-minio
@@ -71,7 +72,8 @@ services:
         done
         mc mb --ignore-existing local/peerahat-kyc
         mc mb --ignore-existing local/peerahat-sheets
-        echo 'Buckets ready: peerahat-kyc, peerahat-sheets'
+        mc mb --ignore-existing local/peerahat-kyc-archive
+        echo 'Buckets ready: peerahat-kyc, peerahat-sheets, peerahat-kyc-archive'
 
 volumes:
   peerahat-pg:
