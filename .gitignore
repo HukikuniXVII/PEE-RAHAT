@@ -39,3 +39,7 @@ apps/api/openapi.json
 
 # Next.js
 next-env.d.ts.bak
+
+# MCP tooling artifacts (project-local servers + Playwright MCP run snapshots)
+.mcp.json
+.playwright-mcp/
