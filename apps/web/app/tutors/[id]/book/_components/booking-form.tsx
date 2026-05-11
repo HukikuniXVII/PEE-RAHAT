@@ -6,7 +6,7 @@ import {
   type Tutor,
   createBookingSchema,
 } from "@peerahat/types";
-import { cn } from "@peerahat/ui";
+import { Button, cn } from "@peerahat/ui";
 import { useMutation } from "@tanstack/react-query";
 import {
   CalendarClock,
@@ -189,13 +189,14 @@ export function BookingForm({ tutor }: Props) {
         </p>
       )}
 
-      <button
+      <Button
         type="submit"
+        size="lg"
         disabled={!form.formState.isValid || create.isPending}
-        className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold text-lg hover:bg-indigo-700 transition-all disabled:opacity-50"
+        className="w-full text-lg"
       >
         {create.isPending ? "กำลังส่งคำขอ..." : "ส่งคำขอจองคลาส"}
-      </button>
+      </Button>
     </form>
   );
 }

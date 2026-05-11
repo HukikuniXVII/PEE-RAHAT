@@ -7,6 +7,7 @@ import {
   type Page,
   createPostSchema,
 } from "@peerahat/types";
+import { Button } from "@peerahat/ui";
 import {
   type InfiniteData,
   useMutation,
@@ -90,13 +91,13 @@ export function PostComposer() {
             </span>
           </label>
           <div className="flex justify-end">
-            <button
+            <Button
               type="submit"
               disabled={!form.formState.isValid || createPost.isPending}
-              className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 disabled:opacity-50"
+              className="px-8 font-black shadow-lg shadow-indigo-100"
             >
               ตั้งกระทู้
-            </button>
+            </Button>
           </div>
         </div>
       </div>
