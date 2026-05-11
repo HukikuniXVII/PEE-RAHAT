@@ -64,7 +64,7 @@ pnpm dev:api   # http://localhost:3001/api
 ## TODO before Phase 1 ship
 
 - [x] Real R2/S3 SDK in `StorageService` (NFR-03)
-- [ ] Real SlipOK call in `SlipOkClient` (FR-PM-01)
+- [x] Real SlipOK call in `SlipOkClient` (FR-PM-01)
 - [x] EMVCo PromptPay payload generator (FR-PM-01)
 - [x] BullMQ payout batch job (15th/30th, FR-PM-06) with 3% withholding (FR-PM-07)
 - [ ] Cron job to archive verified KYC files to cold storage within 24h (NFR-03)
@@ -74,7 +74,7 @@ pnpm dev:api   # http://localhost:3001/api
 - [x] Chat page (`/chat/[threadId]`)
 - [x] Sheet upload page (`/sheets/upload`)
 - [ ] OAuth callback route (`/login` email+password is done; Supabase OAuth flow still pending)
-- [ ] Service worker for offline PWA (NFR-10)
+- [x] Service worker for offline PWA (NFR-10)
 - [ ] Real shadcn/ui Button/Card/Dialog primitives in `@peerahat/ui`
 
 Out-of-scope items removed from the AI Studio prototype: Gemini research-paper search, lesson knowledge graph, and AI Mentor / Persona configuration.

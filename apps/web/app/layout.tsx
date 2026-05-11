@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 
+import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteNav } from "@/components/site-nav";
 import { getInitialThreads, getInitialUser } from "@/lib/auth";
@@ -41,6 +42,7 @@ export default async function RootLayout({
             {children}
           </main>
           <SiteFooter />
+          <ServiceWorkerRegister />
         </Providers>
       </body>
     </html>
