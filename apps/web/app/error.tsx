@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@peerahat/ui";
 import { AlertTriangle, RotateCw } from "lucide-react";
 import { useEffect } from "react";
 
@@ -31,14 +32,10 @@ export default function ErrorPage({ error, reset }: Props) {
           )}
         </p>
       </div>
-      <button
-        type="button"
-        onClick={reset}
-        className="inline-flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl font-bold text-sm hover:bg-black transition-all"
-      >
+      <Button variant="secondary" onClick={reset}>
         <RotateCw size={16} />
         ลองอีกครั้ง
-      </button>
+      </Button>
     </div>
   );
 }

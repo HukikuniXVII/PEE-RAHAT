@@ -1,3 +1,4 @@
+import { buttonVariants } from "@peerahat/ui";
 import { Compass } from "lucide-react";
 import Link from "next/link";
 
@@ -15,10 +16,7 @@ export default function NotFound() {
           ลิงก์อาจหมดอายุ หรือพิมพ์ที่อยู่ผิด ลองกลับไปเริ่มต้นใหม่
         </p>
       </div>
-      <Link
-        href="/"
-        className="inline-block px-6 py-3 bg-slate-900 text-white rounded-2xl font-bold text-sm hover:bg-black transition-all"
-      >
+      <Link href="/" className={buttonVariants({ variant: "secondary" })}>
         กลับหน้าแรก
       </Link>
     </div>
