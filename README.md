@@ -75,6 +75,6 @@ pnpm dev:api   # http://localhost:3001/api
 - [x] Sheet upload page (`/sheets/upload`)
 - [x] OAuth callback route (`/auth/callback` + Google sign-in on `/login`; LINE Login deferred — needs custom OIDC config)
 - [x] Service worker for offline PWA (NFR-10)
-- [ ] Real shadcn/ui Button/Card/Dialog primitives in `@peerahat/ui`
+- [x] Real shadcn/ui Button/Card/Dialog primitives in `@peerahat/ui`
 
 Out-of-scope items removed from the AI Studio prototype: Gemini research-paper search, lesson knowledge graph, and AI Mentor / Persona configuration.
