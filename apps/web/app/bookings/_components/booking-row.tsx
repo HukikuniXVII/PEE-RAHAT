@@ -1,7 +1,7 @@
 "use client";
 
 import type { Booking, BookingStatus } from "@peerahat/types";
-import { cn } from "@peerahat/ui";
+import { Button, cn } from "@peerahat/ui";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -138,11 +138,10 @@ export function BookingRow({ booking }: Props) {
 
         <div className="flex items-center gap-2">
           {acceptable && (
-            <button
-              type="button"
+            <Button
+              variant="success"
               onClick={() => accept.mutate()}
               disabled={accept.isPending}
-              className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 transition-all flex items-center gap-2 disabled:opacity-50"
             >
               {accept.isPending ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -150,17 +149,13 @@ export function BookingRow({ booking }: Props) {
                 <ThumbsUp size={14} />
               )}
               Accept (Tutor)
-            </button>
+            </Button>
           )}
           {booking.status === "accepted" && booking.viewerSide === "student" && (
-            <button
-              type="button"
-              onClick={() => setPaying(true)}
-              className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition-all flex items-center gap-2"
-            >
+            <Button onClick={() => setPaying(true)}>
               <Wallet size={16} />
               Pay Now
-            </button>
+            </Button>
           )}
           {reviewable && (
             <button
