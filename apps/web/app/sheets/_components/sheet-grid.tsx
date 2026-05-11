@@ -6,7 +6,7 @@ import {
   type Subject,
   subjectSchema,
 } from "@peerahat/types";
-import { cn } from "@peerahat/ui";
+import { Button, cn } from "@peerahat/ui";
 import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -190,13 +190,12 @@ export function SheetGrid({ initial, initialSubject, initialQuery }: Props) {
                     ฿{sheet.priceThb.toLocaleString()}
                   </p>
                 </div>
-                <button
-                  type="button"
+                <Button
                   onClick={() => setPurchasing(sheet)}
-                  className="px-8 py-3 bg-indigo-600 text-white rounded-[20px] font-black text-sm shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all transform hover:-translate-y-1"
+                  className="px-8 font-black shadow-xl shadow-indigo-100 hover:-translate-y-1"
                 >
                   Buy Now
-                </button>
+                </Button>
               </div>
             </div>
           </motion.div>
@@ -205,17 +204,17 @@ export function SheetGrid({ initial, initialSubject, initialQuery }: Props) {
 
       {hasNextPage && (
         <div className="flex justify-center pt-2">
-          <button
-            type="button"
+          <Button
+            variant="muted"
+            size="sm"
             onClick={() => fetchNextPage()}
             disabled={isFetchingNextPage}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-100 text-slate-700 rounded-2xl font-bold text-xs hover:bg-slate-200 transition-all disabled:opacity-50"
           >
             {isFetchingNextPage && (
               <Loader2 size={14} className="animate-spin" />
             )}
             Show more
-          </button>
+          </Button>
         </div>
       )}
 
