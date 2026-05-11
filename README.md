@@ -67,7 +67,7 @@ pnpm dev:api   # http://localhost:3001/api
 - [x] Real SlipOK call in `SlipOkClient` (FR-PM-01)
 - [x] EMVCo PromptPay payload generator (FR-PM-01)
 - [x] BullMQ payout batch job (15th/30th, FR-PM-06) with 3% withholding (FR-PM-07)
-- [ ] Cron job to archive verified KYC files to cold storage within 24h (NFR-03)
+- [x] Cron job to archive verified KYC files to cold storage within 24h (NFR-03)
 - [x] Cron job to release escrow once 24h report window expires (FR-PM-05)
 - [x] Tutor profile detail page (`/tutors/[id]`)
 - [x] Booking flow page (`/tutors/[id]/book`)

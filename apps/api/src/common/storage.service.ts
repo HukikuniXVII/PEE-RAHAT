@@ -1,4 +1,6 @@
 import {
+  CopyObjectCommand,
+  DeleteObjectCommand,
   GetObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -23,6 +25,7 @@ interface S3Config {
   accessKeyId: string;
   secretAccessKey: string;
   kycBucket: string;
+  kycArchiveBucket?: string;
   sheetsBucket: string;
 }
 
@@ -97,6 +100,44 @@ export class StorageService {
   }
 
   /**
+   * NFR-03 cold archive: copy a KYC object out of the primary bucket into
+   * the long-term archive bucket and delete the original. Idempotent —
+   * CopyObject overwrites at the destination and DeleteObject is a no-op
+   * if the source has already been removed.
+   *
+   * Dev (no S3 config) is a no-op so the archive cron can still run on
+   * localhost without an S3 backend. Production with a configured
+   * StorageService but no S3_BUCKET_KYC_ARCHIVE fails loud — silently
+   * skipping would violate the retention requirement.
+   */
+  async archiveKycObject(objectKey: string): Promise<void> {
+    if (!this.client || !this.config) {
+      this.logger.warn(
+        `archiveKycObject(${objectKey}): no S3 config — skipping (dev mode)`,
+      );
+      return;
+    }
+    if (!this.config.kycArchiveBucket) {
+      throw new Error(
+        "S3_BUCKET_KYC_ARCHIVE is not configured — cannot satisfy NFR-03 cold archive.",
+      );
+    }
+    await this.client.send(
+      new CopyObjectCommand({
+        Bucket: this.config.kycArchiveBucket,
+        Key: objectKey,
+        CopySource: `${this.config.kycBucket}/${objectKey}`,
+      }),
+    );
+    await this.client.send(
+      new DeleteObjectCommand({
+        Bucket: this.config.kycBucket,
+        Key: objectKey,
+      }),
+    );
+  }
+
+  /**
    * Caller (sheets.service.issueDownload, kyc admin tools) is responsible
    * for the entitlement check before invoking this. Bucket is inferred
    * from the key prefix — keep `kyc/` and `sheets/` as the only namespaces.
@@ -164,6 +205,7 @@ export class StorageService {
       accessKeyId,
       secretAccessKey,
       kycBucket,
+      kycArchiveBucket: process.env.S3_BUCKET_KYC_ARCHIVE,
       sheetsBucket,
     };
   }
