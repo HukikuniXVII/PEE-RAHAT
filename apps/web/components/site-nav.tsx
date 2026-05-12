@@ -167,20 +167,6 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
                 </Link>
               );
             })}
-            {isAdmin && (
-              <Link
-                href={"/admin/kyc" as Route}
-                className={cn(
-                  "px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2",
-                  isActive("/admin")
-                    ? "text-emerald-600 bg-emerald-50"
-                    : "text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50",
-                )}
-              >
-                <ShieldCheck size={18} />
-                Admin
-              </Link>
-            )}
             <div className="w-px h-6 bg-slate-100 mx-4" />
             {user ? (
               <div className="relative" ref={accountRef}>
@@ -239,6 +225,16 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
                         <GraduationCap size={14} />
                         เป็นพี่ติว (KYC)
                       </Link>
+                      {isAdmin && (
+                        <Link
+                          href={"/admin/kyc" as Route}
+                          onClick={() => setAccountOpen(false)}
+                          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-emerald-600 hover:bg-emerald-50"
+                        >
+                          <ShieldCheck size={14} />
+                          Admin
+                        </Link>
+                      )}
                       <button
                         type="button"
                         onClick={handleSignOut}
@@ -305,21 +301,6 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
                 </Link>
               );
             })}
-            {isAdmin && (
-              <Link
-                href={"/admin/kyc" as Route}
-                onClick={() => setIsMenuOpen(false)}
-                className={cn(
-                  "w-full text-left px-5 py-4 rounded-2xl text-base font-bold flex items-center gap-4 transition-all",
-                  isActive("/admin")
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "text-emerald-600 hover:bg-emerald-50",
-                )}
-              >
-                <ShieldCheck size={22} />
-                <span className="flex-1">Admin</span>
-              </Link>
-            )}
             <div className="h-px bg-slate-100 my-2" />
             {user ? (
               <>
@@ -336,6 +317,16 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
                     </p>
                   </div>
                 </div>
+                {isAdmin && (
+                  <Link
+                    href={"/admin/kyc" as Route}
+                    onClick={() => setIsMenuOpen(false)}
+                    className="w-full text-left px-5 py-4 rounded-2xl text-base font-bold flex items-center gap-4 text-emerald-600 hover:bg-emerald-50"
+                  >
+                    <ShieldCheck size={20} />
+                    Admin
+                  </Link>
+                )}
                 <button
                   type="button"
                   onClick={() => {
