@@ -7,11 +7,12 @@ import {
   kycSubmitSchema,
 } from "@peerahat/types";
 import { Button, cn } from "@peerahat/ui";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Camera,
   CheckCircle2,
   FileText,
+  Loader2,
   ShieldCheck,
   Upload,
   UserCheck,
@@ -20,6 +21,8 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { createApiClient } from "@/lib/api-client";
+
+import { ProfileStep } from "./profile-step";
 
 const FIELD_ORDER = ["idPhoto", "selfie", "transcript"] as const satisfies readonly KycField[];
 
@@ -55,6 +58,20 @@ const FIELD_ICON: Record<KycField, typeof FileText> = {
 };
 
 export function OnboardingFlow() {
+  // Phase gate: a user without a TutorProfile must complete onboarding
+  // (FR-TH-03) before submitting KYC photos (FR-TH-02). Reading /users/me
+  // tells us whether the role has already been promoted to "tutor" — a
+  // returning user who finished the profile step skips straight to KYC.
+  const meQuery = useQuery({
+    queryKey: ["users", "me"],
+    queryFn: () => createApiClient().users.me(),
+    staleTime: 60_000,
+    retry: false,
+  });
+  const [profileJustDone, setProfileJustDone] = useState(false);
+  const hasProfile =
+    profileJustDone || meQuery.data?.role === "tutor" || meQuery.data?.role === "admin";
+
   const [stepIdx, setStepIdx] = useState(0);
   const currentField: KycField | undefined = FIELD_ORDER[stepIdx];
 
@@ -99,6 +116,18 @@ export function OnboardingFlow() {
   const onSubmit = form.handleSubmit((values) => submit.mutate(values));
 
   const error = upload.error?.message ?? submit.error?.message ?? null;
+
+  if (meQuery.isPending) {
+    return (
+      <div className="max-w-2xl mx-auto bg-white p-16 rounded-[40px] border border-slate-200 shadow-sm flex items-center justify-center text-slate-400">
+        <Loader2 size={28} className="animate-spin" />
+      </div>
+    );
+  }
+
+  if (!hasProfile) {
+    return <ProfileStep onCompleted={() => setProfileJustDone(true)} />;
+  }
 
   if (submit.isSuccess) {
     return (

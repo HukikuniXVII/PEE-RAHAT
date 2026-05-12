@@ -8,6 +8,7 @@ import {
 import type {
   Subject,
   Tutor,
+  TutorOnboardingDto,
   TutorReview,
   TutorSearchQuery,
   TutorSearchResult,
@@ -72,6 +73,45 @@ export class TutorsService {
       page,
       pageSize,
     };
+  }
+
+  /**
+   * FR-TH-03 — creates the TutorProfile row and promotes the User to role
+   * "tutor" atomically. Required before a tutor can submit KYC for review
+   * (FR-TH-02): the admin approve path expects a TutorProfile to flip
+   * isVerified on.
+   */
+  async onboard(supabaseId: string, dto: TutorOnboardingDto): Promise<Tutor> {
+    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
+    if (!user) throw new BadRequestException("Unknown user");
+
+    const existing = await this.prisma.tutorProfile.findUnique({
+      where: { userId: user.id },
+    });
+    if (existing) {
+      throw new ConflictException("คุณได้สมัครเป็นพี่ติวไว้แล้ว");
+    }
+
+    const created = await this.prisma.$transaction(async (tx) => {
+      const profile = await tx.tutorProfile.create({
+        data: {
+          userId: user.id,
+          bio: dto.bio,
+          university: dto.university,
+          faculty: dto.faculty,
+          hourlyRate: dto.hourlyRate,
+          subjects: dto.subjects,
+          introVideoUrl: dto.introVideoUrl ?? null,
+        },
+        include: { user: true },
+      });
+      await tx.user.update({
+        where: { id: user.id },
+        data: { role: "tutor" },
+      });
+      return profile;
+    });
+    return this.toDto(created);
   }
 
   async findById(id: string): Promise<Tutor> {

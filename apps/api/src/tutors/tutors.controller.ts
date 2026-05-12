@@ -7,13 +7,35 @@ import {
   Query,
   UseGuards,
 } from "@nestjs/common";
-import { IsInt, IsString, Max, Min } from "class-validator";
+import {
+  ArrayMinSize,
+  IsArray,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUrl,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from "class-validator";
 import type {
   Subject,
   Tutor,
   TutorReview,
   TutorSearchResult,
 } from "@peerahat/types";
+
+const SUBJECT_VALUES = [
+  "Math",
+  "Physics",
+  "Chemistry",
+  "Biology",
+  "English",
+  "Social",
+  "Thai",
+] as const satisfies readonly Subject[];
 
 import { CurrentUser } from "../auth/current-user.decorator";
 import { SupabaseAuthGuard } from "../auth/auth.guard";
@@ -24,6 +46,18 @@ class CreateReviewDto {
   @IsString() bookingId!: string;
   @IsInt() @Min(1) @Max(5) rating!: number;
   @IsString() text!: string;
+}
+
+class TutorOnboardingDto {
+  @IsString() @MinLength(20) @MaxLength(2000) bio!: string;
+  @IsString() @MinLength(1) @MaxLength(120) university!: string;
+  @IsString() @MinLength(1) @MaxLength(120) faculty!: string;
+  @IsInt() @Min(0) @Max(20000) hourlyRate!: number;
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsIn(SUBJECT_VALUES, { each: true })
+  subjects!: Subject[];
+  @IsOptional() @IsUrl() introVideoUrl?: string;
 }
 
 @Controller("tutors")
@@ -53,6 +87,15 @@ export class TutorsController {
       page: page ? Number(page) : 1,
       pageSize: pageSize ? Number(pageSize) : 20,
     });
+  }
+
+  @Post("onboarding")
+  @UseGuards(SupabaseAuthGuard)
+  onboard(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Body() dto: TutorOnboardingDto,
+  ): Promise<Tutor> {
+    return this.tutors.onboard(user.sub, dto);
   }
 
   @Get(":id")

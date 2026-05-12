@@ -22,6 +22,7 @@ export const API_PATHS = {
   adminKycQueue: "/admin/kyc/queue",
   adminReviewKyc: (id: string) => `/admin/kyc/${id}/review`,
   tutors: "/tutors",
+  tutorOnboarding: "/tutors/onboarding",
   tutorById: (id: string) => `/tutors/${id}`,
   tutorReviews: (id: string) => `/tutors/${id}/reviews`,
   bookings: "/bookings",

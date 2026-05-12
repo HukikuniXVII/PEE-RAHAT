@@ -37,6 +37,7 @@ import {
   type TcasWhatIfRequest,
   type TcasWhatIfResult,
   type Tutor,
+  type TutorOnboardingDto,
   type TutorReview,
   type TutorSearchQuery,
   type TutorSearchResult,
@@ -169,6 +170,12 @@ export function createApiClient(opts: ApiClientOptions = {}) {
     tutors: {
       search: (q: TutorSearchQuery) =>
         request<TutorSearchResult>(`${API_PATHS.tutors}${qs(q)}`, {}, token),
+      onboard: (dto: TutorOnboardingDto) =>
+        request<Tutor>(
+          API_PATHS.tutorOnboarding,
+          { method: "POST", body: JSON.stringify(dto) },
+          token,
+        ),
       byId: (id: string) =>
         request<Tutor>(API_PATHS.tutorById(id), {}, token),
       reviews: (

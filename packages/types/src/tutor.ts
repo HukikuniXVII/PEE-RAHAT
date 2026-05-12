@@ -66,6 +66,22 @@ export const createReviewSchema = z.object({
 
 export type CreateReviewDto = z.infer<typeof createReviewSchema>;
 
+export const tutorOnboardingSchema = z.object({
+  bio: z.string().trim().min(20, "ช่วยเล่าตัวเองสั้นๆ อย่างน้อย 20 ตัวอักษร").max(2000),
+  university: z.string().trim().min(1).max(120),
+  faculty: z.string().trim().min(1).max(120),
+  hourlyRate: z.coerce.number().int().min(0).max(20000),
+  subjects: z.array(subjectSchema).min(1, "เลือกอย่างน้อย 1 วิชา"),
+  introVideoUrl: z
+    .string()
+    .trim()
+    .url("กรอก URL ให้ถูกต้อง")
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
+});
+
+export type TutorOnboardingDto = z.infer<typeof tutorOnboardingSchema>;
+
 export const tutorSearchQuerySchema = z.object({
   q: z.string().optional(),
   subject: subjectSchema.optional(),
