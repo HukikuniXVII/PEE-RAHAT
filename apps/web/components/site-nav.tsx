@@ -15,6 +15,7 @@ import {
   Menu,
   MessagesSquare,
   Search,
+  ShieldCheck,
   Users,
   X,
 } from "lucide-react";
@@ -69,6 +70,18 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
     (sum, t) => sum + t.unreadCount,
     0,
   );
+
+  // Drives the Admin nav entry. Role lives on the API-side User row, not the
+  // Supabase session cookie, so we read it via /users/me. Failures are
+  // silent — the entry stays hidden for non-admins and on transient errors.
+  const meQuery = useQuery({
+    queryKey: ["users", "me"],
+    queryFn: () => createApiClient().users.me(),
+    enabled: !!user,
+    staleTime: 60_000,
+    retry: false,
+  });
+  const isAdmin = meQuery.data?.role === "admin";
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -154,6 +167,20 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
                 </Link>
               );
             })}
+            {isAdmin && (
+              <Link
+                href={"/admin/kyc" as Route}
+                className={cn(
+                  "px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2",
+                  isActive("/admin")
+                    ? "text-emerald-600 bg-emerald-50"
+                    : "text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50",
+                )}
+              >
+                <ShieldCheck size={18} />
+                Admin
+              </Link>
+            )}
             <div className="w-px h-6 bg-slate-100 mx-4" />
             {user ? (
               <div className="relative" ref={accountRef}>
@@ -278,6 +305,21 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
                 </Link>
               );
             })}
+            {isAdmin && (
+              <Link
+                href={"/admin/kyc" as Route}
+                onClick={() => setIsMenuOpen(false)}
+                className={cn(
+                  "w-full text-left px-5 py-4 rounded-2xl text-base font-bold flex items-center gap-4 transition-all",
+                  isActive("/admin")
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "text-emerald-600 hover:bg-emerald-50",
+                )}
+              >
+                <ShieldCheck size={22} />
+                <span className="flex-1">Admin</span>
+              </Link>
+            )}
             <div className="h-px bg-slate-100 my-2" />
             {user ? (
               <>

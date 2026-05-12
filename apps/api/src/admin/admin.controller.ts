@@ -8,7 +8,7 @@ import {
   Query,
   UseGuards,
 } from "@nestjs/common";
-import { IsString } from "class-validator";
+import { IsIn, IsOptional, IsString } from "class-validator";
 
 import { CurrentUser } from "../auth/current-user.decorator";
 import { SupabaseAuthGuard } from "../auth/auth.guard";
@@ -18,8 +18,10 @@ import { PrismaService } from "../prisma/prisma.service";
 import { AdminService } from "./admin.service";
 
 class ReviewKycDto {
-  @IsString() decision!: "approve" | "reject";
-  @IsString() reason?: string;
+  @IsIn(["approve", "reject"]) decision!: "approve" | "reject";
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }
 
 class RejectSlipDto {
