@@ -5,7 +5,6 @@ import { cn } from "@peerahat/ui";
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import {
-  BookOpen,
   CalendarCheck,
   Calculator,
   ChevronDown,
@@ -16,7 +15,6 @@ import {
   MessagesSquare,
   Search,
   ShieldCheck,
-  Users,
   X,
 } from "lucide-react";
 import type { Route } from "next";
@@ -31,9 +29,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 const NAV_ITEMS = [
   { href: "/", label: "Home", icon: LayoutDashboard },
   { href: "/tutors", label: "Tutor Hub", icon: Search },
-  { href: "/sheets", label: "Sheets", icon: BookOpen },
   { href: "/tcas", label: "TCAS Calc", icon: Calculator },
-  { href: "/community", label: "Webboard", icon: Users },
   { href: "/bookings", label: "Bookings", icon: CalendarCheck },
   { href: "/chat", label: "Chat", icon: MessagesSquare },
 ] as const;
