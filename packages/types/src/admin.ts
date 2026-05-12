@@ -11,3 +11,21 @@ export interface AdminReport {
   resolvedAt: string | null;
   createdAt: string;
 }
+
+export type KycReviewDecision = "approve" | "reject";
+
+export interface AdminKycQueueItem {
+  id: string;
+  userId: string;
+  userDisplayName: string;
+  userEmail: string;
+  idPhotoUrl: string;
+  selfieUrl: string;
+  transcriptUrl: string;
+  submittedAt: string;
+}
+
+export interface ReviewKycDto {
+  decision: KycReviewDecision;
+  reason?: string;
+}

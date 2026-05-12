@@ -1,11 +1,19 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import type { AdminReport, ReportTargetType } from "@peerahat/types";
+import type {
+  AdminKycQueueItem,
+  AdminReport,
+  ReportTargetType,
+} from "@peerahat/types";
 
+import { StorageService } from "../common/storage.service";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
 
   async listReports({
     page = 1,
@@ -76,12 +84,35 @@ export class AdminService {
     };
   }
 
-  kycQueue() {
-    return this.prisma.kycSubmission.findMany({
+  // FR-TH-02: queue includes 5-minute signed GETs for the three photos so
+  // the admin UI can render them directly. Signing inline (rather than a
+  // separate endpoint per submission) keeps the queue page a single round
+  // trip; the queue stays small at Phase 1 manual-review scale.
+  async kycQueue(): Promise<AdminKycQueueItem[]> {
+    const rows = await this.prisma.kycSubmission.findMany({
       where: { status: "pending" },
       orderBy: { submittedAt: "asc" },
       include: { user: true },
     });
+    return Promise.all(
+      rows.map(async (r) => {
+        const [idPhoto, selfie, transcript] = await Promise.all([
+          this.storage.signDownload(r.idPhotoKey),
+          this.storage.signDownload(r.selfieKey),
+          this.storage.signDownload(r.transcriptKey),
+        ]);
+        return {
+          id: r.id,
+          userId: r.userId,
+          userDisplayName: r.user.displayName,
+          userEmail: r.user.email,
+          idPhotoUrl: idPhoto.url,
+          selfieUrl: selfie.url,
+          transcriptUrl: transcript.url,
+          submittedAt: r.submittedAt.toISOString(),
+        };
+      }),
+    );
   }
 
   async reviewKyc(id: string, decision: "approve" | "reject", reason?: string) {

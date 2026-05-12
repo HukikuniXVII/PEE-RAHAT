@@ -1,6 +1,8 @@
 import {
   API_PATHS,
+  type AdminKycQueueItem,
   type AdminReport,
+  type KycReviewDecision,
   type ApiError,
   type Booking,
   type BookingReportDto,
@@ -153,6 +155,14 @@ export function createApiClient(opts: ApiClientOptions = {}) {
         request<AdminReport>(
           API_PATHS.adminResolveReport(id),
           { method: "POST" },
+          token,
+        ),
+      kycQueue: () =>
+        request<AdminKycQueueItem[]>(API_PATHS.adminKycQueue, {}, token),
+      reviewKyc: (id: string, decision: KycReviewDecision, reason?: string) =>
+        request<{ id: string; status: string }>(
+          API_PATHS.adminReviewKyc(id),
+          { method: "POST", body: JSON.stringify({ decision, reason }) },
           token,
         ),
     },
