@@ -21,9 +21,6 @@ import {
   type KycUploadIntent,
   type Page,
   type PaymentIntent,
-  type QuizQuestion,
-  type QuizResult,
-  type QuizSubmissionDto,
   type ReportDto,
   type SendMessageDto,
   type SheetReportDto,
@@ -306,20 +303,6 @@ export function createApiClient(opts: ApiClientOptions = {}) {
       reply: (dto: CreateReplyDto) =>
         request<CommunityReply>(
           API_PATHS.postReplies(dto.postId),
-          { method: "POST", body: JSON.stringify(dto) },
-          token,
-        ),
-    },
-    quiz: {
-      questions: (subject: Subject) =>
-        request<QuizQuestion[]>(
-          `${API_PATHS.quizQuestions}${qs({ subject })}`,
-          {},
-          token,
-        ),
-      submit: (dto: QuizSubmissionDto) =>
-        request<QuizResult>(
-          API_PATHS.quizSubmit,
           { method: "POST", body: JSON.stringify(dto) },
           token,
         ),

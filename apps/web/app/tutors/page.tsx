@@ -1,5 +1,5 @@
 import { type Subject, subjectSchema } from "@peerahat/types";
-import { Sparkles, Star, UserPlus } from "lucide-react";
+import { ShieldCheck, Star, UserPlus } from "lucide-react";
 import Link from "next/link";
 
 import { createApiClient } from "@/lib/api-client";
@@ -32,41 +32,29 @@ export default async function TutorsPage({ searchParams }: Props) {
   return (
     <div className="space-y-12">
       <section className="relative rounded-[40px] bg-indigo-600 p-8 md:p-12 overflow-hidden text-white">
-        <div className="relative z-10 grid md:grid-cols-2 gap-8 items-center">
-          <div className="space-y-6">
+        <div className="relative z-10 flex flex-col md:flex-row gap-8 items-start md:items-center justify-between">
+          <div className="space-y-4 max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 rounded-full text-xs font-bold uppercase tracking-wider">
-              <Sparkles size={14} />
-              Featured Feature
+              <ShieldCheck size={14} />
+              Verified Tutors
             </div>
             <h2 className="text-4xl md:text-5xl font-black leading-tight">
-              ไม่รู้จะเริ่มติว <br />
-              <span className="text-indigo-200">วิชาไหนดี?</span>
+              พี่ติวมหา&apos;ลัยชั้นนำ <br />
+              <span className="text-indigo-200">ผ่านการยืนยันตัวตน 100%</span>
             </h2>
-            <p className="text-indigo-100 text-lg max-w-md">
-              ลองทำแบบทดสอบวัดระดับ (Diagnostic Quiz) เพื่อหาจุดอ่อนและติวเตอร์ที่เข้ากับคุณที่สุด
+            <p className="text-indigo-100 text-lg">
+              ทุกพี่ติวต้องส่งบัตรประชาชนและทรานสคริปต์ให้ Admin ตรวจสอบ ก่อนได้ Verified Badge
             </p>
-            <Link
-              href="/quiz"
-              className="inline-block px-8 py-4 bg-white text-indigo-600 rounded-2xl font-black text-lg hover:bg-slate-50 transition-all transform hover:-translate-y-1 shadow-xl shadow-indigo-900/20"
-            >
-              Take Diagnostic Quiz
-            </Link>
           </div>
-          <div className="hidden md:flex justify-center">
-            <div className="relative">
-              <div className="w-64 h-64 bg-white/10 rounded-[48px] rotate-12 blur-2xl absolute inset-0" />
-              <div className="relative bg-white/20 backdrop-blur-xl p-8 rounded-[40px] border border-white/30 space-y-4 w-64">
-                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-indigo-600">
-                  <Star size={24} fill="currentColor" />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs font-bold opacity-60">Verified Tutors</p>
-                  <p className="text-2xl font-black">{initial.total}+</p>
-                </div>
-                <p className="text-[10px] leading-relaxed opacity-80">
-                  จากทุกคณะชั้นนำทั่วประเทศไทย ผ่านการยืนยันตัวตน 100%
-                </p>
-              </div>
+          <div className="bg-white/15 backdrop-blur-xl px-8 py-6 rounded-[32px] border border-white/20 flex items-center gap-4">
+            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-indigo-600 shrink-0">
+              <Star size={24} fill="currentColor" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">
+                Verified Tutors
+              </p>
+              <p className="text-3xl font-black leading-none mt-1">{initial.total}</p>
             </div>
           </div>
         </div>
