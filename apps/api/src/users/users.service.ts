@@ -19,6 +19,7 @@ export class UsersService {
         email: params.email,
         displayName: params.displayName,
       },
+      include: { tutorProfile: { select: { id: true } } },
     });
   }
 

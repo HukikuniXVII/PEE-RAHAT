@@ -82,6 +82,7 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
     retry: false,
   });
   const isAdmin = meQuery.data?.role === "admin";
+  const tutorProfileId = meQuery.data?.tutorProfileId;
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -217,14 +218,25 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
                         <CalendarCheck size={14} />
                         My Bookings
                       </Link>
-                      <Link
-                        href={"/tutors/onboarding" as Route}
-                        onClick={() => setAccountOpen(false)}
-                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50"
-                      >
-                        <GraduationCap size={14} />
-                        เป็นพี่ติว (KYC)
-                      </Link>
+                      {tutorProfileId ? (
+                        <Link
+                          href={`/tutors/${tutorProfileId}` as Route}
+                          onClick={() => setAccountOpen(false)}
+                          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50"
+                        >
+                          <GraduationCap size={14} />
+                          My Profile
+                        </Link>
+                      ) : (
+                        <Link
+                          href={"/tutors/onboarding" as Route}
+                          onClick={() => setAccountOpen(false)}
+                          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50"
+                        >
+                          <GraduationCap size={14} />
+                          เป็นพี่ติว (KYC)
+                        </Link>
+                      )}
                       {isAdmin && (
                         <Link
                           href={"/admin/kyc" as Route}

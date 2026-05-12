@@ -9,6 +9,9 @@ export interface User {
   role: UserRole;
   avatarUrl?: string;
   createdAt: string;
+  // Present once the user has completed /tutors/onboarding (FR-TH-03).
+  // Links the account dropdown to the tutor's own /tutors/[id] page.
+  tutorProfileId?: string;
 }
 
 export interface SessionUser extends User {
