@@ -1,8 +1,7 @@
 "use client";
 
-import type { Tutor } from "@peerahat/types";
-import { buttonVariants, cn } from "@peerahat/ui";
-import { MessageSquare, ShieldCheck, Star } from "lucide-react";
+import type { Subject, Tutor } from "@peerahat/types";
+import { ShieldCheck, Star } from "lucide-react";
 import { motion } from "motion/react";
 import type { Route } from "next";
 import Link from "next/link";
@@ -11,94 +10,97 @@ interface Props {
   tutor: Tutor;
 }
 
+const SUBJECT_LABEL: Record<Subject, string> = {
+  Math: "คณิต",
+  Physics: "ฟิสิกส์",
+  Chemistry: "เคมี",
+  Biology: "ชีววิทยา",
+  English: "อังกฤษ",
+  Social: "สังคม",
+  Thai: "ไทย",
+};
+
 export function TutorCard({ tutor }: Props) {
+  const topSubjects = tutor.subjects.slice(0, 3);
+  const extra = tutor.subjects.length - topSubjects.length;
+  const profileHref = `/tutors/${tutor.id}` as Route;
+
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, scale: 0.9 }}
+      initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      className="bg-white rounded-[32px] border border-slate-200 overflow-hidden hover:shadow-xl transition-all group flex flex-col"
+      exit={{ opacity: 0, scale: 0.96 }}
+      className="bg-white rounded-[28px] border border-slate-200 overflow-hidden hover:shadow-xl hover:border-indigo-200 transition-all group flex flex-col"
     >
-      <div className="p-6 space-y-6 flex-1">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <img
-                src={tutor.avatarUrl}
-                alt={tutor.displayName}
-                className="w-16 h-16 rounded-2xl bg-slate-50 border border-slate-100"
-              />
-              {tutor.isVerified && (
-                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-white shadow-sm">
-                  <ShieldCheck size={14} />
-                </div>
-              )}
-            </div>
-            <Link
-              href={`/tutors/${tutor.id}` as Route}
-              className="block focus:outline-none"
-            >
-              <h3 className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                {tutor.displayName}
-              </h3>
-              <p className="text-xs text-slate-400 font-medium">
-                {tutor.faculty}
-              </p>
-            </Link>
-          </div>
-          <div className="flex items-center gap-1 px-2 py-1 bg-amber-50 rounded-lg text-amber-600 font-bold text-xs">
-            <Star size={12} fill="currentColor" />
-            {tutor.rating.toFixed(1)}
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            {tutor.subjects.map((s) => (
-              <span
-                key={s}
-                className="px-2 py-1 bg-slate-100 rounded-lg text-[10px] font-bold text-slate-500 uppercase tracking-wider"
+      <Link
+        href={profileHref}
+        className="p-5 sm:p-6 flex-1 flex flex-col gap-5 focus:outline-none"
+      >
+        <div className="flex items-start gap-4">
+          <div className="relative shrink-0">
+            <img
+              src={tutor.avatarUrl}
+              alt={tutor.displayName}
+              className="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-100 object-cover"
+            />
+            {tutor.isVerified && (
+              <div
+                className="absolute -bottom-1 -right-1 w-6 h-6 bg-indigo-600 rounded-full border-2 border-white flex items-center justify-center text-white shadow-sm"
+                aria-label="Verified tutor"
               >
-                {s}
-              </span>
-            ))}
+                <ShieldCheck size={12} />
+              </div>
+            )}
           </div>
-          <p className="text-sm text-slate-500 leading-relaxed line-clamp-2">
-            {tutor.bio}
-          </p>
+          <div className="flex-1 min-w-0 space-y-1">
+            <h3 className="font-black text-slate-900 group-hover:text-indigo-600 transition-colors truncate">
+              {tutor.displayName}
+            </h3>
+            <p className="text-xs text-slate-500 font-medium truncate">
+              {tutor.faculty}
+            </p>
+            <div className="flex items-center gap-1 text-xs font-bold text-amber-600">
+              <Star size={12} fill="currentColor" />
+              {tutor.rating.toFixed(1)}
+              <span className="text-slate-400 font-medium ml-1">
+                ({tutor.reviewCount} รีวิว)
+              </span>
+            </div>
+          </div>
         </div>
 
-        <div className="pt-6 border-t border-slate-100 flex items-center justify-between">
+        <div className="flex flex-wrap gap-1.5">
+          {topSubjects.map((s) => (
+            <span
+              key={s}
+              className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-[11px] font-bold"
+            >
+              {SUBJECT_LABEL[s] ?? s}
+            </span>
+          ))}
+          {extra > 0 && (
+            <span className="px-2.5 py-1 bg-slate-100 text-slate-500 rounded-lg text-[11px] font-bold">
+              +{extra}
+            </span>
+          )}
+        </div>
+
+        <div className="mt-auto pt-4 border-t border-slate-100 flex items-center justify-between">
           <div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-              Price
+              ค่าติว
             </p>
-            <p className="text-lg font-black text-slate-900">
+            <p className="text-lg font-black text-slate-900 leading-tight">
               ฿{tutor.hourlyRate.toLocaleString()}
-              <span className="text-xs font-medium text-slate-400">/hr</span>
+              <span className="text-xs font-medium text-slate-400">/ชม.</span>
             </p>
           </div>
-          <div className="flex gap-2">
-            <Link
-              href={`/chat/${tutor.id}` as Route}
-              className={buttonVariants({ variant: "muted", size: "icon" })}
-              aria-label={`Chat with ${tutor.displayName}`}
-            >
-              <MessageSquare size={18} />
-            </Link>
-            <Link
-              href={`/tutors/${tutor.id}/book` as Route}
-              className={cn(
-                buttonVariants(),
-                "shadow-lg shadow-indigo-100",
-              )}
-            >
-              Book Session
-            </Link>
-          </div>
+          <span className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold group-hover:bg-indigo-600 transition-all">
+            ดูโปรไฟล์
+          </span>
         </div>
-      </div>
+      </Link>
     </motion.div>
   );
 }

@@ -1,9 +1,8 @@
 import {
   ArrowRight,
   BadgeCheck,
-  Calculator,
+  CalendarCheck,
   GraduationCap,
-  MessagesSquare,
   Search,
   ShieldCheck,
   Sparkles,
@@ -11,14 +10,22 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { HeroSearch } from "@/app/_components/hero-search";
+import { SubjectGrid } from "@/app/_components/subject-grid";
 import { TutorCard } from "@/app/tutors/_components/tutor-card";
 import { createApiClient } from "@/lib/api-client";
+
+const TRUST_BADGES = [
+  { icon: BadgeCheck, label: "ยืนยันตัวตน 100%" },
+  { icon: ShieldCheck, label: "Escrow Payment" },
+  { icon: Wallet, label: "คืนเงิน 100%" },
+] as const;
 
 const TRUST_PILLARS = [
   {
     icon: BadgeCheck,
     title: "Verified KYC",
-    body: "ทุกพี่ติวส่งบัตรประชาชน + ทรานสคริปต์ ให้ Admin ตรวจสอบ ก่อนได้รับ Badge",
+    body: "ทุกพี่ติวส่งบัตรประชาชน + ทรานสคริปต์ ให้ Admin ตรวจสอบก่อนรับ Badge",
   },
   {
     icon: ShieldCheck,
@@ -28,28 +35,28 @@ const TRUST_PILLARS = [
   {
     icon: Wallet,
     title: "PromptPay One-Tap",
-    body: "จ่ายตรงผ่าน PromptPay QR ตรวจยอดอัตโนมัติด้วย SlipOK ไม่ต้องรอแอดมิน",
+    body: "จ่ายตรงผ่าน PromptPay QR ตรวจยอดอัตโนมัติ ไม่ต้องรอแอดมิน",
   },
 ] as const;
 
-const STEPS = [
+const HOW_IT_WORKS = [
   {
     n: "01",
-    title: "หาพี่ที่ใช่",
-    body: "กรองตามวิชา มหาวิทยาลัย หรืออัตราต่อชั่วโมง — ดูรีวิวจากนักเรียนคนอื่นก่อนตัดสินใจ",
     icon: Search,
+    title: "ค้นหา",
+    body: "เลือกวิชาหรือมหา'ลัย ดูรีวิวจากนักเรียนคนอื่นก่อนตัดสินใจ",
   },
   {
     n: "02",
-    title: "แชทและจอง",
-    body: "คุยกับพี่ติวก่อนจองให้แน่ใจว่าตรงกัน เลือกเวลานัด แล้วยืนยันการจอง",
-    icon: MessagesSquare,
+    icon: CalendarCheck,
+    title: "จองล่วงหน้า",
+    body: "เลือกวันและเวลา ส่งคำขอ พี่ติวยืนยันภายใน 24 ชม.",
   },
   {
     n: "03",
-    title: "เรียนและรีวิว",
-    body: "ชำระเงินผ่าน Escrow เรียนเสร็จ ระบบโอนเงินให้พี่ติวอัตโนมัติ คุณรีวิวให้ดาว",
-    icon: GraduationCap,
+    icon: ShieldCheck,
+    title: "จ่ายผ่าน Escrow",
+    body: "เงินถูกถือกลางๆ จะโอนให้พี่ติวก็ต่อเมื่อคลาสเสร็จ",
   },
 ] as const;
 
@@ -60,119 +67,83 @@ export default async function HomePage() {
     .catch(() => ({ items: [], total: 0, page: 1, pageSize: 4 }));
 
   return (
-    <div className="space-y-24">
+    <div className="space-y-20">
       {/* Hero */}
-      <section className="relative rounded-[48px] overflow-hidden bg-slate-900 p-8 md:p-20 text-white shadow-2xl shadow-slate-200">
-        <div className="grid md:grid-cols-[1.2fr_1fr] gap-16 items-center relative z-10">
-          <div className="space-y-8">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/10 backdrop-blur rounded-full text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400">
-              <ShieldCheck size={14} />
-              Safe &amp; Verified EdTech Thailand
-            </div>
-            <h1 className="text-5xl md:text-7xl font-black tracking-tighter leading-[0.95]">
-              เรียนกับพี่ติว <br />
-              <span className="text-indigo-500">มหา&apos;ลัยชั้นนำ</span>
-            </h1>
-            <p className="text-lg text-slate-300 max-w-xl leading-relaxed font-medium">
-              ทุกพี่ผ่านการยืนยันบัตรประชาชน • ค่าติวถูกถือ Escrow จนคุณพอใจ •
-              คืนเงิน 100% ถ้าไม่ตรงสเปก
-            </p>
-            <div className="flex flex-wrap gap-4 pt-2">
-              <Link
-                href="/tutors"
-                className="px-10 py-5 bg-indigo-600 text-white rounded-[24px] font-black text-lg hover:bg-indigo-700 shadow-2xl shadow-indigo-900/40 transition-all transform hover:-translate-y-1 inline-flex items-center gap-3"
-              >
-                หาพี่ติว
-                <ArrowRight size={20} />
-              </Link>
-              <Link
-                href="/tutors/onboarding"
-                className="px-10 py-5 bg-white/10 hover:bg-white/20 text-white border border-white/10 rounded-[24px] font-black text-lg backdrop-blur-md transition-all"
-              >
-                สมัครเป็นติวเตอร์
-              </Link>
-            </div>
+      <section className="relative rounded-[40px] overflow-hidden bg-slate-900 px-6 sm:px-12 py-12 sm:py-20 text-white shadow-2xl shadow-slate-200">
+        <div className="relative z-10 max-w-3xl space-y-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-[10px] font-black uppercase tracking-[0.2em] text-indigo-300">
+            <ShieldCheck size={12} />
+            Safe &amp; Verified EdTech Thailand
           </div>
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.05]">
+            หาพี่ติวมหา&apos;ลัยชั้นนำ
+            <br />
+            <span className="text-indigo-400">ในไม่กี่คลิก</span>
+          </h1>
+          <p className="text-base sm:text-lg text-slate-300 max-w-2xl leading-relaxed">
+            ยืนยันตัวตน 100% • Escrow Payment • คืนเงินภายใน 24 ชม. ถ้าไม่พอใจ
+          </p>
+          <HeroSearch />
 
-          {/* Stat tiles — replaces the empty decorative panel */}
-          <div className="hidden md:grid grid-cols-2 gap-4">
-            <StatTile
-              label="Verified tutors"
-              value={`${featuredTutors.total}+`}
-              tint="from-indigo-500/30 to-indigo-500/0"
-            />
-            <StatTile
-              label="Universities"
-              value="20+"
-              tint="from-emerald-500/30 to-emerald-500/0"
-            />
-            <StatTile
-              label="Refund window"
-              value="24 ชม."
-              tint="from-amber-500/30 to-amber-500/0"
-            />
-            <StatTile
-              label="Subjects"
-              value="7"
-              tint="from-rose-500/30 to-rose-500/0"
-            />
-          </div>
+          <ul className="flex flex-wrap gap-3 pt-2">
+            {TRUST_BADGES.map((b) => (
+              <li
+                key={b.label}
+                className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/10 backdrop-blur rounded-full text-xs font-bold text-slate-100"
+              >
+                <b.icon size={14} className="text-emerald-400" />
+                {b.label}
+              </li>
+            ))}
+          </ul>
         </div>
-        <div className="absolute top-0 right-0 w-[28rem] h-[28rem] bg-indigo-600/20 blur-[140px] rounded-full -translate-y-1/2 translate-x-1/3 pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 w-[24rem] h-[24rem] bg-emerald-500/10 blur-[140px] rounded-full translate-y-1/2 pointer-events-none" />
+        <div className="absolute top-0 right-0 w-[24rem] h-[24rem] bg-indigo-600/30 blur-[140px] rounded-full -translate-y-1/3 translate-x-1/3 pointer-events-none" />
+        <div className="absolute bottom-0 left-1/3 w-[20rem] h-[20rem] bg-emerald-500/15 blur-[140px] rounded-full translate-y-1/2 pointer-events-none" />
       </section>
 
-      {/* Trust pillars */}
-      <section className="space-y-12">
-        <div className="text-center space-y-3">
-          <p className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em]">
-            Why Pee Rahat
-          </p>
-          <h2 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900">
-            แพลตฟอร์มที่ออกแบบบนความไว้ใจ
-          </h2>
+      {/* Subject grid */}
+      <section className="space-y-6">
+        <div className="flex items-end justify-between gap-4 flex-wrap">
+          <div className="space-y-1">
+            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em]">
+              Browse by subject
+            </p>
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              เลือกวิชาที่อยากเรียน
+            </h2>
+          </div>
+          <Link
+            href="/tutors"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors"
+          >
+            ดูพี่ติวทั้งหมด
+            <ArrowRight size={14} />
+          </Link>
         </div>
-        <div className="grid md:grid-cols-3 gap-6">
-          {TRUST_PILLARS.map((p) => (
-            <div
-              key={p.title}
-              className="bg-white p-8 rounded-[32px] border border-slate-100 space-y-5 hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-50 transition-all"
-            >
-              <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center">
-                <p.icon size={28} />
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-xl font-black text-slate-900">{p.title}</h3>
-                <p className="text-sm text-slate-500 leading-relaxed">
-                  {p.body}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
+        <SubjectGrid />
       </section>
 
       {/* Featured tutors */}
       {featuredTutors.items.length > 0 && (
-        <section className="space-y-8">
-          <div className="flex items-end justify-between gap-6 flex-wrap">
-            <div className="space-y-2">
+        <section className="space-y-6">
+          <div className="flex items-end justify-between gap-4 flex-wrap">
+            <div className="space-y-1">
               <p className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em]">
                 Featured Tutors
               </p>
-              <h2 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
-                พี่ติวคะแนนสูงสุดในเดือนนี้
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                พี่ติวคะแนนสูงสุดเดือนนี้
               </h2>
             </div>
             <Link
               href="/tutors"
-              className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors"
             >
               ดูทั้งหมด
-              <ArrowRight size={16} />
+              <ArrowRight size={14} />
             </Link>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {featuredTutors.items.map((tutor) => (
               <TutorCard key={tutor.id} tutor={tutor} />
             ))}
@@ -181,116 +152,102 @@ export default async function HomePage() {
       )}
 
       {/* How it works */}
-      <section className="space-y-12">
-        <div className="text-center space-y-3">
+      <section className="space-y-6">
+        <div className="space-y-1 text-center">
           <p className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em]">
             How it works
           </p>
-          <h2 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900">
-            จากค้นหา ถึงเรียน ภายใน 3 ขั้นตอน
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            จองคลาสง่ายๆ ใน 3 ขั้นตอน
           </h2>
         </div>
-        <div className="grid md:grid-cols-3 gap-6 relative">
-          {STEPS.map((s) => (
+        <div className="grid sm:grid-cols-3 gap-4">
+          {HOW_IT_WORKS.map((s) => (
             <div
               key={s.n}
-              className="bg-white p-8 rounded-[32px] border border-slate-100 space-y-5 relative"
+              className="bg-white p-6 rounded-3xl border border-slate-200 space-y-4 relative overflow-hidden"
             >
-              <span className="absolute top-6 right-8 text-7xl font-black text-slate-50 select-none leading-none">
+              <span className="absolute top-3 right-5 text-5xl font-black text-slate-50 select-none leading-none">
                 {s.n}
               </span>
-              <div className="relative w-14 h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center">
-                <s.icon size={26} />
+              <div className="relative w-11 h-11 bg-indigo-600 text-white rounded-2xl flex items-center justify-center">
+                <s.icon size={20} />
               </div>
-              <div className="relative space-y-2">
-                <h3 className="text-xl font-black text-slate-900">{s.title}</h3>
-                <p className="text-sm text-slate-500 leading-relaxed">{s.body}</p>
+              <div className="relative space-y-1">
+                <h3 className="text-base font-black text-slate-900">
+                  {s.title}
+                </h3>
+                <p className="text-sm text-slate-500 leading-relaxed">
+                  {s.body}
+                </p>
               </div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* TCAS callout */}
-      <section className="rounded-[48px] overflow-hidden bg-gradient-to-br from-emerald-500 to-emerald-700 text-white p-10 md:p-16 grid md:grid-cols-[1.4fr_1fr] gap-10 items-center">
-        <div className="space-y-5">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/15 rounded-full text-[10px] font-black uppercase tracking-[0.2em]">
-            <Sparkles size={12} />
-            Free Tool
-          </div>
-          <h3 className="text-3xl md:text-4xl font-black tracking-tight">
-            คำนวณโอกาสสอบติด TCAS
-          </h3>
-          <p className="text-emerald-50 text-base max-w-xl leading-relaxed">
-            ใส่คะแนนของคุณ ระบบจะคำนวณโอกาสติดของแต่ละมหา&apos;ลัย พร้อมแนะนำว่าวิชาไหนต้องติวเพิ่มเพื่อให้ถึงเป้า
+      {/* Pillars — downsized */}
+      <section className="space-y-6">
+        <div className="space-y-1">
+          <p className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em]">
+            Why Pee Rahat
           </p>
-          <Link
-            href="/tcas"
-            className="inline-flex items-center gap-2 px-8 py-4 bg-white text-emerald-700 rounded-2xl font-black hover:bg-emerald-50 transition-all"
-          >
-            <Calculator size={18} />
-            ลองใช้ TCAS Calculator
-          </Link>
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            แพลตฟอร์มที่ออกแบบบนความไว้ใจ
+          </h2>
         </div>
-        <div className="hidden md:flex justify-center">
-          <Calculator
-            size={160}
-            className="text-white/20"
-            strokeWidth={1.2}
-          />
+        <div className="grid sm:grid-cols-3 gap-3">
+          {TRUST_PILLARS.map((p) => (
+            <div
+              key={p.title}
+              className="bg-white p-5 rounded-2xl border border-slate-200 flex gap-4 items-start"
+            >
+              <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shrink-0">
+                <p.icon size={20} />
+              </div>
+              <div className="space-y-1 min-w-0">
+                <h3 className="text-sm font-black text-slate-900">
+                  {p.title}
+                </h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  {p.body}
+                </p>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
       {/* Become a tutor */}
-      <section className="bg-slate-900 rounded-[48px] p-10 md:p-16 text-white grid md:grid-cols-[1.4fr_1fr] gap-10 items-center">
-        <div className="space-y-5">
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-400">
+      <section className="bg-slate-900 rounded-[32px] p-8 sm:p-12 text-white grid sm:grid-cols-[1.4fr_1fr] gap-8 items-center">
+        <div className="space-y-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-[10px] font-black uppercase tracking-widest text-indigo-300">
+            <Sparkles size={12} />
             For University Students
-          </p>
-          <h3 className="text-3xl md:text-4xl font-black tracking-tight">
+          </div>
+          <h3 className="text-2xl sm:text-3xl font-black tracking-tight">
             สร้างรายได้ระหว่างเรียน
           </h3>
-          <p className="text-slate-400 leading-relaxed max-w-xl">
+          <p className="text-sm text-slate-400 leading-relaxed max-w-xl">
             สมัครเป็นพี่ติวกับ Pee Rahat ส่งบัตรประชาชน + ทรานสคริปต์
             ผ่านการอนุมัติแล้วเปิดรับนักเรียนได้ทันที — ระบบ Escrow ดูแลให้คุณได้ค่าตอบแทน 100%
           </p>
           <Link
             href="/tutors/onboarding"
-            className="inline-flex items-center gap-2 px-8 py-4 bg-indigo-600 hover:bg-indigo-700 rounded-2xl font-black transition-all"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 rounded-2xl font-bold text-sm transition-all"
           >
             สมัครเป็นพี่ติว
-            <ArrowRight size={18} />
+            <ArrowRight size={16} />
           </Link>
         </div>
-        <div className="hidden md:flex justify-center">
+        <div className="hidden sm:flex justify-center">
           <GraduationCap
-            size={180}
+            size={140}
             className="text-white/15"
             strokeWidth={1.2}
           />
         </div>
       </section>
-    </div>
-  );
-}
-
-function StatTile({
-  label,
-  value,
-  tint,
-}: {
-  label: string;
-  value: string;
-  tint: string;
-}) {
-  return (
-    <div
-      className={`relative bg-gradient-to-br ${tint} border border-white/10 rounded-[28px] p-6 overflow-hidden`}
-    >
-      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300">
-        {label}
-      </p>
-      <p className="text-4xl font-black mt-2 tracking-tight">{value}</p>
     </div>
   );
 }
