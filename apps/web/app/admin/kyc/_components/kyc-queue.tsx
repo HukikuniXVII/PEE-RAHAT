@@ -81,7 +81,8 @@ function SubmissionCard({
       setReason("");
       onReviewed();
     },
-    onError: () => toast.error("ตรวจสอบ KYC ไม่สำเร็จ กรุณาลองใหม่"),
+    onError: (err: Error) =>
+      toast.error(err.message || "ตรวจสอบ KYC ไม่สำเร็จ กรุณาลองใหม่"),
   });
 
   return (

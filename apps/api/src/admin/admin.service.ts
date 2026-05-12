@@ -120,6 +120,17 @@ export class AdminService {
     if (!sub) throw new NotFoundException();
 
     if (decision === "approve") {
+      // A user can upload KYC photos before completing /tutors/onboarding,
+      // so the TutorProfile row may not exist yet. Block approval with a
+      // clear message instead of letting Prisma throw P2025.
+      const profile = await this.prisma.tutorProfile.findUnique({
+        where: { userId: sub.userId },
+      });
+      if (!profile) {
+        throw new BadRequestException(
+          "ผู้ใช้ยังไม่ได้กรอกข้อมูลพี่ติว — ขอให้ทำขั้นตอน Onboarding ก่อนจึงอนุมัติได้",
+        );
+      }
       await this.prisma.tutorProfile.update({
         where: { userId: sub.userId },
         data: { isVerified: true },
