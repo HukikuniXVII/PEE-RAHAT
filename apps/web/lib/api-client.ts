@@ -35,6 +35,7 @@ import {
   type TcasWhatIfResult,
   type Tutor,
   type TutorOnboardingDto,
+  type TutorProfileUpdateDto,
   type TutorReview,
   type TutorSearchQuery,
   type TutorSearchResult,
@@ -171,6 +172,12 @@ export function createApiClient(opts: ApiClientOptions = {}) {
         request<Tutor>(
           API_PATHS.tutorOnboarding,
           { method: "POST", body: JSON.stringify(dto) },
+          token,
+        ),
+      updateMe: (dto: TutorProfileUpdateDto) =>
+        request<Tutor>(
+          API_PATHS.tutorMe,
+          { method: "PATCH", body: JSON.stringify(dto) },
           token,
         ),
       byId: (id: string) =>

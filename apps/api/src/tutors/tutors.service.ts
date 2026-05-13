@@ -9,6 +9,7 @@ import type {
   Subject,
   Tutor,
   TutorOnboardingDto,
+  TutorProfileUpdateDto,
   TutorReview,
   TutorSearchQuery,
   TutorSearchResult,
@@ -112,6 +113,38 @@ export class TutorsService {
       return profile;
     });
     return this.toDto(created);
+  }
+
+  /**
+   * FR-TH-03 — tutor edits their own profile. Only fields present in the
+   * DTO are written; introVideoUrl explicitly clears with an empty string.
+   * isVerified / rating / reviewCount are intentionally not editable here.
+   */
+  async updateMyProfile(
+    supabaseId: string,
+    dto: TutorProfileUpdateDto,
+  ): Promise<Tutor> {
+    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
+    if (!user) throw new BadRequestException("Unknown user");
+    const existing = await this.prisma.tutorProfile.findUnique({
+      where: { userId: user.id },
+    });
+    if (!existing) throw new NotFoundException("Tutor profile not found");
+
+    const data: Prisma.TutorProfileUpdateInput = {};
+    if (dto.bio !== undefined) data.bio = dto.bio;
+    if (dto.university !== undefined) data.university = dto.university;
+    if (dto.faculty !== undefined) data.faculty = dto.faculty;
+    if (dto.hourlyRate !== undefined) data.hourlyRate = dto.hourlyRate;
+    if (dto.subjects !== undefined) data.subjects = dto.subjects;
+    if (dto.introVideoUrl !== undefined) data.introVideoUrl = dto.introVideoUrl;
+
+    const updated = await this.prisma.tutorProfile.update({
+      where: { id: existing.id },
+      data,
+      include: { user: true },
+    });
+    return this.toDto(updated);
   }
 
   async findById(id: string): Promise<Tutor> {

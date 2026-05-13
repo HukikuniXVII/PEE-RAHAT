@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -60,6 +61,19 @@ class TutorOnboardingDto {
   @IsOptional() @IsUrl() introVideoUrl?: string;
 }
 
+class TutorProfileUpdateDto {
+  @IsOptional() @IsString() @MinLength(20) @MaxLength(2000) bio?: string;
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(120) university?: string;
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(120) faculty?: string;
+  @IsOptional() @IsInt() @Min(0) @Max(20000) hourlyRate?: number;
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsIn(SUBJECT_VALUES, { each: true })
+  subjects?: Subject[];
+  @IsOptional() @IsUrl() introVideoUrl?: string;
+}
+
 @Controller("tutors")
 export class TutorsController {
   constructor(private readonly tutors: TutorsService) {}
@@ -96,6 +110,15 @@ export class TutorsController {
     @Body() dto: TutorOnboardingDto,
   ): Promise<Tutor> {
     return this.tutors.onboard(user.sub, dto);
+  }
+
+  @Patch("me")
+  @UseGuards(SupabaseAuthGuard)
+  updateMe(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Body() dto: TutorProfileUpdateDto,
+  ): Promise<Tutor> {
+    return this.tutors.updateMyProfile(user.sub, dto);
   }
 
   @Get(":id")

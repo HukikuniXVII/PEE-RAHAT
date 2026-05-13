@@ -23,6 +23,7 @@ export const API_PATHS = {
   adminReviewKyc: (id: string) => `/admin/kyc/${id}/review`,
   tutors: "/tutors",
   tutorOnboarding: "/tutors/onboarding",
+  tutorMe: "/tutors/me",
   tutorById: (id: string) => `/tutors/${id}`,
   tutorReviews: (id: string) => `/tutors/${id}/reviews`,
   bookings: "/bookings",

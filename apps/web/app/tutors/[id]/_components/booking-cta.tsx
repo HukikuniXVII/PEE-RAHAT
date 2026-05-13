@@ -2,7 +2,8 @@
 
 import type { Tutor } from "@peerahat/types";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarPlus } from "lucide-react";
+import { CalendarPlus, Pencil } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 
 import { createApiClient } from "@/lib/api-client";
@@ -32,9 +33,13 @@ export function BookingCta({ tutor, variant }: Props) {
   if (isOwnProfile) {
     if (variant === "mobile-bar") return null;
     return (
-      <p className="w-full px-6 py-4 bg-slate-50 text-slate-500 rounded-2xl text-xs text-center">
-        นี่คือโปรไฟล์ของคุณ
-      </p>
+      <Link
+        href="/tutors/me/edit"
+        className="w-full px-6 py-4 bg-slate-900 text-white rounded-2xl font-bold text-sm shadow-lg shadow-slate-200 hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
+      >
+        <Pencil size={16} />
+        แก้ไขโปรไฟล์
+      </Link>
     );
   }
 

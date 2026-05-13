@@ -82,6 +82,13 @@ export const tutorOnboardingSchema = z.object({
 
 export type TutorOnboardingDto = z.infer<typeof tutorOnboardingSchema>;
 
+// FR-TH-03: tutor edits their own profile after onboarding. Same field
+// rules as onboarding but every field is optional so the client can PATCH
+// just what changed.
+export const tutorProfileUpdateSchema = tutorOnboardingSchema.partial();
+
+export type TutorProfileUpdateDto = z.infer<typeof tutorProfileUpdateSchema>;
+
 export const tutorSearchQuerySchema = z.object({
   q: z.string().optional(),
   subject: subjectSchema.optional(),
