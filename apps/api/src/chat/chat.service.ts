@@ -165,7 +165,7 @@ export class ChatService {
     });
     if (!tutor) throw new NotFoundException();
     if (tutor.userId === user.id) {
-      throw new BadRequestException("Cannot open a chat with yourself");
+      throw new ForbiddenException("ไม่สามารถแชทกับตัวเองได้");
     }
     const counterparty = {
       displayName: tutor.user.displayName,

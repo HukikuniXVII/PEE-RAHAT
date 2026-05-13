@@ -1,18 +1,12 @@
 import type { Subject } from "@peerahat/types";
-import {
-  GraduationCap,
-  MessageSquare,
-  ShieldCheck,
-  Star,
-} from "lucide-react";
-import type { Route } from "next";
-import Link from "next/link";
+import { GraduationCap, ShieldCheck, Star } from "lucide-react";
 
 import { asNotFound, createApiClient } from "@/lib/api-client";
 import { getServerAccessToken } from "@/lib/supabase/server";
 
 import { AvailabilityPicker } from "./_components/availability-picker";
 import { BookingCta } from "./_components/booking-cta";
+import { ChatCta } from "./_components/chat-cta";
 import { IntroVideo } from "./_components/intro-video";
 import { ReviewsSection } from "./_components/reviews-section";
 
@@ -37,8 +31,6 @@ export default async function TutorProfilePage({ params }: Props) {
     asNotFound(api.tutors.byId(params.id)),
     api.tutors.reviews(params.id, { page: 1, pageSize: 10 }),
   ]);
-
-  const chatHref = `/chat/${tutor.id}` as Route;
 
   return (
     // pb-28 on mobile reserves space for the fixed booking bar.
@@ -154,13 +146,7 @@ export default async function TutorProfilePage({ params }: Props) {
 
               <BookingCta tutor={tutor} variant="sidebar" />
 
-              <Link
-                href={chatHref}
-                className="w-full px-6 py-3 bg-slate-100 text-slate-700 rounded-2xl font-bold text-sm hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
-              >
-                <MessageSquare size={16} />
-                แชทกับพี่{tutor.displayName.split(" ")[0]}
-              </Link>
+              <ChatCta tutor={tutor} />
 
               <div className="pt-4 border-t border-slate-100 flex items-start gap-3 text-[11px] text-slate-500 leading-relaxed">
                 <ShieldCheck
