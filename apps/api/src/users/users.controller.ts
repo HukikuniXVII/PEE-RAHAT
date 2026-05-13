@@ -22,7 +22,9 @@ import { UsersService } from "./users.service";
 
 class UserProfileUpdateDto {
   @IsOptional() @IsString() @MinLength(2) @MaxLength(60) displayName?: string;
-  @IsOptional() @IsUrl() avatarUrl?: string;
+  // require_tld: false allows http://localhost:9000/... in dev. Production
+  // avatars go through the configured S3/CDN domain which still passes.
+  @IsOptional() @IsUrl({ require_tld: false }) avatarUrl?: string;
 }
 
 class AvatarIntentDto {
