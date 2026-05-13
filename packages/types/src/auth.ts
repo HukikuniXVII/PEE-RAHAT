@@ -32,3 +32,23 @@ export const signUpSchema = z.object({
 });
 
 export type SignUpDto = z.infer<typeof signUpSchema>;
+
+// FR-TH-03: tutor (or any signed-in user) edits their account profile.
+export const userProfileUpdateSchema = z.object({
+  displayName: z.string().trim().min(2).max(60).optional(),
+  avatarUrl: z
+    .string()
+    .trim()
+    .url("กรอก URL ให้ถูกต้อง")
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
+});
+
+export type UserProfileUpdateDto = z.infer<typeof userProfileUpdateSchema>;
+
+export interface AvatarUploadIntent {
+  uploadUrl: string;
+  objectKey: string;
+  publicUrl: string;
+  expiresAt: string;
+}

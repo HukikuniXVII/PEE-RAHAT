@@ -14,6 +14,11 @@ export interface SignedUploadUrl {
   expiresAt: string;
 }
 
+export interface SignedAvatarUpload extends SignedUploadUrl {
+  /** Stable, query-string-free URL to store on User.avatarUrl. */
+  publicUrl: string;
+}
+
 export interface SignedDownloadUrl {
   url: string;
   expiresAt: string;
@@ -83,6 +88,29 @@ export class StorageService {
   ): Promise<SignedUploadUrl> {
     const objectKey = `kyc/${userId}/${field}-${Date.now()}`;
     return this.signPut(this.config?.kycBucket, objectKey, contentType);
+  }
+
+  /**
+   * Avatar uploads share the sheets bucket but live under `avatars/`.
+   * Unlike KYC/sheet PDFs these must be publicly fetchable, so the
+   * caller writes the returned publicUrl to User.avatarUrl. In dev with
+   * stubbed storage, publicUrl points at the local stub host.
+   */
+  async signAvatarUpload(
+    userId: string,
+    contentType: string,
+  ): Promise<SignedAvatarUpload> {
+    const ext = contentType.split("/")[1]?.split("+")[0] ?? "bin";
+    const objectKey = `avatars/${userId}/${Date.now()}.${ext}`;
+    const signed = await this.signPut(
+      this.config?.sheetsBucket,
+      objectKey,
+      contentType,
+    );
+    const publicUrl = this.config
+      ? `${this.config.endpoint ?? `https://${this.config.sheetsBucket}.s3.${this.config.region}.amazonaws.com`}${this.config.endpoint ? `/${this.config.sheetsBucket}` : ""}/${objectKey}`
+      : `https://storage.local/${objectKey}`;
+    return { ...signed, publicUrl };
   }
 
   /**

@@ -4,6 +4,7 @@ import {
   type AdminPaymentRow,
   type AdminPayoutRow,
   type AdminReport,
+  type AvatarUploadIntent,
   type ComputePayoutsDto,
   type KycReviewDecision,
   type ApiError,
@@ -44,6 +45,7 @@ import {
   type TutorSearchResult,
   type UploadSlipDto,
   type User,
+  type UserProfileUpdateDto,
 } from "@peerahat/types";
 
 const baseUrl =
@@ -139,6 +141,18 @@ export function createApiClient(opts: ApiClientOptions = {}) {
   return {
     users: {
       me: () => request<User>(API_PATHS.usersMe, {}, token),
+      updateMe: (dto: UserProfileUpdateDto) =>
+        request<User>(
+          API_PATHS.usersMe,
+          { method: "PATCH", body: JSON.stringify(dto) },
+          token,
+        ),
+      requestAvatarUpload: (contentType: string) =>
+        request<AvatarUploadIntent>(
+          API_PATHS.usersAvatarIntent,
+          { method: "POST", body: JSON.stringify({ contentType }) },
+          token,
+        ),
     },
     admin: {
       listReports: (

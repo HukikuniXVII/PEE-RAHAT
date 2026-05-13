@@ -14,7 +14,11 @@ export default async function TutorProfileEditPage() {
 
   return (
     <div className="max-w-3xl mx-auto py-10 px-4">
-      <ProfileEditForm tutor={tutor} />
+      <ProfileEditForm
+        tutor={tutor}
+        initialDisplayName={me.displayName}
+        initialAvatarUrl={me.avatarUrl ?? ""}
+      />
     </div>
   );
 }

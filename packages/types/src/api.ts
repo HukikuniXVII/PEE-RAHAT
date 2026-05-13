@@ -17,6 +17,7 @@ export interface Page<T> {
 
 export const API_PATHS = {
   usersMe: "/users/me",
+  usersAvatarIntent: "/users/me/avatar-intent",
   adminReports: "/admin/reports",
   adminResolveReport: (id: string) => `/admin/reports/${id}/resolve`,
   adminKycQueue: "/admin/kyc/queue",
