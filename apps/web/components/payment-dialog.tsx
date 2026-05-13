@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   ArrowRight,
   CheckCircle2,
+  Clock3,
   Loader2,
   QrCode,
   ShieldCheck,
@@ -43,6 +44,9 @@ export function PaymentDialog({
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [finalStatus, setFinalStatus] = useState<
+    "held_in_escrow" | "slip_uploaded" | null
+  >(null);
 
   useEffect(() => {
     setError(null);
@@ -66,6 +70,12 @@ export function PaymentDialog({
         slipObjectKey,
       });
       if (result.status === "verified" || result.status === "held_in_escrow") {
+        setFinalStatus("held_in_escrow");
+        setStep(3);
+      } else if (result.status === "slip_uploaded") {
+        // Manual-review mode (FR-PM-01, PAYMENTS_MANUAL_REVIEW=1):
+        // admin must approve the slip before escrow opens.
+        setFinalStatus("slip_uploaded");
         setStep(3);
       } else if (result.status === "failed") {
         setError(result.failureReason ?? "การตรวจสลิปไม่ผ่าน");
@@ -144,8 +154,8 @@ export function PaymentDialog({
                   <AlertTriangle className="text-amber-500 mt-1" size={18} />
                   <p className="text-[10px] text-amber-700 leading-relaxed font-medium">
                     กรุณาโอนยอดเงินให้ตรงตามที่ระบุ (฿
-                    {amountThb.toLocaleString()}) เพื่อให้ระบบ SlipOK
-                    สามารถตรวจสอบความถูกต้องได้ทันที
+                    {amountThb.toLocaleString()})
+                    เพื่อให้แอดมินตรวจสอบสลิปได้รวดเร็ว
                   </p>
                 </div>
                 <Button
@@ -186,7 +196,7 @@ export function PaymentDialog({
                       className="text-indigo-600 animate-spin mx-auto"
                     />
                     <p className="text-xs font-bold text-indigo-600 uppercase tracking-widest">
-                      Verifying via SlipOK...
+                      กำลังส่งสลิปให้แอดมินตรวจ...
                     </p>
                   </div>
                 ) : (
@@ -211,7 +221,7 @@ export function PaymentDialog({
             </motion.div>
           )}
 
-          {step === 3 && (
+          {step === 3 && finalStatus === "held_in_escrow" && (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -240,6 +250,36 @@ export function PaymentDialog({
             </motion.div>
           )}
 
+          {step === 3 && finalStatus === "slip_uploaded" && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="text-center space-y-6 py-8"
+            >
+              <div className="w-20 h-20 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mx-auto">
+                <Clock3 size={40} />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-2xl font-bold text-slate-900">
+                  รอแอดมินตรวจสลิป
+                </h3>
+                <p className="text-sm text-slate-500 px-8">
+                  ได้รับสลิปของคุณเรียบร้อยแล้ว <br />
+                  แอดมินกำลังตรวจสอบ โดยทั่วไปไม่เกิน 1 ชั่วโมงในเวลาทำการ
+                  เราจะแจ้งเตือนเมื่อสลิปได้รับการอนุมัติ
+                </p>
+              </div>
+              <Button
+                onClick={onClose}
+                variant="secondary"
+                size="lg"
+                className="w-full"
+              >
+                เสร็จสิ้น
+              </Button>
+            </motion.div>
+          )}
+
           {error && (
             <p className="text-sm text-rose-600 font-medium text-center">
               {error}
@@ -248,8 +288,8 @@ export function PaymentDialog({
         </div>
 
         <div className="bg-slate-50 p-6 border-t border-slate-100 flex items-center justify-center gap-6">
-          <span className="text-[10px] font-black italic text-slate-400">
-            SlipOK Verified
+          <span className="text-[10px] font-black italic text-slate-400 uppercase tracking-widest">
+            ตรวจสลิปโดยแอดมิน
           </span>
           <div className="w-px h-6 bg-slate-200" />
           <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest">

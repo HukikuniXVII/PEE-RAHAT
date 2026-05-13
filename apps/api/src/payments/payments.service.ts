@@ -112,6 +112,22 @@ export class PaymentsService {
     if (!intent) throw new NotFoundException();
     if (intent.payerId !== user.id) throw new ForbiddenException();
 
+    // FR-PM-01: PAYMENTS_MANUAL_REVIEW=1 routes every slip straight to the
+    // admin "รออนุมัติ" queue. No SlipOK call, no amount auto-check — the
+    // human reviewer reads the slip image and uses approveSlip/rejectSlip
+    // to move funds into escrow. Used when SlipOK is unavailable, costly,
+    // or not yet contracted in this environment.
+    if (this.isManualReviewOnly()) {
+      const updated = await this.prisma.paymentIntent.update({
+        where: { id: intent.id },
+        data: { slipObjectKey: dto.slipObjectKey, status: "slip_uploaded" },
+      });
+      return {
+        paymentIntentId: updated.id,
+        status: "slip_uploaded",
+      };
+    }
+
     await this.prisma.paymentIntent.update({
       where: { id: intent.id },
       data: { slipObjectKey: dto.slipObjectKey, status: "verifying" },
@@ -154,6 +170,11 @@ export class PaymentsService {
       status: "held_in_escrow",
       slipOkRef: verdict.slipOkRef,
     };
+  }
+
+  private isManualReviewOnly(): boolean {
+    const raw = process.env.PAYMENTS_MANUAL_REVIEW;
+    return raw === "1" || raw === "true";
   }
 
   private buildPromptPayPayload(amountThb: number): string {
