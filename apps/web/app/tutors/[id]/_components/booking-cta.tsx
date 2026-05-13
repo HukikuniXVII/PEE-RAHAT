@@ -1,8 +1,11 @@
 "use client";
 
 import type { Tutor } from "@peerahat/types";
+import { useQuery } from "@tanstack/react-query";
 import { CalendarPlus } from "lucide-react";
 import { useState } from "react";
+
+import { createApiClient } from "@/lib/api-client";
 
 import { BookingDialog } from "./booking-dialog";
 
@@ -14,6 +17,26 @@ interface Props {
 
 export function BookingCta({ tutor, variant }: Props) {
   const [open, setOpen] = useState(false);
+
+  // FR-TH-06: hide the CTA when viewer is the tutor themselves. Backend
+  // also rejects self-booking with 403, but surfacing it client-side keeps
+  // the affordance honest.
+  const meQuery = useQuery({
+    queryKey: ["users", "me"],
+    queryFn: () => createApiClient().users.me(),
+    staleTime: 60_000,
+    retry: false,
+  });
+  const isOwnProfile = meQuery.data?.tutorProfileId === tutor.id;
+
+  if (isOwnProfile) {
+    if (variant === "mobile-bar") return null;
+    return (
+      <p className="w-full px-6 py-4 bg-slate-50 text-slate-500 rounded-2xl text-xs text-center">
+        นี่คือโปรไฟล์ของคุณ
+      </p>
+    );
+  }
 
   return (
     <>

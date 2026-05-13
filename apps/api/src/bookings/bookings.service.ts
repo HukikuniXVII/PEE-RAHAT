@@ -42,6 +42,9 @@ export class BookingsService {
       where: { id: input.tutorId },
     });
     if (!tutor) throw new NotFoundException();
+    if (tutor.userId === user.id) {
+      throw new ForbiddenException("ไม่สามารถจองคลาสของตัวเองได้");
+    }
 
     const amountThb = Math.round(
       tutor.hourlyRate * (input.durationMinutes / 60),
