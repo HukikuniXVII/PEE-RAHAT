@@ -17,9 +17,9 @@ export function HeroSearch() {
   return (
     <form
       onSubmit={submit}
-      className="flex items-center gap-2 bg-white rounded-2xl shadow-2xl shadow-slate-900/20 p-2 max-w-2xl"
+      className="flex items-center gap-2 bg-white rounded-full shadow-xl shadow-rose-200/50 ring-1 ring-slate-200 p-1.5 sm:p-2 max-w-2xl mx-auto"
     >
-      <div className="flex-1 flex items-center gap-2 px-3 min-w-0">
+      <div className="flex-1 flex items-center gap-2 px-4 sm:px-5 min-w-0">
         <Search size={18} className="text-slate-400 shrink-0" />
         <input
           type="text"
@@ -31,7 +31,7 @@ export function HeroSearch() {
       </div>
       <button
         type="submit"
-        className="shrink-0 px-5 sm:px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition-all"
+        className="shrink-0 px-5 sm:px-7 py-3 bg-rose-500 text-white rounded-full font-bold text-sm hover:bg-rose-600 transition-all shadow-md shadow-rose-300/40"
       >
         ค้นหา
       </button>
