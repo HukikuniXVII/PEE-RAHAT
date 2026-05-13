@@ -7,8 +7,12 @@ import { PaymentsTable } from "./_components/payments-table";
 
 export default async function AdminPaymentsPage() {
   const token = await requireAdmin("/admin/payments");
-  const initial = await createApiClient({ accessToken: token })
-    .admin.paymentsQueue();
+  const api = createApiClient({ accessToken: token });
+  const [pending, success, failed] = await Promise.all([
+    api.admin.paymentsQueue({ status: "pending" }),
+    api.admin.paymentsQueue({ status: "success" }),
+    api.admin.paymentsQueue({ status: "failed" }),
+  ]);
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-20">
@@ -25,7 +29,11 @@ export default async function AdminPaymentsPage() {
           </h1>
         </div>
       </header>
-      <PaymentsTable initial={initial} />
+      <PaymentsTable
+        initialPending={pending}
+        initialSuccess={success}
+        initialFailed={failed}
+      />
     </div>
   );
 }

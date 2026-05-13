@@ -59,9 +59,12 @@ export class AdminController {
   }
 
   @Get("payments/queue")
-  async paymentsQueue(@CurrentUser() user: SupabaseJwtPayload) {
+  async paymentsQueue(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Query("status") status?: "pending" | "success" | "failed",
+  ) {
     await this.assertAdmin(user.sub);
-    return this.admin.paymentsQueue();
+    return this.admin.paymentsQueue(status);
   }
 
   // FR-PM-01: manual override on top of SlipOK for slips that need a human

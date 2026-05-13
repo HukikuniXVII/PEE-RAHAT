@@ -149,14 +149,22 @@ export class AdminService {
     });
   }
 
-  async paymentsQueue(): Promise<AdminPaymentRow[]> {
-    // FR-PM-01: surface anything needing a human — mid-flight states
-    // (slip_uploaded/verifying, usually only present after an API crash)
-    // plus SlipOK rejections (failed) so admin can override mismatches or
-    // foreign-bank slips. approveSlip/rejectSlip already accept "failed".
+  // FR-PM-01: admin review surface for payment slips.
+  //   pending  → mid-flight (slip_uploaded/verifying, present after API crash)
+  //   success  → confirmed (held_in_escrow + released)
+  //   failed   → SlipOK rejection; admin can override via approveSlip
+  async paymentsQueue(
+    filter: "pending" | "success" | "failed" = "pending",
+  ): Promise<AdminPaymentRow[]> {
+    const statuses: PaymentStatus[] =
+      filter === "success"
+        ? ["held_in_escrow", "released"]
+        : filter === "failed"
+          ? ["failed"]
+          : ["slip_uploaded", "verifying"];
     const rows = await this.prisma.paymentIntent.findMany({
-      where: { status: { in: ["slip_uploaded", "verifying", "failed"] } },
-      orderBy: { createdAt: "asc" },
+      where: { status: { in: statuses } },
+      orderBy: { createdAt: filter === "success" ? "desc" : "asc" },
       include: { payer: true },
     });
     return rows.map((r) => ({

@@ -181,8 +181,12 @@ export function createApiClient(opts: ApiClientOptions = {}) {
           { method: "POST", body: JSON.stringify({ decision, reason }) },
           token,
         ),
-      paymentsQueue: () =>
-        request<AdminPaymentRow[]>(API_PATHS.adminPaymentsQueue, {}, token),
+      paymentsQueue: (opts: { status?: "pending" | "success" | "failed" } = {}) =>
+        request<AdminPaymentRow[]>(
+          `${API_PATHS.adminPaymentsQueue}${qs(opts)}`,
+          {},
+          token,
+        ),
       approvePayment: (id: string) =>
         request<AdminPaymentRow>(
           API_PATHS.adminApprovePayment(id),
