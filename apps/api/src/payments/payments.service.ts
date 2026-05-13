@@ -45,6 +45,26 @@ export class PaymentsService {
       }
       amountThb = booking.amountThb;
       bookingId = booking.id;
+
+      // The schema enforces one PaymentIntent per booking. If an intent
+      // already exists (the student reopened the payment dialog), return
+      // it rather than re-INSERTing — Prisma would throw P2002 otherwise.
+      const existing = await this.prisma.paymentIntent.findUnique({
+        where: { bookingId: booking.id },
+      });
+      if (existing) {
+        return {
+          id: existing.id,
+          itemType: existing.itemType,
+          itemId: booking.id,
+          payerId: existing.payerId,
+          amountThb: existing.amountThb,
+          promptPayQrPayload: existing.promptPayQrPayload,
+          status: existing.status,
+          expiresAt: existing.expiresAt.toISOString(),
+          createdAt: existing.createdAt.toISOString(),
+        };
+      }
     } else {
       const sheet = await this.prisma.studySheet.findUnique({
         where: { id: dto.itemId },
