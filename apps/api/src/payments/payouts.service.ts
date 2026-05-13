@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import type { AdminPayoutRow } from "@peerahat/types";
 
 import { PrismaService } from "../prisma/prisma.service";
 import { pricePayout } from "./pricing";
@@ -77,8 +78,12 @@ export class PayoutsService {
     return { count: created.length, payouts: created };
   }
 
-  list(opts: { from?: Date; to?: Date; paid?: boolean }) {
-    return this.prisma.payout.findMany({
+  async list(opts: {
+    from?: Date;
+    to?: Date;
+    paid?: boolean;
+  }): Promise<AdminPayoutRow[]> {
+    const rows = await this.prisma.payout.findMany({
       where: {
         ...(opts.from || opts.to
           ? { scheduledAt: { gte: opts.from, lte: opts.to } }
@@ -92,6 +97,19 @@ export class PayoutsService {
       orderBy: { scheduledAt: "desc" },
       include: { tutor: { include: { user: true } } },
     });
+    return rows.map((r) => ({
+      id: r.id,
+      tutorId: r.tutorId,
+      tutorDisplayName: r.tutor.user.displayName,
+      periodStart: r.periodStart.toISOString(),
+      periodEnd: r.periodEnd.toISOString(),
+      grossThb: r.grossThb,
+      commissionThb: r.commissionThb,
+      withholdingTaxThb: r.withholdingTaxThb,
+      netThb: r.netThb,
+      scheduledAt: r.scheduledAt.toISOString(),
+      paidAt: r.paidAt ? r.paidAt.toISOString() : null,
+    }));
   }
 
   /**

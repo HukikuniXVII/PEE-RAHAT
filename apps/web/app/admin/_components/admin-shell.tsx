@@ -1,13 +1,20 @@
 "use client";
 
 import { cn } from "@peerahat/ui";
-import { BadgeCheck, ShieldAlert } from "lucide-react";
+import {
+  BadgeCheck,
+  Banknote,
+  Receipt,
+  ShieldAlert,
+} from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const ADMIN_ITEMS = [
   { href: "/admin/kyc", label: "ตรวจสอบ KYC", icon: BadgeCheck },
+  { href: "/admin/payments", label: "ตรวจสลิป", icon: Receipt },
+  { href: "/admin/payouts", label: "Payouts", icon: Banknote },
   { href: "/admin/reports", label: "Reports Queue", icon: ShieldAlert },
 ] as const;
 

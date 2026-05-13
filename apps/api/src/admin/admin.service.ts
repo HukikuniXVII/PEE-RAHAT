@@ -1,7 +1,10 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import type {
   AdminKycQueueItem,
+  AdminPaymentRow,
   AdminReport,
+  PaymentItemType,
+  PaymentStatus,
   ReportTargetType,
 } from "@peerahat/types";
 
@@ -146,11 +149,26 @@ export class AdminService {
     });
   }
 
-  paymentsQueue() {
-    return this.prisma.paymentIntent.findMany({
+  async paymentsQueue(): Promise<AdminPaymentRow[]> {
+    const rows = await this.prisma.paymentIntent.findMany({
       where: { status: { in: ["slip_uploaded", "verifying"] } },
       orderBy: { createdAt: "asc" },
+      include: { payer: true },
     });
+    return rows.map((r) => ({
+      id: r.id,
+      payerId: r.payerId,
+      payerDisplayName: r.payer.displayName,
+      itemType: r.itemType as PaymentItemType,
+      bookingId: r.bookingId,
+      sheetId: r.sheetId,
+      amountThb: r.amountThb,
+      status: r.status as PaymentStatus,
+      slipObjectKey: r.slipObjectKey,
+      slipOkRef: r.slipOkRef,
+      failureReason: r.failureReason,
+      createdAt: r.createdAt.toISOString(),
+    }));
   }
 
   /**

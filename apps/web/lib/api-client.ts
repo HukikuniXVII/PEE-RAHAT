@@ -1,7 +1,10 @@
 import {
   API_PATHS,
   type AdminKycQueueItem,
+  type AdminPaymentRow,
+  type AdminPayoutRow,
   type AdminReport,
+  type ComputePayoutsDto,
   type KycReviewDecision,
   type ApiError,
   type Booking,
@@ -162,6 +165,38 @@ export function createApiClient(opts: ApiClientOptions = {}) {
         request<{ id: string; status: string }>(
           API_PATHS.adminReviewKyc(id),
           { method: "POST", body: JSON.stringify({ decision, reason }) },
+          token,
+        ),
+      paymentsQueue: () =>
+        request<AdminPaymentRow[]>(API_PATHS.adminPaymentsQueue, {}, token),
+      approvePayment: (id: string) =>
+        request<AdminPaymentRow>(
+          API_PATHS.adminApprovePayment(id),
+          { method: "POST" },
+          token,
+        ),
+      rejectPayment: (id: string, reason: string) =>
+        request<AdminPaymentRow>(
+          API_PATHS.adminRejectPayment(id),
+          { method: "POST", body: JSON.stringify({ reason }) },
+          token,
+        ),
+      payouts: (opts: { paid?: boolean } = {}) =>
+        request<AdminPayoutRow[]>(
+          `${API_PATHS.adminPayouts}${qs({ paid: opts.paid })}`,
+          {},
+          token,
+        ),
+      computePayouts: (dto: ComputePayoutsDto) =>
+        request<AdminPayoutRow[]>(
+          API_PATHS.adminComputePayouts,
+          { method: "POST", body: JSON.stringify(dto) },
+          token,
+        ),
+      markPayoutPaid: (id: string) =>
+        request<AdminPayoutRow>(
+          API_PATHS.adminMarkPayoutPaid(id),
+          { method: "POST" },
           token,
         ),
     },

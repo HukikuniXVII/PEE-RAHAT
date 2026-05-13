@@ -1,4 +1,5 @@
 import type { ReportTargetType } from "./community";
+import type { PaymentItemType, PaymentStatus } from "./payment";
 
 export interface AdminReport {
   id: string;
@@ -28,4 +29,44 @@ export interface AdminKycQueueItem {
 export interface ReviewKycDto {
   decision: KycReviewDecision;
   reason?: string;
+}
+
+// FR-PM-01: payments awaiting manual review in /admin/payments.
+export interface AdminPaymentRow {
+  id: string;
+  payerId: string;
+  payerDisplayName: string;
+  itemType: PaymentItemType;
+  bookingId: string | null;
+  sheetId: string | null;
+  amountThb: number;
+  status: PaymentStatus;
+  slipObjectKey: string | null;
+  slipOkRef: string | null;
+  failureReason: string | null;
+  createdAt: string;
+}
+
+export interface RejectSlipDto {
+  reason: string;
+}
+
+// FR-PM-06 / FR-PM-07: payout batches in /admin/payouts.
+export interface AdminPayoutRow {
+  id: string;
+  tutorId: string;
+  tutorDisplayName: string;
+  periodStart: string;
+  periodEnd: string;
+  grossThb: number;
+  commissionThb: number;
+  withholdingTaxThb: number;
+  netThb: number;
+  scheduledAt: string;
+  paidAt: string | null;
+}
+
+export interface ComputePayoutsDto {
+  periodStart: string;
+  periodEnd: string;
 }
