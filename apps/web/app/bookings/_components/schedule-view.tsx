@@ -7,7 +7,7 @@ import { CalendarX, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useMemo } from "react";
+import { Fragment, useMemo } from "react";
 
 import { createApiClient } from "@/lib/api-client";
 
@@ -23,7 +23,11 @@ const VISIBLE_STATUSES: ReadonlySet<BookingStatus> = new Set([
 
 const GRID_START_HOUR = 8;
 const GRID_END_HOUR = 22; // last slot rendered ends at 23:00
-const GRID_ROWS = GRID_END_HOUR - GRID_START_HOUR + 1; // 15 hourly rows
+const GRID_HOURS = GRID_END_HOUR - GRID_START_HOUR + 1; // 15 hourly columns
+const HOUR_RANGE = Array.from({ length: GRID_HOURS }, (_, i) => GRID_START_HOUR + i);
+const DAY_ROW_HEIGHT_PX = 64;
+const DAY_LABEL_COL_PX = 88;
+const HOUR_COL_MIN_PX = 72;
 
 const WEEKDAY_LABELS = ["จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส.", "อา."];
 
@@ -230,7 +234,11 @@ export function ScheduleView({ initialBookings }: Props) {
                   </header>
                   <div className="space-y-2">
                     {bucket.map((b) => (
-                      <ScheduleEvent key={b.id} booking={b} compact />
+                      <ScheduleEvent
+                        key={b.id}
+                        booking={b}
+                        layout="compact"
+                      />
                     ))}
                   </div>
                 </section>
@@ -243,7 +251,7 @@ export function ScheduleView({ initialBookings }: Props) {
   );
 }
 
-// ── desktop week grid ─────────────────────────────────────────────────────
+// ── desktop week grid (days = rows, hours = cols) ─────────────────────────
 function DesktopWeekGrid({
   days,
   dayBuckets,
@@ -254,119 +262,111 @@ function DesktopWeekGrid({
   today: Date;
 }) {
   return (
-    <div>
-      {/* Column header row */}
-      <div className="grid grid-cols-[64px_repeat(7,minmax(0,1fr))] border-b border-slate-100">
-        <div />
-        {days.map((day) => {
+    // The scroll container — sticky headers anchor to its edges.
+    <div className="overflow-x-auto">
+      <div
+        className="grid min-w-max relative"
+        style={{
+          gridTemplateColumns: `${DAY_LABEL_COL_PX}px repeat(${GRID_HOURS}, minmax(${HOUR_COL_MIN_PX}px, 1fr))`,
+          gridTemplateRows: `auto repeat(7, ${DAY_ROW_HEIGHT_PX}px)`,
+        }}
+      >
+        {/* corner cell — pinned at both axes, sits above everything */}
+        <div
+          className="sticky top-0 left-0 z-30 bg-white border-b border-r border-slate-100"
+          style={{ gridColumn: 1, gridRow: 1 }}
+        />
+
+        {/* hour headers — sticky-top */}
+        {HOUR_RANGE.map((hour, i) => (
+          <div
+            key={`hh-${hour}`}
+            className={cn(
+              "sticky top-0 z-20 bg-white text-[10px] font-bold text-slate-400 tabular-nums text-center py-2 border-b border-slate-100",
+              i % 3 === 0 ? "border-l border-slate-200" : "border-l border-slate-50",
+            )}
+            style={{ gridColumn: i + 2, gridRow: 1 }}
+          >
+            {String(hour).padStart(2, "0")}:00
+          </div>
+        ))}
+
+        {/* day rows */}
+        {days.map((day, dayIdx) => {
           const isToday = sameDay(day, today);
+          const bookings = dayBuckets[dayIdx] ?? [];
           return (
-            <div
-              key={day.toISOString()}
-              className={cn(
-                "py-3 text-center border-l border-slate-100",
-                isToday && "bg-indigo-50",
-              )}
-            >
-              <p
+            <Fragment key={day.toISOString()}>
+              {/* day label — sticky-left */}
+              <div
                 className={cn(
-                  "text-[10px] font-bold uppercase tracking-widest",
-                  isToday ? "text-indigo-600" : "text-slate-400",
+                  "sticky left-0 z-10 border-r border-slate-100 border-b border-slate-50 px-3 flex items-center gap-2",
+                  isToday ? "bg-indigo-50" : "bg-white",
                 )}
+                style={{ gridColumn: 1, gridRow: dayIdx + 2 }}
               >
-                {WEEKDAY_LABELS[day.getDay() === 0 ? 6 : day.getDay() - 1]}
-              </p>
-              <p
-                className={cn(
-                  "text-lg font-black leading-none mt-0.5",
-                  isToday ? "text-indigo-700" : "text-slate-800",
-                )}
-              >
-                {day.getDate()}
-              </p>
-            </div>
+                <span
+                  className={cn(
+                    "text-[10px] font-bold uppercase tracking-widest",
+                    isToday ? "text-indigo-600" : "text-slate-400",
+                  )}
+                >
+                  {WEEKDAY_LABELS[day.getDay() === 0 ? 6 : day.getDay() - 1]}
+                </span>
+                <span
+                  className={cn(
+                    "text-base font-black leading-none",
+                    isToday ? "text-indigo-700" : "text-slate-800",
+                  )}
+                >
+                  {day.getDate()}
+                </span>
+              </div>
+
+              {/* hour cells (gridlines + today tint) */}
+              {HOUR_RANGE.map((hour, i) => (
+                <div
+                  key={`bg-${dayIdx}-${hour}`}
+                  className={cn(
+                    "border-b border-slate-50",
+                    i % 3 === 0 ? "border-l border-slate-200" : "border-l border-slate-50",
+                    isToday && "bg-indigo-50/40",
+                  )}
+                  style={{ gridColumn: i + 2, gridRow: dayIdx + 2 }}
+                />
+              ))}
+
+              {/* events for this day */}
+              {bookings.map((b) => {
+                const start = new Date(b.scheduledAt);
+                const startHour = start.getHours() + start.getMinutes() / 60;
+                const clampedStart = Math.max(
+                  GRID_START_HOUR,
+                  Math.min(GRID_END_HOUR + 1, startHour),
+                );
+                const colStart = Math.floor(clampedStart - GRID_START_HOUR) + 2;
+                const maxSpan = GRID_HOURS + 2 - colStart;
+                const colSpan = Math.max(
+                  1,
+                  Math.min(maxSpan, Math.ceil(b.durationMinutes / 60)),
+                );
+                return (
+                  <div
+                    key={b.id}
+                    className="p-1 relative z-[1]"
+                    style={{
+                      gridColumn: `${colStart} / span ${colSpan}`,
+                      gridRow: dayIdx + 2,
+                    }}
+                  >
+                    <ScheduleEvent booking={b} layout="horizontal" />
+                  </div>
+                );
+              })}
+            </Fragment>
           );
         })}
       </div>
-
-      {/* Time-axis + day columns */}
-      <div className="grid grid-cols-[64px_repeat(7,minmax(0,1fr))]">
-        {/* Time labels */}
-        <div className="grid" style={{ gridTemplateRows: `repeat(${GRID_ROWS}, 56px)` }}>
-          {Array.from({ length: GRID_ROWS }, (_, i) => {
-            const hour = GRID_START_HOUR + i;
-            return (
-              <div
-                key={hour}
-                className="text-[10px] font-bold text-slate-300 tabular-nums text-right pr-2 pt-0.5 border-t border-slate-50"
-              >
-                {String(hour).padStart(2, "0")}:00
-              </div>
-            );
-          })}
-        </div>
-
-        {/* 7 day columns */}
-        {days.map((day, i) => (
-          <DayColumn
-            key={day.toISOString()}
-            day={day}
-            bookings={dayBuckets[i] ?? []}
-            isToday={sameDay(day, today)}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function DayColumn({
-  day,
-  bookings,
-  isToday,
-}: {
-  day: Date;
-  bookings: Booking[];
-  isToday: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "relative grid border-l border-slate-100",
-        isToday && "bg-indigo-50/40",
-      )}
-      style={{ gridTemplateRows: `repeat(${GRID_ROWS}, 56px)` }}
-    >
-      {/* Faint hour-line backdrop */}
-      {Array.from({ length: GRID_ROWS }, (_, i) => (
-        <div
-          key={i}
-          className="border-t border-slate-50"
-          style={{ gridRow: i + 1 }}
-        />
-      ))}
-
-      {/* Events */}
-      {bookings.map((b) => {
-        const start = new Date(b.scheduledAt);
-        const startHour = start.getHours() + start.getMinutes() / 60;
-        const clamped = Math.max(GRID_START_HOUR, Math.min(GRID_END_HOUR + 1, startHour));
-        const rowStart = Math.floor(clamped - GRID_START_HOUR) + 1;
-        const rowSpan = Math.max(
-          1,
-          Math.min(GRID_ROWS - rowStart + 1, Math.ceil(b.durationMinutes / 60)),
-        );
-        // Day key disambiguates events that share a start hour.
-        return (
-          <div
-            key={b.id}
-            className="p-1"
-            style={{ gridRow: `${rowStart} / span ${rowSpan}` }}
-          >
-            <ScheduleEvent booking={b} />
-          </div>
-        );
-      })}
     </div>
   );
 }

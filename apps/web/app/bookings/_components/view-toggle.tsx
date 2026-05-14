@@ -12,8 +12,9 @@ export function ViewToggle({ current }: { current: BookingsView }) {
   const params = useSearchParams();
 
   function hrefFor(view: BookingsView): Route {
+    // schedule is the implicit default (no view param); only list is explicit.
     const next = new URLSearchParams(params?.toString() ?? "");
-    if (view === "list") {
+    if (view === "schedule") {
       next.delete("view");
     } else {
       next.set("view", view);
@@ -23,8 +24,8 @@ export function ViewToggle({ current }: { current: BookingsView }) {
   }
 
   const options: { value: BookingsView; label: string; Icon: typeof List }[] = [
-    { value: "list", label: "รายการ", Icon: List },
     { value: "schedule", label: "ตาราง", Icon: CalendarDays },
+    { value: "list", label: "รายการ", Icon: List },
   ];
 
   return (

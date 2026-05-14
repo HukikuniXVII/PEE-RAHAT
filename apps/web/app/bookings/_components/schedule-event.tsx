@@ -10,11 +10,13 @@ import { STATUS_COPY, TONE_CLASSES } from "./status-meta";
 
 interface Props {
   booking: Booking;
-  /** Compact variant for mobile day-list. */
-  compact?: boolean;
+  /** "horizontal" (default) fills a day-row slot — duration is implied by
+   *  the card's column span, so we hide the duration line. "compact" is the
+   *  mobile day-list affordance with explicit time + duration. */
+  layout?: "horizontal" | "compact";
 }
 
-export function ScheduleEvent({ booking, compact }: Props) {
+export function ScheduleEvent({ booking, layout = "horizontal" }: Props) {
   const status = STATUS_COPY[booking.status];
   const counterpartyLabel =
     booking.viewerSide === "student" ? "กับพี่ติว" : "กับน้อง";
@@ -28,34 +30,43 @@ export function ScheduleEvent({ booking, compact }: Props) {
     ? (`/chat/thread/${booking.chatThreadId}` as Route)
     : ("/bookings" as Route);
 
+  const isCompact = layout === "compact";
+
   return (
     <Link
       href={href}
       className={cn(
-        "block bg-white border border-slate-200 rounded-2xl p-3 shadow-sm hover:border-indigo-200 hover:shadow-md transition-all overflow-hidden",
-        compact ? "space-y-1.5" : "h-full space-y-1.5",
+        "block bg-white border border-slate-200 rounded-xl shadow-sm hover:border-indigo-300 hover:shadow-md transition-all overflow-hidden",
+        isCompact ? "p-3 space-y-1.5" : "h-full p-2 flex flex-col justify-between gap-1",
       )}
     >
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-start justify-between gap-2 min-w-0">
         <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest truncate">
           {booking.subject}
         </p>
-        {compact && (
+        {isCompact && (
           <span className="text-[11px] font-bold text-slate-500 tabular-nums shrink-0">
             {time}
           </span>
         )}
       </div>
-      <p className="text-xs font-bold text-slate-800 truncate">
+      <p
+        className={cn(
+          "font-bold text-slate-800 truncate",
+          isCompact ? "text-xs" : "text-[11px] leading-tight",
+        )}
+      >
         {counterpartyLabel}
       </p>
-      <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
-        <Clock size={10} />
-        {booking.durationMinutes} นาที
-      </p>
+      {isCompact && (
+        <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+          <Clock size={10} />
+          {booking.durationMinutes} นาที
+        </p>
+      )}
       <span
         className={cn(
-          "inline-flex text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border",
+          "inline-flex text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border self-start truncate max-w-full",
           TONE_CLASSES[status.tone],
         )}
       >

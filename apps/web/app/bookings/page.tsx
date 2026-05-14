@@ -18,7 +18,7 @@ export default async function BookingsPage({ searchParams }: Props) {
   ]);
 
   const view: BookingsView =
-    searchParams.view === "schedule" ? "schedule" : "list";
+    searchParams.view === "list" ? "list" : "schedule";
   const isTutor = me.role === "tutor";
   const heading = isTutor ? "ตารางสอน" : "ตารางเรียน";
   const subtitle = isTutor
@@ -34,10 +34,10 @@ export default async function BookingsPage({ searchParams }: Props) {
 
       <ViewToggle current={view} />
 
-      {view === "list" ? (
-        <BookingsList initialBookings={initial} />
-      ) : (
+      {view === "schedule" ? (
         <ScheduleView initialBookings={initial} />
+      ) : (
+        <BookingsList initialBookings={initial} />
       )}
     </div>
   );
