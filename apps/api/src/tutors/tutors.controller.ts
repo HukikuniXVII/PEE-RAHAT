@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -22,6 +23,13 @@ import {
   Min,
   MinLength,
 } from "class-validator";
+
+class CreateUnavailabilityDto {
+  @IsInt() @Min(0) @Max(6) weekday!: number;
+  @IsInt() @Min(0) @Max(1440) startMinute!: number;
+  @IsInt() @Min(1) @Max(1440) endMinute!: number;
+  @IsOptional() @IsString() @MaxLength(120) reason?: string;
+}
 import type {
   Subject,
   Tutor,
@@ -158,6 +166,31 @@ export class TutorsController {
     }
     const busy = await this.tutors.listBusyForTutor(id, fromDate, toDate);
     return { busy };
+  }
+
+  // FR-TH-16: tutor-managed recurring weekly unavailability.
+  @Get("me/unavailability")
+  @UseGuards(SupabaseAuthGuard)
+  listMyUnavailability(@CurrentUser() user: SupabaseJwtPayload) {
+    return this.tutors.listMyUnavailability(user.sub);
+  }
+
+  @Post("me/unavailability")
+  @UseGuards(SupabaseAuthGuard)
+  createMyUnavailability(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Body() dto: CreateUnavailabilityDto,
+  ) {
+    return this.tutors.createUnavailability(user.sub, dto);
+  }
+
+  @Delete("me/unavailability/:id")
+  @UseGuards(SupabaseAuthGuard)
+  deleteMyUnavailability(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") id: string,
+  ) {
+    return this.tutors.deleteUnavailability(user.sub, id);
   }
 
   @Post(":id/reviews")

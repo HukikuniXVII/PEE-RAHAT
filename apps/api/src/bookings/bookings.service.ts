@@ -34,6 +34,37 @@ export function intervalsOverlap(
   return aStart < bEnd && aEnd > bStart;
 }
 
+/**
+ * Walk the [from, to) window day-by-day and emit every concrete interval
+ * implied by the weekly rules. Used by both the busy endpoint (so the
+ * picker can grey cells) and assertNoOverlap (overlap rejection).
+ */
+export function expandWeeklyRules(
+  rules: Array<{ weekday: number; startMinute: number; endMinute: number }>,
+  from: Date,
+  to: Date,
+): BusySlot[] {
+  if (rules.length === 0) return [];
+  const out: BusySlot[] = [];
+  const cursor = new Date(from);
+  cursor.setHours(0, 0, 0, 0);
+  while (cursor < to) {
+    const weekday = cursor.getDay();
+    for (const r of rules) {
+      if (r.weekday !== weekday) continue;
+      const start = new Date(cursor);
+      start.setMinutes(r.startMinute);
+      const end = new Date(cursor);
+      end.setMinutes(r.endMinute);
+      if (start < to && end > from) {
+        out.push({ start: start.toISOString(), end: end.toISOString() });
+      }
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return out;
+}
+
 interface CreateBookingInput {
   tutorId: string;
   subject: string;
@@ -248,6 +279,32 @@ export class BookingsService {
         conflictingScheduledAt: hit.scheduledAt.toISOString(),
       });
     }
+
+    // 3) FR-TH-16: if the User is a tutor, also reject overlaps with their
+    //    own recurring unavailability windows. Same BOOKING_OVERLAP code —
+    //    the student-facing toast doesn't need to distinguish the cause.
+    const tutorProfile = await this.prisma.tutorProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    if (tutorProfile) {
+      const rules = await this.prisma.tutorUnavailability.findMany({
+        where: { tutorId: tutorProfile.id },
+      });
+      if (rules.length > 0) {
+        for (const interval of expandWeeklyRules(rules, newStart, newEnd)) {
+          const blockStart = new Date(interval.start);
+          const blockEnd = new Date(interval.end);
+          if (intervalsOverlap(newStart, newEnd, blockStart, blockEnd)) {
+            throw new ConflictException({
+              code: "BOOKING_OVERLAP",
+              conflictingBookingId: tutorProfile.id,
+              conflictingScheduledAt: blockStart.toISOString(),
+            });
+          }
+        }
+      }
+    }
   }
 
   /**
@@ -266,7 +323,9 @@ export class BookingsService {
   }
 
   /** Internal: shared between BookingsService.listBusyForUser and the tutor
-   *  availability endpoint (which resolves the tutor's User.id first). */
+   *  availability endpoint (which resolves the tutor's User.id first).
+   *  Includes (1) existing bookings, (2) active postpone proposals, and
+   *  (3) FR-TH-16 tutor unavailability rules expanded across [from, to). */
   async collectBusyForUserId(
     userId: string,
     from: Date,
@@ -303,6 +362,24 @@ export class BookingsService {
         }
       }
     }
+
+    // FR-TH-16: expand tutor weekly unavailability rules into concrete
+    // intervals across the requested window.
+    const tutor = await this.prisma.tutorProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    if (tutor) {
+      const rules = await this.prisma.tutorUnavailability.findMany({
+        where: { tutorId: tutor.id },
+      });
+      if (rules.length > 0) {
+        for (const interval of expandWeeklyRules(rules, from, to)) {
+          busy.push(interval);
+        }
+      }
+    }
+
     return busy;
   }
 

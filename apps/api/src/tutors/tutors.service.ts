@@ -16,6 +16,8 @@ import type {
 } from "@peerahat/types";
 import type { Prisma } from "@prisma/client";
 
+import type { TutorUnavailability } from "@peerahat/types";
+
 import { BookingsService, type BusySlot } from "../bookings/bookings.service";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -42,6 +44,77 @@ export class TutorsService {
     });
     if (!tutor) throw new NotFoundException();
     return this.bookings.collectBusyForUserId(tutor.userId, from, to);
+  }
+
+  // ── FR-TH-16: tutor unavailability rules ───────────────────────────────
+  async listMyUnavailability(supabaseId: string): Promise<TutorUnavailability[]> {
+    const tutor = await this.requireTutorProfile(supabaseId);
+    const rows = await this.prisma.tutorUnavailability.findMany({
+      where: { tutorId: tutor.id },
+      orderBy: [{ weekday: "asc" }, { startMinute: "asc" }],
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      weekday: r.weekday,
+      startMinute: r.startMinute,
+      endMinute: r.endMinute,
+      reason: r.reason ?? undefined,
+      createdAt: r.createdAt.toISOString(),
+    }));
+  }
+
+  async createUnavailability(
+    supabaseId: string,
+    dto: {
+      weekday: number;
+      startMinute: number;
+      endMinute: number;
+      reason?: string;
+    },
+  ): Promise<TutorUnavailability> {
+    if (dto.endMinute <= dto.startMinute) {
+      throw new BadRequestException("endMinute must be greater than startMinute");
+    }
+    const tutor = await this.requireTutorProfile(supabaseId);
+    const created = await this.prisma.tutorUnavailability.create({
+      data: {
+        tutorId: tutor.id,
+        weekday: dto.weekday,
+        startMinute: dto.startMinute,
+        endMinute: dto.endMinute,
+        reason: dto.reason ?? null,
+      },
+    });
+    return {
+      id: created.id,
+      weekday: created.weekday,
+      startMinute: created.startMinute,
+      endMinute: created.endMinute,
+      reason: created.reason ?? undefined,
+      createdAt: created.createdAt.toISOString(),
+    };
+  }
+
+  async deleteUnavailability(supabaseId: string, id: string): Promise<void> {
+    const tutor = await this.requireTutorProfile(supabaseId);
+    const row = await this.prisma.tutorUnavailability.findUnique({
+      where: { id },
+    });
+    if (!row) throw new NotFoundException();
+    if (row.tutorId !== tutor.id) throw new ForbiddenException();
+    await this.prisma.tutorUnavailability.delete({ where: { id } });
+  }
+
+  private async requireTutorProfile(supabaseId: string) {
+    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
+    if (!user) throw new BadRequestException();
+    const tutor = await this.prisma.tutorProfile.findUnique({
+      where: { userId: user.id },
+    });
+    if (!tutor) {
+      throw new BadRequestException("Only tutors can manage unavailability");
+    }
+    return tutor;
   }
 
   async search(query: TutorSearchQuery): Promise<TutorSearchResult> {

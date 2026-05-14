@@ -6,6 +6,7 @@ import {
   type AdminReport,
   type AvatarUploadIntent,
   type ComputePayoutsDto,
+  type CreateUnavailabilityDto,
   type KycReviewDecision,
   type ApiError,
   type Booking,
@@ -48,6 +49,7 @@ import {
   type TutorReview,
   type TutorSearchQuery,
   type TutorSearchResult,
+  type TutorUnavailability,
   type UploadSlipDto,
   type User,
   type UserProfileUpdateDto,
@@ -261,6 +263,26 @@ export function createApiClient(opts: ApiClientOptions = {}) {
           {},
           token,
         ),
+      unavailability: {
+        list: () =>
+          request<TutorUnavailability[]>(
+            API_PATHS.tutorMyUnavailability,
+            {},
+            token,
+          ),
+        create: (dto: CreateUnavailabilityDto) =>
+          request<TutorUnavailability>(
+            API_PATHS.tutorMyUnavailability,
+            { method: "POST", body: JSON.stringify(dto) },
+            token,
+          ),
+        remove: (id: string) =>
+          request<void>(
+            API_PATHS.tutorMyUnavailabilityById(id),
+            { method: "DELETE" },
+            token,
+          ),
+      },
     },
     bookings: {
       create: (dto: CreateBookingDto) =>

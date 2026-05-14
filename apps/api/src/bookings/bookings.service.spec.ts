@@ -1,4 +1,4 @@
-import { intervalsOverlap } from "./bookings.service";
+import { expandWeeklyRules, intervalsOverlap } from "./bookings.service";
 
 function at(iso: string): Date {
   return new Date(iso);
@@ -55,5 +55,50 @@ describe("intervalsOverlap (FR-TH-15)", () => {
       const half = [at("2026-05-14T13:30:00Z"), at("2026-05-14T14:00:00Z")] as const;
       expect(intervalsOverlap(hour[0], hour[1], half[0], half[1])).toBe(true);
     });
+  });
+});
+
+describe("expandWeeklyRules (FR-TH-16)", () => {
+  it("returns empty when no rules", () => {
+    const from = new Date(2026, 4, 11); // Mon May 11 local
+    const to = new Date(2026, 4, 18); // following Mon
+    expect(expandWeeklyRules([], from, to)).toEqual([]);
+  });
+
+  it("emits one interval per matching day in the window", () => {
+    // Mon (weekday=1) 12:00–13:00 lunch block.
+    const rule = { weekday: 1, startMinute: 12 * 60, endMinute: 13 * 60 };
+    const from = new Date(2026, 4, 11); // Mon
+    const to = new Date(2026, 4, 25); // 2 weeks later (exclusive)
+    const intervals = expandWeeklyRules([rule], from, to);
+    // Expected: Mon May 11 12:00–13:00, Mon May 18 12:00–13:00 — 2 intervals.
+    expect(intervals).toHaveLength(2);
+    expect(intervals[0]).toEqual({
+      start: new Date(2026, 4, 11, 12, 0).toISOString(),
+      end: new Date(2026, 4, 11, 13, 0).toISOString(),
+    });
+    expect(intervals[1]).toEqual({
+      start: new Date(2026, 4, 18, 12, 0).toISOString(),
+      end: new Date(2026, 4, 18, 13, 0).toISOString(),
+    });
+  });
+
+  it("respects window boundaries — rule outside [from, to) is skipped", () => {
+    const rule = { weekday: 1, startMinute: 12 * 60, endMinute: 13 * 60 };
+    // Window is Tue→Wed only — no Mondays.
+    const from = new Date(2026, 4, 12); // Tue
+    const to = new Date(2026, 4, 14); // Thu (exclusive)
+    expect(expandWeeklyRules([rule], from, to)).toEqual([]);
+  });
+
+  it("handles multiple rules on different weekdays", () => {
+    const rules = [
+      { weekday: 1, startMinute: 12 * 60, endMinute: 13 * 60 }, // Mon lunch
+      { weekday: 5, startMinute: 18 * 60, endMinute: 19 * 60 }, // Fri evening
+    ];
+    const from = new Date(2026, 4, 11); // Mon
+    const to = new Date(2026, 4, 18); // following Mon (exclusive)
+    const intervals = expandWeeklyRules(rules, from, to);
+    expect(intervals).toHaveLength(2); // one Mon + one Fri in the week.
   });
 });

@@ -34,6 +34,8 @@ export const API_PATHS = {
   tutorById: (id: string) => `/tutors/${id}`,
   tutorReviews: (id: string) => `/tutors/${id}/reviews`,
   tutorAvailability: (id: string) => `/tutors/${id}/availability`,
+  tutorMyUnavailability: "/tutors/me/unavailability",
+  tutorMyUnavailabilityById: (id: string) => `/tutors/me/unavailability/${id}`,
   bookings: "/bookings",
   bookingsMineBusy: "/bookings/mine/busy",
   bookingById: (id: string) => `/bookings/${id}`,

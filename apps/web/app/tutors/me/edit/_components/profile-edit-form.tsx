@@ -18,6 +18,8 @@ import { toast } from "sonner";
 
 import { createApiClient } from "@/lib/api-client";
 
+import { UnavailabilityEditor } from "./unavailability-editor";
+
 const SUBJECT_OPTIONS = subjectSchema.options as readonly Subject[];
 
 const SUBJECT_LABEL: Record<Subject, string> = {
@@ -278,6 +280,8 @@ export function ProfileEditForm({
             {...form.register("introVideoUrl")}
           />
         </Field>
+
+        <UnavailabilityEditor />
 
         <Button
           type="submit"

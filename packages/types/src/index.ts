@@ -10,4 +10,5 @@ export * from "./quiz";
 export * from "./kyc";
 export * from "./chat";
 export * from "./postpone";
+export * from "./unavailability";
 export * from "./api";

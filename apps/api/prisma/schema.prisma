@@ -76,14 +76,31 @@ model TutorProfile {
   subjects      String[]
   createdAt     DateTime @default(now())
 
-  bookings Booking[]
-  reviews  TutorReview[]
-  sheets   StudySheet[]
-  threads  ChatThread[]  @relation("TutorChat")
-  payouts  Payout[]
+  bookings       Booking[]
+  reviews        TutorReview[]
+  sheets         StudySheet[]
+  threads        ChatThread[] @relation("TutorChat")
+  payouts        Payout[]
+  unavailability TutorUnavailability[]
 
   @@index([university])
   @@index([rating])
+}
+
+// FR-TH-16: tutor-marked weekly busy windows (lunch breaks, recurring
+// commitments, etc.). Expanded into concrete intervals by the busy
+// endpoint and the overlap guard.
+model TutorUnavailability {
+  id          String       @id @default(uuid())
+  tutorId     String
+  tutor       TutorProfile @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  weekday     Int          // 0=Sun … 6=Sat (matches JS Date.getDay)
+  startMinute Int          // minutes since local midnight, 0..1440
+  endMinute   Int          // strictly greater than startMinute
+  reason      String?
+  createdAt   DateTime     @default(now())
+
+  @@index([tutorId])
 }
 
 model KycSubmission {
