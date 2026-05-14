@@ -1,12 +1,14 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
   Param,
   Post,
+  Query,
   UseGuards,
 } from "@nestjs/common";
-import { IsInt, IsString, MaxLength, MinLength } from "class-validator";
+import { IsIn, IsInt, IsString, MaxLength, MinLength } from "class-validator";
 
 import { CurrentUser } from "../auth/current-user.decorator";
 import { SupabaseAuthGuard } from "../auth/auth.guard";
@@ -14,11 +16,15 @@ import type { SupabaseJwtPayload } from "../auth/supabase-jwt.strategy";
 import { BookingsService } from "./bookings.service";
 import { PostponeService } from "./postpone.service";
 
+const ALLOWED_DURATIONS = [30, 60, 90, 120] as const;
+
 class CreateBookingDto {
   @IsString() tutorId!: string;
   @IsString() subject!: string;
   @IsString() scheduledAt!: string;
-  @IsInt() durationMinutes!: number;
+  @IsInt()
+  @IsIn(ALLOWED_DURATIONS)
+  durationMinutes!: number;
 }
 
 class ReportDto {
@@ -32,7 +38,9 @@ class PostponeDto {
 
 class ProposeSlotDto {
   @IsString() scheduledAt!: string;
-  @IsInt() durationMinutes!: number;
+  @IsInt()
+  @IsIn(ALLOWED_DURATIONS)
+  durationMinutes!: number;
 }
 
 @Controller("bookings")
@@ -46,6 +54,22 @@ export class BookingsController {
   @Get()
   mine(@CurrentUser() user: SupabaseJwtPayload) {
     return this.bookings.listForUser(user.sub);
+  }
+
+  @Get("mine/busy")
+  mineBusy(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Query("from") from: string,
+    @Query("to") to: string,
+  ) {
+    const fromDate = new Date(from);
+    const toDate = new Date(to);
+    if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
+      throw new BadRequestException("from and to must be ISO datetimes");
+    }
+    return this.bookings
+      .listBusyForUser(user.sub, fromDate, toDate)
+      .then((busy) => ({ busy }));
   }
 
   @Get(":id")

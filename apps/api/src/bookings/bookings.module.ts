@@ -11,6 +11,6 @@ import { PostponeService } from "./postpone.service";
   imports: [ChatModule, PaymentsModule],
   controllers: [BookingsController],
   providers: [BookingsService, PostponeService, PostponeQueue],
-  exports: [PostponeService],
+  exports: [BookingsService, PostponeService],
 })
 export class BookingsModule {}

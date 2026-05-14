@@ -17,7 +17,12 @@ export type PostponeRequestDto = z.infer<typeof postponeRequestSchema>;
 
 export const proposeSlotSchema = z.object({
   scheduledAt: z.string().datetime(),
-  durationMinutes: z.union([z.literal(60), z.literal(90), z.literal(120)]),
+  durationMinutes: z.union([
+    z.literal(30),
+    z.literal(60),
+    z.literal(90),
+    z.literal(120),
+  ]),
 });
 export type ProposeSlotDto = z.infer<typeof proposeSlotSchema>;
 
@@ -29,7 +34,7 @@ export interface PostponeRequest {
   chatExpiresAt: string;
   status: PostponeStatus;
   proposedAt?: string;
-  proposedDuration?: 60 | 90 | 120;
+  proposedDuration?: 30 | 60 | 90 | 120;
   wasShortNotice: boolean;
   createdAt: string;
 }

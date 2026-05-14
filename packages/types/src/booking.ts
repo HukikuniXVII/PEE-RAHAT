@@ -52,10 +52,16 @@ export const createBookingSchema = z.object({
     .refine((v) => !Number.isNaN(Date.parse(v)), {
       message: "Invalid datetime",
     }),
-  durationMinutes: z.number().int().min(30).max(240),
+  durationMinutes: z.union([
+    z.literal(30),
+    z.literal(60),
+    z.literal(90),
+    z.literal(120),
+  ]),
 });
 
 export type CreateBookingDto = z.infer<typeof createBookingSchema>;
+export type BookingDurationMinutes = CreateBookingDto["durationMinutes"];
 
 export const bookingReportSchema = z.object({
   reason: z.string().min(1),
@@ -63,3 +69,21 @@ export const bookingReportSchema = z.object({
 });
 
 export type BookingReportDto = z.infer<typeof bookingReportSchema>;
+
+/** Half-open interval [start, end) — used by /tutors/:id/availability and
+ *  /bookings/mine/busy so the picker can grey out conflicting 30-min cells. */
+export interface BusySlot {
+  start: string;
+  end: string;
+}
+
+export interface AvailabilityResult {
+  busy: BusySlot[];
+}
+
+/** Body returned by 409 when assertNoOverlap rejects a create/propose/confirm. */
+export interface BookingOverlapError {
+  code: "BOOKING_OVERLAP";
+  conflictingBookingId: string;
+  conflictingScheduledAt: string;
+}

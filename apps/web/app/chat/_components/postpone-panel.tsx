@@ -173,6 +173,7 @@ export function PostponePanel({ booking, request }: Props) {
       {proposing && (
         <ProposeSlotDialog
           bookingId={booking.id}
+          tutorId={booking.tutorId}
           onClose={() => setProposing(false)}
           onProposed={() => {
             toast.success("ส่งข้อเสนอเวลาใหม่แล้ว");

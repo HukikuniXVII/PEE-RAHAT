@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -142,6 +143,21 @@ export class TutorsController {
       page ? Number(page) : undefined,
       pageSize ? Number(pageSize) : undefined,
     );
+  }
+
+  @Get(":id/availability")
+  async availability(
+    @Param("id") id: string,
+    @Query("from") from: string,
+    @Query("to") to: string,
+  ) {
+    const fromDate = new Date(from);
+    const toDate = new Date(to);
+    if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
+      throw new BadRequestException("from and to must be ISO datetimes");
+    }
+    const busy = await this.tutors.listBusyForTutor(id, fromDate, toDate);
+    return { busy };
   }
 
   @Post(":id/reviews")

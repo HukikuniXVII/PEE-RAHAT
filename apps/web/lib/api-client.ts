@@ -23,6 +23,7 @@ import {
   type KycSubmitDto,
   type KycSubmission,
   type KycUploadIntent,
+  type AvailabilityResult,
   type Page,
   type PaymentIntent,
   type PostponeConfirmResult,
@@ -254,6 +255,12 @@ export function createApiClient(opts: ApiClientOptions = {}) {
           { method: "POST", body: JSON.stringify(dto) },
           token,
         ),
+      availability: (id: string, fromIso: string, toIso: string) =>
+        request<AvailabilityResult>(
+          `${API_PATHS.tutorAvailability(id)}?from=${encodeURIComponent(fromIso)}&to=${encodeURIComponent(toIso)}`,
+          {},
+          token,
+        ),
     },
     bookings: {
       create: (dto: CreateBookingDto) =>
@@ -264,6 +271,12 @@ export function createApiClient(opts: ApiClientOptions = {}) {
         ),
       mine: () => request<Booking[]>(API_PATHS.bookings, {}, token),
       byId: (id: string) => request<Booking>(API_PATHS.bookingById(id), {}, token),
+      mineBusy: (fromIso: string, toIso: string) =>
+        request<AvailabilityResult>(
+          `${API_PATHS.bookingsMineBusy}?from=${encodeURIComponent(fromIso)}&to=${encodeURIComponent(toIso)}`,
+          {},
+          token,
+        ),
       accept: (id: string) =>
         request<Booking>(
           API_PATHS.acceptBooking(id),

@@ -16,11 +16,33 @@ import type {
 } from "@peerahat/types";
 import type { Prisma } from "@prisma/client";
 
+import { BookingsService, type BusySlot } from "../bookings/bookings.service";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
 export class TutorsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly bookings: BookingsService,
+  ) {}
+
+  /**
+   * FR-TH-15: busy intervals for the picker. Resolves the tutor's User.id
+   * once, then defers to BookingsService.collectBusyForUserId so the
+   * overlap source is shared with /bookings/mine/busy and assertNoOverlap.
+   */
+  async listBusyForTutor(
+    tutorId: string,
+    from: Date,
+    to: Date,
+  ): Promise<BusySlot[]> {
+    const tutor = await this.prisma.tutorProfile.findUnique({
+      where: { id: tutorId },
+      select: { userId: true },
+    });
+    if (!tutor) throw new NotFoundException();
+    return this.bookings.collectBusyForUserId(tutor.userId, from, to);
+  }
 
   async search(query: TutorSearchQuery): Promise<TutorSearchResult> {
     const where: Prisma.TutorProfileWhereInput = {

@@ -16,12 +16,13 @@ import { addHours, differenceInMilliseconds } from "date-fns";
 import { ChatService } from "../chat/chat.service";
 import { RefundPolicyService } from "../payments/refund-policy.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { BookingsService } from "./bookings.service";
 import { PostponeQueue } from "./postpone.queue";
 
 const CHAT_WINDOW_HOURS = 2;
 const SHORT_NOTICE_HOURS = 12;
 const MIN_NEW_SLOT_HOURS = 24;
-const ALLOWED_DURATIONS = new Set([60, 90, 120]);
+const ALLOWED_DURATIONS = new Set([30, 60, 90, 120]);
 
 interface InitiateInput {
   reason: string;
@@ -41,6 +42,7 @@ export class PostponeService implements OnModuleInit {
     private readonly chat: ChatService,
     private readonly refundPolicy: RefundPolicyService,
     private readonly queue: PostponeQueue,
+    private readonly bookings: BookingsService,
   ) {}
 
   onModuleInit() {
@@ -143,6 +145,22 @@ export class PostponeService implements OnModuleInit {
       throw new ForbiddenException("Only the initiator can propose a new slot");
     }
 
+    // FR-TH-15: proposed slot can't double-book either side, but the booking
+    // we're postponing is allowed to "free" itself — excludeBookingId.
+    const tutorUserId = booking.tutor.userId;
+    await this.bookings.assertNoOverlap(
+      booking.studentId,
+      proposedAt.toISOString(),
+      input.durationMinutes,
+      booking.id,
+    );
+    await this.bookings.assertNoOverlap(
+      tutorUserId,
+      proposedAt.toISOString(),
+      input.durationMinutes,
+      booking.id,
+    );
+
     await this.prisma.postponeRequest.update({
       where: { id: request.id },
       data: {
@@ -178,6 +196,22 @@ export class PostponeService implements OnModuleInit {
         "Initiator cannot confirm their own proposal — counterparty must accept",
       );
     }
+
+    // FR-TH-15: re-check overlap at confirm time — the slot could have been
+    // taken by another booking in the 2h negotiation window. The booking
+    // being postponed is allowed to free itself via excludeBookingId.
+    await this.bookings.assertNoOverlap(
+      booking.studentId,
+      request.proposedAt.toISOString(),
+      request.proposedDuration,
+      booking.id,
+    );
+    await this.bookings.assertNoOverlap(
+      booking.tutor.userId,
+      request.proposedAt.toISOString(),
+      request.proposedDuration,
+      booking.id,
+    );
 
     const newBooking = await this.prisma.$transaction(async (tx) => {
       // 1. mark request agreed

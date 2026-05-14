@@ -118,7 +118,7 @@ export default async function TutorProfilePage({ params }: Props) {
           )}
 
           <section className="bg-white rounded-[32px] border border-slate-200 shadow-sm p-6 sm:p-8">
-            <AvailabilityPicker />
+            <AvailabilityPicker tutorId={tutor.id} />
           </section>
 
           <ReviewsSection

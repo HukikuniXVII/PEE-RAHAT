@@ -2,13 +2,15 @@
 
 import {
   type Booking,
+  type BookingOverlapError,
+  type BusySlot,
   type CreateBookingDto,
   type Subject,
   type Tutor,
   createBookingSchema,
 } from "@peerahat/types";
 import { Button, cn } from "@peerahat/ui";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
   ArrowRight,
@@ -22,10 +24,11 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { createApiClient } from "@/lib/api-client";
-import { SlotPicker, combineDateAndHour } from "@/components/slot-picker";
+import { SlotPicker, combineDateAndMinute } from "@/components/slot-picker";
 
 interface Props {
   tutor: Tutor;
@@ -33,7 +36,7 @@ interface Props {
   onClose?: () => void;
 }
 
-const DURATION_PRESETS = [60, 90, 120] as const;
+const DURATION_PRESETS = [30, 60, 90, 120] as const;
 type DurationMinutes = (typeof DURATION_PRESETS)[number];
 
 const SUBJECT_LABEL: Record<Subject, string> = {
@@ -76,14 +79,49 @@ export function BookingForm({ tutor, onClose }: Props) {
   );
   const [duration, setDuration] = useState<DurationMinutes>(60);
   const [dateIso, setDateIso] = useState<string | null>(null);
-  const [hour, setHour] = useState<number | null>(null);
+  const [slotMinutes, setSlotMinutes] = useState<number | null>(null);
   const [consent, setConsent] = useState(false);
   const [booking, setBooking] = useState<Booking | null>(null);
   const [requestedStep, setRequestedStep] = useState<Step>(1);
 
-  const scheduledAt = dateIso !== null && hour !== null
-    ? combineDateAndHour(dateIso, hour)
+  const scheduledAt = dateIso !== null && slotMinutes !== null
+    ? combineDateAndMinute(dateIso, slotMinutes)
     : null;
+
+  // FR-TH-15: grey conflicting slots on either side. Fetched once on mount
+  // for the next 7-day window the picker covers; refetched if the page is
+  // re-entered (react-query default stale time).
+  const busyWindow = useMemo(() => {
+    const from = new Date();
+    from.setHours(0, 0, 0, 0);
+    const to = new Date(from);
+    to.setDate(from.getDate() + 9);
+    return {
+      fromIso: from.toISOString(),
+      toIso: to.toISOString(),
+    };
+  }, []);
+  const tutorBusyQuery = useQuery({
+    queryKey: ["tutors", "availability", tutor.id, busyWindow.fromIso],
+    queryFn: () =>
+      createApiClient().tutors.availability(
+        tutor.id,
+        busyWindow.fromIso,
+        busyWindow.toIso,
+      ),
+  });
+  const mineBusyQuery = useQuery({
+    queryKey: ["bookings", "mineBusy", busyWindow.fromIso],
+    queryFn: () =>
+      createApiClient().bookings.mineBusy(busyWindow.fromIso, busyWindow.toIso),
+  });
+  const busy: BusySlot[] = useMemo(
+    () => [
+      ...(tutorBusyQuery.data?.busy ?? []),
+      ...(mineBusyQuery.data?.busy ?? []),
+    ],
+    [tutorBusyQuery.data, mineBusyQuery.data],
+  );
 
   const estimatedAmount = Math.round((tutor.hourlyRate * duration) / 60);
 
@@ -106,6 +144,12 @@ export function BookingForm({ tutor, onClose }: Props) {
     onSuccess: (b) => {
       setBooking(b);
       setRequestedStep(4);
+    },
+    onError: (err) => {
+      const e = err as unknown as Partial<BookingOverlapError>;
+      if (e?.code === "BOOKING_OVERLAP") {
+        toast.error("ช่วงเวลานี้ถูกจองแล้ว");
+      }
     },
   });
 
@@ -165,16 +209,18 @@ export function BookingForm({ tutor, onClose }: Props) {
                 dateIso={dateIso}
                 onDate={(iso) => {
                   setDateIso(iso);
-                  setHour(null);
+                  setSlotMinutes(null);
                 }}
-                hour={hour}
-                onHour={setHour}
+                slotMinutes={slotMinutes}
+                onSlot={setSlotMinutes}
+                duration={duration}
                 hideDuration
+                busy={busy}
               />
               <StepFooter
                 onBack={() => goTo(1)}
                 onNext={() => goTo(3)}
-                nextDisabled={!dateIso || hour === null}
+                nextDisabled={!dateIso || slotMinutes === null}
               />
             </motion.div>
           )}
