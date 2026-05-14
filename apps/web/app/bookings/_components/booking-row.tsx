@@ -1,6 +1,6 @@
 "use client";
 
-import type { Booking, BookingStatus } from "@peerahat/types";
+import type { Booking } from "@peerahat/types";
 import { Button, cn } from "@peerahat/ui";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -25,38 +25,11 @@ import { createApiClient } from "@/lib/api-client";
 import { PostponeReasonDialog } from "./postpone-reason-dialog";
 import { ReportDialog } from "./report-dialog";
 import { ReviewDialog } from "./review-dialog";
+import { STATUS_COPY, TONE_CLASSES } from "./status-meta";
 
 interface Props {
   booking: Booking;
 }
-
-const STATUS_COPY: Record<
-  BookingStatus,
-  { label: string; tone: "info" | "warn" | "ok" | "danger" | "neutral" }
-> = {
-  requested: { label: "รอพี่ติวกดรับ", tone: "warn" },
-  accepted: { label: "พี่ติวรับงานแล้ว — รอชำระเงิน", tone: "info" },
-  rejected: { label: "พี่ติวปฏิเสธคำขอ", tone: "danger" },
-  expired: { label: "หมดอายุ (ไม่มีการตอบใน 24 ชม.)", tone: "neutral" },
-  paid: { label: "ชำระเงินแล้ว — รอเริ่มเรียน", tone: "ok" },
-  completed: { label: "เรียนเสร็จแล้ว", tone: "ok" },
-  reported: { label: "อยู่ระหว่างตรวจสอบ", tone: "warn" },
-  refunded: { label: "คืนเงินแล้ว", tone: "neutral" },
-  cancelled: { label: "ยกเลิก", tone: "neutral" },
-  postpone_pending: { label: "กำลังเจรจาเลื่อนคลาส", tone: "warn" },
-  postponed: { label: "เลื่อนคลาสแล้ว", tone: "neutral" },
-  cancelled_no_agreement: { label: "ยกเลิก — ไม่ตกลงเวลาใหม่", tone: "danger" },
-  cancelled_tutor_unresponsive: { label: "ยกเลิก — พี่ติวไม่ตอบ", tone: "danger" },
-  cancelled_tutor_initiated: { label: "ยกเลิก — พี่ติวขอเลื่อน", tone: "danger" },
-};
-
-const TONE_CLASSES: Record<string, string> = {
-  info: "bg-indigo-50 text-indigo-600 border-indigo-100",
-  warn: "bg-amber-50 text-amber-600 border-amber-100",
-  ok: "bg-emerald-50 text-emerald-600 border-emerald-100",
-  danger: "bg-rose-50 text-rose-600 border-rose-100",
-  neutral: "bg-slate-50 text-slate-500 border-slate-100",
-};
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("th-TH", {
