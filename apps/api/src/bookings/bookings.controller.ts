@@ -48,6 +48,11 @@ export class BookingsController {
     return this.bookings.listForUser(user.sub);
   }
 
+  @Get(":id")
+  byId(@CurrentUser() user: SupabaseJwtPayload, @Param("id") id: string) {
+    return this.bookings.findById(user.sub, id);
+  }
+
   @Post()
   create(@CurrentUser() user: SupabaseJwtPayload, @Body() dto: CreateBookingDto) {
     return this.bookings.create(user.sub, dto);

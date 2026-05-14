@@ -53,6 +53,45 @@ export class BookingsService {
     }));
   }
 
+  async findById(supabaseId: string, bookingId: string) {
+    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
+    if (!user) throw new BadRequestException();
+    const row = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        review: { select: { id: true } },
+        tutor: { select: { userId: true } },
+        postponeRequest: true,
+        chatThread: { select: { id: true } },
+      },
+    });
+    if (!row) throw new NotFoundException();
+    if (row.studentId !== user.id && row.tutor.userId !== user.id) {
+      throw new ForbiddenException();
+    }
+    const { review, postponeRequest, chatThread, tutor: _tutor, ...b } = row;
+    return {
+      ...b,
+      hasReview: !!review,
+      viewerSide:
+        b.studentId === user.id ? ("student" as const) : ("tutor" as const),
+      chatThreadId: chatThread?.id,
+      postponeRequest: postponeRequest
+        ? {
+            id: postponeRequest.id,
+            initiatorRole: postponeRequest.initiatorRole,
+            reason: postponeRequest.reason,
+            chatExpiresAt: postponeRequest.chatExpiresAt.toISOString(),
+            status: postponeRequest.status,
+            proposedAt: postponeRequest.proposedAt?.toISOString(),
+            proposedDuration: postponeRequest.proposedDuration ?? undefined,
+            wasShortNotice: postponeRequest.wasShortNotice,
+            createdAt: postponeRequest.createdAt.toISOString(),
+          }
+        : undefined,
+    };
+  }
+
   async create(supabaseId: string, input: CreateBookingInput) {
     const user = await this.prisma.user.findUnique({ where: { supabaseId } });
     if (!user) throw new BadRequestException();

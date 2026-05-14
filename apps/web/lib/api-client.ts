@@ -263,6 +263,7 @@ export function createApiClient(opts: ApiClientOptions = {}) {
           token,
         ),
       mine: () => request<Booking[]>(API_PATHS.bookings, {}, token),
+      byId: (id: string) => request<Booking>(API_PATHS.bookingById(id), {}, token),
       accept: (id: string) =>
         request<Booking>(
           API_PATHS.acceptBooking(id),
