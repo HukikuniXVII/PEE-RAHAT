@@ -29,3 +29,15 @@ export const TONE_CLASSES: Record<StatusTone, string> = {
   danger: "bg-rose-50 text-rose-600 border-rose-100",
   neutral: "bg-slate-50 text-slate-500 border-slate-100",
 };
+
+/**
+ * Stronger fills for the schedule table — events flush-fill their cell
+ * so the panel itself encodes the status (no separate chip needed).
+ */
+export const PANEL_CLASSES: Record<StatusTone, string> = {
+  info: "bg-indigo-100 text-indigo-800",
+  warn: "bg-amber-100 text-amber-900",
+  ok: "bg-emerald-100 text-emerald-800",
+  danger: "bg-rose-100 text-rose-800",
+  neutral: "bg-slate-100 text-slate-700",
+};

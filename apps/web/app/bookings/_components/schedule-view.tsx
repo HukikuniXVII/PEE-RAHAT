@@ -25,11 +25,21 @@ const GRID_START_HOUR = 8;
 const GRID_END_HOUR = 22; // last slot rendered ends at 23:00
 const GRID_HOURS = GRID_END_HOUR - GRID_START_HOUR + 1; // 15 hourly columns
 const HOUR_RANGE = Array.from({ length: GRID_HOURS }, (_, i) => GRID_START_HOUR + i);
-const DAY_ROW_HEIGHT_PX = 64;
-const DAY_LABEL_COL_PX = 88;
-const HOUR_COL_MIN_PX = 72;
+const DAY_ROW_HEIGHT_PX = 72;
+const DAY_LABEL_COL_PX = 104;
+const HOUR_COL_MIN_PX = 96;
 
-const WEEKDAY_LABELS = ["จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส.", "อา."];
+// Index by Mon-anchored offset (0=Mon ... 6=Sun) — matches the day-bucket
+// indexing used throughout the view.
+const WEEKDAY_LABELS = [
+  "จันทร์",
+  "อังคาร",
+  "พุธ",
+  "พฤหัสบดี",
+  "ศุกร์",
+  "เสาร์",
+  "อาทิตย์",
+];
 
 interface Props {
   initialBookings: Booking[];
@@ -199,12 +209,17 @@ export function ScheduleView({ initialBookings }: Props) {
       {totalThisWeek > 0 && (
         <>
           {/* Desktop week grid */}
-          <div className="hidden md:block bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
-            <DesktopWeekGrid
-              days={days}
-              dayBuckets={dayBuckets}
-              today={today}
-            />
+          <div className="hidden md:block space-y-2">
+            <div className="bg-white rounded-2xl border border-slate-300 shadow-sm overflow-hidden">
+              <DesktopWeekGrid
+                days={days}
+                dayBuckets={dayBuckets}
+                today={today}
+              />
+            </div>
+            <p className="text-[11px] text-slate-400 font-medium">
+              * แต่ละช่องประกอบด้วย <span className="font-bold text-slate-500">วิชา</span> (มีขีดเส้นใต้แทนลิงก์) · คู่สนทนา · ระยะเวลา · พื้นหลังสีตามสถานะคลาส
+            </p>
           </div>
 
           {/* Mobile day-grouped list */}
@@ -252,6 +267,8 @@ export function ScheduleView({ initialBookings }: Props) {
 }
 
 // ── desktop week grid (days = rows, hours = cols) ─────────────────────────
+// University-style schedule table: dark slate header band + day-label column,
+// flat status-colored panels flush-fill their cells, subtle slate grid lines.
 function DesktopWeekGrid({
   days,
   dayBuckets,
@@ -262,7 +279,6 @@ function DesktopWeekGrid({
   today: Date;
 }) {
   return (
-    // The scroll container — sticky headers anchor to its edges.
     <div className="overflow-x-auto">
       <div
         className="grid min-w-max relative"
@@ -271,72 +287,75 @@ function DesktopWeekGrid({
           gridTemplateRows: `auto repeat(7, ${DAY_ROW_HEIGHT_PX}px)`,
         }}
       >
-        {/* corner cell — pinned at both axes, sits above everything */}
+        {/* corner cell — "Day/Time" pinned at both axes */}
         <div
-          className="sticky top-0 left-0 z-30 bg-white border-b border-r border-slate-100"
+          className="sticky top-0 left-0 z-30 bg-slate-700 text-white text-[11px] font-bold tracking-wider flex items-center justify-center"
           style={{ gridColumn: 1, gridRow: 1 }}
-        />
+        >
+          วัน / เวลา
+        </div>
 
-        {/* hour headers — sticky-top */}
-        {HOUR_RANGE.map((hour, i) => (
-          <div
-            key={`hh-${hour}`}
-            className={cn(
-              "sticky top-0 z-20 bg-white text-[10px] font-bold text-slate-400 tabular-nums text-center py-2 border-b border-slate-100",
-              i % 3 === 0 ? "border-l border-slate-200" : "border-l border-slate-50",
-            )}
-            style={{ gridColumn: i + 2, gridRow: 1 }}
-          >
-            {String(hour).padStart(2, "0")}:00
-          </div>
-        ))}
+        {/* hour headers — sticky-top, range labels "HH:00–HH:00" */}
+        {HOUR_RANGE.map((hour, i) => {
+          const heavier = i % 3 === 0;
+          return (
+            <div
+              key={`hh-${hour}`}
+              className={cn(
+                "sticky top-0 z-20 bg-slate-700 text-white text-[11px] font-bold tabular-nums text-center flex items-center justify-center px-1",
+                heavier ? "border-l-2 border-slate-500" : "border-l border-slate-600",
+              )}
+              style={{ gridColumn: i + 2, gridRow: 1 }}
+            >
+              {hour}:00–{hour + 1}:00
+            </div>
+          );
+        })}
 
         {/* day rows */}
         {days.map((day, dayIdx) => {
           const isToday = sameDay(day, today);
           const bookings = dayBuckets[dayIdx] ?? [];
+          const monIdx = day.getDay() === 0 ? 6 : day.getDay() - 1;
           return (
             <Fragment key={day.toISOString()}>
-              {/* day label — sticky-left */}
+              {/* day label — sticky-left, dark slate with white Thai name.
+                  Today gets an indigo accent to distinguish from the band. */}
               <div
                 className={cn(
-                  "sticky left-0 z-10 border-r border-slate-100 border-b border-slate-50 px-3 flex items-center gap-2",
-                  isToday ? "bg-indigo-50" : "bg-white",
+                  "sticky left-0 z-10 border-b border-slate-200 px-3 flex flex-col items-center justify-center text-center",
+                  isToday
+                    ? "bg-indigo-600 text-white"
+                    : "bg-slate-700 text-white",
                 )}
                 style={{ gridColumn: 1, gridRow: dayIdx + 2 }}
               >
-                <span
-                  className={cn(
-                    "text-[10px] font-bold uppercase tracking-widest",
-                    isToday ? "text-indigo-600" : "text-slate-400",
-                  )}
-                >
-                  {WEEKDAY_LABELS[day.getDay() === 0 ? 6 : day.getDay() - 1]}
+                <span className="text-[11px] font-bold leading-tight">
+                  {WEEKDAY_LABELS[monIdx]}
                 </span>
-                <span
-                  className={cn(
-                    "text-base font-black leading-none",
-                    isToday ? "text-indigo-700" : "text-slate-800",
-                  )}
-                >
-                  {day.getDate()}
+                <span className="text-[10px] font-medium opacity-80 tabular-nums leading-tight">
+                  {day.getDate()}/{day.getMonth() + 1}
                 </span>
               </div>
 
-              {/* hour cells (gridlines + today tint) */}
+              {/* hour cells: bottom border every row + vertical gridlines.
+                  Every 3rd column carries the slate-300 divider; others
+                  slate-100. Today's row tints body cells indigo-50/40. */}
               {HOUR_RANGE.map((hour, i) => (
                 <div
                   key={`bg-${dayIdx}-${hour}`}
                   className={cn(
-                    "border-b border-slate-50",
-                    i % 3 === 0 ? "border-l border-slate-200" : "border-l border-slate-50",
+                    "border-b border-slate-200",
+                    i % 3 === 0
+                      ? "border-l-2 border-slate-300"
+                      : "border-l border-slate-100",
                     isToday && "bg-indigo-50/40",
                   )}
                   style={{ gridColumn: i + 2, gridRow: dayIdx + 2 }}
                 />
               ))}
 
-              {/* events for this day */}
+              {/* events for this day — flush-fill their span. */}
               {bookings.map((b) => {
                 const start = new Date(b.scheduledAt);
                 const startHour = start.getHours() + start.getMinutes() / 60;
@@ -353,7 +372,7 @@ function DesktopWeekGrid({
                 return (
                   <div
                     key={b.id}
-                    className="p-1 relative z-[1]"
+                    className="relative z-[1] border-b border-slate-200"
                     style={{
                       gridColumn: `${colStart} / span ${colSpan}`,
                       gridRow: dayIdx + 2,
