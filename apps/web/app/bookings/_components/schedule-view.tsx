@@ -28,7 +28,7 @@ const GRID_HALF_HOURS = GRID_HOURS * 2; // 30 half-hour body columns
 const SLOT_MINUTES = 30;
 const HOUR_RANGE = Array.from({ length: GRID_HOURS }, (_, i) => GRID_START_HOUR + i);
 const HALF_HOUR_RANGE = Array.from({ length: GRID_HALF_HOURS }, (_, i) => i);
-const DAY_ROW_HEIGHT_PX = 72;
+const DAY_ROW_HEIGHT_PX = 80;
 const DAY_LABEL_COL_PX = 104;
 const HALF_HOUR_COL_MIN_PX = 48;
 
@@ -212,8 +212,8 @@ export function ScheduleView({ initialBookings }: Props) {
       {totalThisWeek > 0 && (
         <>
           {/* Desktop week grid */}
-          <div className="hidden md:block space-y-2">
-            <div className="bg-white rounded-2xl border border-slate-300 shadow-sm overflow-hidden">
+          <div className="hidden md:block space-y-3">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <DesktopWeekGrid
                 days={days}
                 dayBuckets={dayBuckets}
@@ -221,7 +221,7 @@ export function ScheduleView({ initialBookings }: Props) {
               />
             </div>
             <p className="text-[11px] text-slate-400 font-medium">
-              * แต่ละช่องประกอบด้วย <span className="font-bold text-slate-500">วิชา</span> (มีขีดเส้นใต้แทนลิงก์) · คู่สนทนา · ระยะเวลา · พื้นหลังสีตามสถานะคลาส
+              * แต่ละการ์ดประกอบด้วย <span className="font-bold text-slate-500">วิชา</span> · คู่สนทนา · ระยะเวลา · แถบสีด้านซ้ายแสดงสถานะคลาส
             </p>
           </div>
 
@@ -270,10 +270,10 @@ export function ScheduleView({ initialBookings }: Props) {
 }
 
 // ── desktop week grid (days = rows, half-hours = cols) ────────────────────
-// University-style schedule table with 30-min column resolution so spans
-// faithfully encode duration: 30 min = 1 cell, 60 = 2, 90 = 3, 120 = 4.
-// Hour headers span 2 cells each. Hour boundaries get a heavier vertical
-// line; every 3rd hour gets a heavier one still.
+// Modern airy redesign: white surface, muted slate header band, pastel
+// event cards with a colored left-accent stripe and soft drop shadow.
+// 30-min column resolution so spans encode duration faithfully:
+// 30 min = 1 cell, 60 = 2, 90 = 3, 120 = 4.
 function DesktopWeekGrid({
   days,
   dayBuckets,
@@ -286,15 +286,15 @@ function DesktopWeekGrid({
   return (
     <div className="overflow-x-auto">
       <div
-        className="grid min-w-max relative"
+        className="grid min-w-max relative bg-white"
         style={{
           gridTemplateColumns: `${DAY_LABEL_COL_PX}px repeat(${GRID_HALF_HOURS}, minmax(${HALF_HOUR_COL_MIN_PX}px, 1fr))`,
           gridTemplateRows: `auto repeat(7, ${DAY_ROW_HEIGHT_PX}px)`,
         }}
       >
-        {/* corner cell — "Day/Time" pinned at both axes */}
+        {/* corner cell — pinned at both axes, light surface */}
         <div
-          className="sticky top-0 left-0 z-30 bg-slate-700 text-white text-[11px] font-bold tracking-wider flex items-center justify-center"
+          className="sticky top-0 left-0 z-30 bg-slate-50 text-slate-400 text-[10px] font-bold tracking-widest flex items-center justify-center border-b border-r border-slate-200"
           style={{ gridColumn: 1, gridRow: 1 }}
         >
           วัน / เวลา
@@ -308,8 +308,8 @@ function DesktopWeekGrid({
             <div
               key={`hh-${hour}`}
               className={cn(
-                "sticky top-0 z-20 bg-slate-700 text-white text-[11px] font-bold tabular-nums text-center flex items-center justify-center px-1",
-                heavier ? "border-l-2 border-slate-500" : "border-l border-slate-600",
+                "sticky top-0 z-20 bg-slate-50 text-slate-500 text-[11px] font-semibold tabular-nums text-center flex items-center justify-center px-1 border-b border-slate-200",
+                heavier ? "border-l border-slate-200" : "border-l border-slate-100",
               )}
               style={{ gridColumn: `${colStart} / span 2`, gridRow: 1 }}
             >
@@ -325,44 +325,55 @@ function DesktopWeekGrid({
           const monIdx = day.getDay() === 0 ? 6 : day.getDay() - 1;
           return (
             <Fragment key={day.toISOString()}>
-              {/* day label — sticky-left, dark slate with white Thai name.
-                  Today gets an indigo accent to distinguish from the band. */}
+              {/* day label — sticky-left, soft slate-50 surface; today gets
+                  an indigo left-accent stripe and indigo text. */}
               <div
                 className={cn(
-                  "sticky left-0 z-10 border-b border-slate-200 px-3 flex flex-col items-center justify-center text-center",
+                  "sticky left-0 z-10 border-b border-r border-slate-100 px-3 flex flex-col items-center justify-center text-center transition-colors",
                   isToday
-                    ? "bg-indigo-600 text-white"
-                    : "bg-slate-700 text-white",
+                    ? "bg-white border-l-[4px] border-l-indigo-500"
+                    : "bg-slate-50",
                 )}
                 style={{ gridColumn: 1, gridRow: dayIdx + 2 }}
               >
-                <span className="text-[11px] font-bold leading-tight">
+                <span
+                  className={cn(
+                    "text-[12px] font-bold leading-tight",
+                    isToday ? "text-indigo-700" : "text-slate-700",
+                  )}
+                >
                   {WEEKDAY_LABELS[monIdx]}
                 </span>
-                <span className="text-[10px] font-medium opacity-80 tabular-nums leading-tight">
+                <span
+                  className={cn(
+                    "text-[10px] font-medium tabular-nums leading-tight mt-0.5",
+                    isToday ? "text-indigo-500" : "text-slate-400",
+                  )}
+                >
                   {day.getDate()}/{day.getMonth() + 1}
                 </span>
               </div>
 
-              {/* half-hour body cells: every 6th column = 3-hour boundary
-                  (heaviest), every 2nd = hour boundary, others = half-hour. */}
+              {/* half-hour body cells: layered gridlines — slate-50 at half-
+                  hour, slate-100 at hour, slate-200 every 3 hours. */}
               {HALF_HOUR_RANGE.map((i) => (
                 <div
                   key={`bg-${dayIdx}-${i}`}
                   className={cn(
-                    "border-b border-slate-200",
+                    "border-b border-slate-100",
                     i % 6 === 0
-                      ? "border-l-2 border-slate-300"
+                      ? "border-l border-slate-200"
                       : i % 2 === 0
-                        ? "border-l border-slate-200"
-                        : "border-l border-slate-100",
+                        ? "border-l border-slate-100"
+                        : "border-l border-slate-50",
                     isToday && "bg-indigo-50/40",
                   )}
                   style={{ gridColumn: i + 2, gridRow: dayIdx + 2 }}
                 />
               ))}
 
-              {/* events: span = duration / 30 min, so widths are exact. */}
+              {/* events: 4px inset gives the cards breathing room from cell
+                  boundaries; span = duration / 30 min so widths are exact. */}
               {bookings.map((b) => {
                 const start = new Date(b.scheduledAt);
                 const startMinutes =
@@ -384,7 +395,7 @@ function DesktopWeekGrid({
                 return (
                   <div
                     key={b.id}
-                    className="relative z-[1] border-b border-slate-200"
+                    className="relative z-[1] p-1"
                     style={{
                       gridColumn: `${colStart} / span ${colSpan}`,
                       gridRow: dayIdx + 2,

@@ -31,13 +31,15 @@ export const TONE_CLASSES: Record<StatusTone, string> = {
 };
 
 /**
- * Stronger fills for the schedule table — events flush-fill their cell
- * so the panel itself encodes the status (no separate chip needed).
+ * Pastel surface + a colored left-edge accent — used on the schedule
+ * grid so an event card reads as "soft chip with status hint" rather
+ * than a flat colored block. The accent border replaces the chip pill
+ * that the compact mobile card still uses.
  */
 export const PANEL_CLASSES: Record<StatusTone, string> = {
-  info: "bg-indigo-100 text-indigo-800",
-  warn: "bg-amber-100 text-amber-900",
-  ok: "bg-emerald-100 text-emerald-800",
-  danger: "bg-rose-100 text-rose-800",
-  neutral: "bg-slate-100 text-slate-700",
+  info: "bg-indigo-50 text-indigo-800 border-l-indigo-400",
+  warn: "bg-amber-50 text-amber-900 border-l-amber-400",
+  ok: "bg-emerald-50 text-emerald-800 border-l-emerald-400",
+  danger: "bg-rose-50 text-rose-800 border-l-rose-400",
+  neutral: "bg-slate-50 text-slate-700 border-l-slate-300",
 };

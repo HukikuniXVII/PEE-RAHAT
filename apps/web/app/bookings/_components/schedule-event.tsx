@@ -63,19 +63,19 @@ export function ScheduleEvent({ booking, layout = "horizontal" }: Props) {
     );
   }
 
-  // Horizontal — flush-fills the schedule cell with a flat colored panel.
+  // Horizontal — soft card that fills its cell with a left-accent stripe.
   return (
     <Link
       href={href}
       className={cn(
-        "block h-full w-full px-2 py-1 hover:brightness-95 transition-all flex flex-col items-center justify-center text-center overflow-hidden leading-tight",
+        "group block h-full w-full rounded-lg shadow-sm border-l-[3px] px-2 py-1.5 flex flex-col justify-center overflow-hidden leading-tight hover:shadow-md hover:-translate-y-px transition-all",
         PANEL_CLASSES[status.tone],
       )}
     >
-      <p className="text-[11px] font-bold underline decoration-2 underline-offset-2 truncate max-w-full">
+      <p className="text-[11px] font-bold tracking-tight truncate max-w-full group-hover:underline decoration-2 underline-offset-2">
         {booking.subject}
       </p>
-      <p className="text-[10px] font-medium opacity-90 truncate max-w-full">
+      <p className="text-[10px] font-medium opacity-75 truncate max-w-full">
         {counterpartyLabel} · {booking.durationMinutes} นาที
       </p>
     </Link>
