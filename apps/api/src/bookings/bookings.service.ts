@@ -24,14 +24,32 @@ export class BookingsService {
           { tutor: { userId: user.id } },
         ],
       },
-      include: { review: { select: { id: true } } },
+      include: {
+        review: { select: { id: true } },
+        postponeRequest: true,
+        chatThread: { select: { id: true } },
+      },
       orderBy: { scheduledAt: "desc" },
     });
-    return rows.map(({ review, ...b }) => ({
+    return rows.map(({ review, postponeRequest, chatThread, ...b }) => ({
       ...b,
       hasReview: !!review,
       viewerSide:
         b.studentId === user.id ? ("student" as const) : ("tutor" as const),
+      chatThreadId: chatThread?.id,
+      postponeRequest: postponeRequest
+        ? {
+            id: postponeRequest.id,
+            initiatorRole: postponeRequest.initiatorRole,
+            reason: postponeRequest.reason,
+            chatExpiresAt: postponeRequest.chatExpiresAt.toISOString(),
+            status: postponeRequest.status,
+            proposedAt: postponeRequest.proposedAt?.toISOString(),
+            proposedDuration: postponeRequest.proposedDuration ?? undefined,
+            wasShortNotice: postponeRequest.wasShortNotice,
+            createdAt: postponeRequest.createdAt.toISOString(),
+          }
+        : undefined,
     }));
   }
 

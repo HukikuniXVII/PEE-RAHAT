@@ -145,6 +145,7 @@ export class ChatService {
       counterparty,
       viewerUserId: user.id,
       unreadCount,
+      closedAt: full.closedAt?.toISOString() ?? undefined,
     };
   }
 
@@ -228,6 +229,7 @@ export class ChatService {
       authorId: m.authorId,
       body: m.body,
       redacted: m.redacted,
+      kind: m.kind,
       createdAt: m.createdAt.toISOString(),
     }));
   }

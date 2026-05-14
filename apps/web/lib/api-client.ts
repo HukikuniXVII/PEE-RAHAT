@@ -25,6 +25,10 @@ import {
   type KycUploadIntent,
   type Page,
   type PaymentIntent,
+  type PostponeConfirmResult,
+  type PostponeOpenResult,
+  type PostponeRequestDto,
+  type ProposeSlotDto,
   type ReportDto,
   type SendMessageDto,
   type SheetReportDto,
@@ -271,6 +275,32 @@ export function createApiClient(opts: ApiClientOptions = {}) {
           { method: "POST", body: JSON.stringify(dto) },
           token,
         ),
+      postpone: {
+        initiate: (id: string, dto: PostponeRequestDto) =>
+          request<PostponeOpenResult>(
+            API_PATHS.postponeBooking(id),
+            { method: "POST", body: JSON.stringify(dto) },
+            token,
+          ),
+        propose: (id: string, dto: ProposeSlotDto) =>
+          request<{ ok: true }>(
+            API_PATHS.postponePropose(id),
+            { method: "POST", body: JSON.stringify(dto) },
+            token,
+          ),
+        confirm: (id: string) =>
+          request<PostponeConfirmResult>(
+            API_PATHS.postponeConfirm(id),
+            { method: "POST" },
+            token,
+          ),
+        cancel: (id: string) =>
+          request<{ ok: true }>(
+            API_PATHS.postponeCancel(id),
+            { method: "POST" },
+            token,
+          ),
+      },
     },
     sheets: {
       list: (

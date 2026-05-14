@@ -31,6 +31,8 @@ export interface ChatMessage {
   authorId: string;
   body: string;
   redacted: boolean;
+  /** "system" marks resolution messages (FR-TH-12); default "user". */
+  kind?: "user" | "system";
   createdAt: string;
 }
 
@@ -56,6 +58,8 @@ export interface ChatThread {
   viewerUserId: string;
   /** Messages newer than the viewer's last-read timestamp, excluding their own messages. */
   unreadCount: number;
+  /** Set when a postpone negotiation finalized (FR-TH-12) — hides the composer. */
+  closedAt?: string;
 }
 
 export const sendMessageSchema = z.object({

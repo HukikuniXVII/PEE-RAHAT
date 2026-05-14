@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import type { PostponeRequest } from "./postpone";
 import { subjectSchema } from "./tutor";
 
 export const bookingStatusSchema = z.enum([
@@ -35,6 +36,10 @@ export interface Booking {
   hasReview: boolean;
   /** Which side of the booking the calling user is on. */
   viewerSide: "student" | "tutor";
+  /** Set when an active postpone negotiation exists (FR-TH-10..12). */
+  postponeRequest?: PostponeRequest;
+  /** Resolved chat-thread id for this booking pair, if any. */
+  chatThreadId?: string;
   createdAt: string;
 }
 

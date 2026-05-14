@@ -9,4 +9,5 @@ export * from "./tcas";
 export * from "./quiz";
 export * from "./kyc";
 export * from "./chat";
+export * from "./postpone";
 export * from "./api";
