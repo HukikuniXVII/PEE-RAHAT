@@ -36,7 +36,10 @@ interface Props {
   onClose?: () => void;
 }
 
-const DURATION_PRESETS = [30, 60, 90, 120] as const;
+// 30-min slots are kept for postpone proposals but new bookings start at
+// 60 min — short single-half-hour sessions weren't filling out reliably
+// enough to be worth offering up-front. See SlotPicker for the slot grid.
+const DURATION_PRESETS = [60, 90, 120] as const;
 type DurationMinutes = (typeof DURATION_PRESETS)[number];
 
 const SUBJECT_LABEL: Record<Subject, string> = {
