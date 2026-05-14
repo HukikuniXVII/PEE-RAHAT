@@ -45,7 +45,9 @@ export class TutorsService {
       ];
     }
 
-    const orderBy: Prisma.TutorProfileOrderByWithRelationInput =
+    // FR-TH-14: defectCount asc as the final tiebreaker so tutors with
+    // 3+ no-shows / unilateral cancels sink within their bucket.
+    const primarySort: Prisma.TutorProfileOrderByWithRelationInput =
       query.sort === "priceAsc"
         ? { hourlyRate: "asc" }
         : query.sort === "priceDesc"
@@ -53,6 +55,10 @@ export class TutorsService {
           : query.sort === "newest"
             ? { createdAt: "desc" }
             : { rating: "desc" };
+    const orderBy: Prisma.TutorProfileOrderByWithRelationInput[] = [
+      primarySort,
+      { defectCount: "asc" },
+    ];
 
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;

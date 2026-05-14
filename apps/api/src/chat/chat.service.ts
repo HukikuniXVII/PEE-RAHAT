@@ -237,7 +237,10 @@ export class ChatService {
     threadId: string,
     rawBody: string,
   ): Promise<ChatMessage> {
-    const { user } = await this.assertParticipant(supabaseId, threadId);
+    const { user, thread } = await this.assertParticipant(supabaseId, threadId);
+    if (thread.closedAt) {
+      throw new ForbiddenException("Thread is closed — cannot send messages");
+    }
     const filtered = this.filter.filter(rawBody);
     const created = await this.prisma.chatMessage.create({
       data: {
@@ -255,6 +258,82 @@ export class ChatService {
       redacted: created.redacted,
       createdAt: created.createdAt.toISOString(),
     };
+  }
+
+  // ── Postpone-class helpers (FR-TH-10..13) ──────────────────────────────
+  //
+  // The negotiation uses the booking pair's existing thread; closedAt is
+  // a per-negotiation flag and gets cleared when a fresh request reopens.
+
+  async ensureThreadForBooking(bookingId: string): Promise<{ id: string }> {
+    const booking = await this.prisma.booking.findUniqueOrThrow({
+      where: { id: bookingId },
+      select: { id: true, studentId: true, tutorId: true },
+    });
+    const existing = await this.prisma.chatThread.findFirst({
+      where: { studentId: booking.studentId, tutorId: booking.tutorId },
+      select: { id: true, bookingId: true, closedAt: true },
+    });
+    if (existing) {
+      if (existing.closedAt || existing.bookingId !== bookingId) {
+        await this.prisma.chatThread.update({
+          where: { id: existing.id },
+          data: {
+            closedAt: null,
+            ...(existing.bookingId ? {} : { bookingId }),
+          },
+        });
+      }
+      return { id: existing.id };
+    }
+    const created = await this.prisma.chatThread.create({
+      data: {
+        studentId: booking.studentId,
+        tutorId: booking.tutorId,
+        bookingId,
+      },
+      select: { id: true },
+    });
+    return created;
+  }
+
+  async postSystemMessage(
+    threadId: string,
+    body: string,
+    actorUserId: string,
+  ): Promise<void> {
+    await this.prisma.chatMessage.create({
+      data: {
+        threadId,
+        authorId: actorUserId,
+        body,
+        kind: "system",
+      },
+    });
+  }
+
+  async closeThread(threadId: string): Promise<void> {
+    await this.prisma.chatThread.update({
+      where: { id: threadId },
+      data: { closedAt: new Date() },
+    });
+  }
+
+  async counterpartyHasMessagedSince(
+    threadId: string,
+    counterpartyUserId: string,
+    since: Date,
+  ): Promise<boolean> {
+    const hit = await this.prisma.chatMessage.findFirst({
+      where: {
+        threadId,
+        authorId: counterpartyUserId,
+        kind: "user",
+        createdAt: { gt: since },
+      },
+      select: { id: true },
+    });
+    return hit !== null;
   }
 
   private async assertParticipant(supabaseId: string, threadId: string) {

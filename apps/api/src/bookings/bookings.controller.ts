@@ -6,12 +6,13 @@ import {
   Post,
   UseGuards,
 } from "@nestjs/common";
-import { IsInt, IsString } from "class-validator";
+import { IsInt, IsString, MaxLength, MinLength } from "class-validator";
 
 import { CurrentUser } from "../auth/current-user.decorator";
 import { SupabaseAuthGuard } from "../auth/auth.guard";
 import type { SupabaseJwtPayload } from "../auth/supabase-jwt.strategy";
 import { BookingsService } from "./bookings.service";
+import { PostponeService } from "./postpone.service";
 
 class CreateBookingDto {
   @IsString() tutorId!: string;
@@ -25,10 +26,22 @@ class ReportDto {
   @IsString() details!: string;
 }
 
+class PostponeDto {
+  @IsString() @MinLength(5) @MaxLength(500) reason!: string;
+}
+
+class ProposeSlotDto {
+  @IsString() scheduledAt!: string;
+  @IsInt() durationMinutes!: number;
+}
+
 @Controller("bookings")
 @UseGuards(SupabaseAuthGuard)
 export class BookingsController {
-  constructor(private readonly bookings: BookingsService) {}
+  constructor(
+    private readonly bookings: BookingsService,
+    private readonly postpone: PostponeService,
+  ) {}
 
   @Get()
   mine(@CurrentUser() user: SupabaseJwtPayload) {
@@ -52,5 +65,39 @@ export class BookingsController {
     @Body() dto: ReportDto,
   ) {
     return this.bookings.report(user.sub, id, dto);
+  }
+
+  @Post(":id/postpone")
+  postponeInitiate(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") id: string,
+    @Body() dto: PostponeDto,
+  ) {
+    return this.postpone.initiate(user.sub, id, dto);
+  }
+
+  @Post(":id/postpone/propose")
+  postponePropose(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") id: string,
+    @Body() dto: ProposeSlotDto,
+  ) {
+    return this.postpone.propose(user.sub, id, dto);
+  }
+
+  @Post(":id/postpone/confirm")
+  postponeConfirm(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") id: string,
+  ) {
+    return this.postpone.confirm(user.sub, id);
+  }
+
+  @Post(":id/postpone/cancel")
+  postponeCancel(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") id: string,
+  ) {
+    return this.postpone.cancel(user.sub, id);
   }
 }
