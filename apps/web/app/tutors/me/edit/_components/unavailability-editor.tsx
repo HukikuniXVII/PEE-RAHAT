@@ -12,9 +12,12 @@ import { toast } from "sonner";
 
 import { createApiClient } from "@/lib/api-client";
 
-// Mon-first labels but values follow JS Date.getDay (0=Sun … 6=Sat) so the
-// API contract matches what the busy-expander walks.
-const WEEKDAY_OPTIONS: { value: number; label: string }[] = [
+// "all" splats into 7 rules client-side. Mon-first labels but values
+// follow JS Date.getDay (0=Sun … 6=Sat) so the API contract matches what
+// the busy-expander walks.
+type WeekdayValue = number | "all";
+const WEEKDAY_OPTIONS: { value: WeekdayValue; label: string }[] = [
+  { value: "all", label: "ทุกวัน" },
   { value: 1, label: "จันทร์" },
   { value: 2, label: "อังคาร" },
   { value: 3, label: "พุธ" },
@@ -23,6 +26,7 @@ const WEEKDAY_OPTIONS: { value: number; label: string }[] = [
   { value: 6, label: "เสาร์" },
   { value: 0, label: "อาทิตย์" },
 ];
+const ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const;
 
 const SLOT_STEP = 30;
 const TIME_OPTIONS = Array.from({ length: (24 * 60) / SLOT_STEP }, (_, i) => {
@@ -47,7 +51,7 @@ function weekdayLabel(weekday: number): string {
 
 export function UnavailabilityEditor() {
   const queryClient = useQueryClient();
-  const [weekday, setWeekday] = useState<number>(1);
+  const [weekday, setWeekday] = useState<WeekdayValue>("all");
   const [startMinute, setStartMinute] = useState<number>(12 * 60);
   const [endMinute, setEndMinute] = useState<number>(13 * 60);
   const [reason, setReason] = useState<string>("");
@@ -61,8 +65,22 @@ export function UnavailabilityEditor() {
     queryClient.invalidateQueries({ queryKey: ["tutors", "me", "unavailability"] });
 
   const create = useMutation({
-    mutationFn: (dto: CreateUnavailabilityDto) =>
-      createApiClient().tutors.unavailability.create(dto),
+    // For "ทุกวัน" we fire 7 parallel creates and aggregate the result.
+    // Promise.all means a partial failure is surfaced (rare; the user can
+    // retry the missing days from the chip list).
+    mutationFn: async (
+      dto: Omit<CreateUnavailabilityDto, "weekday"> & {
+        weekdays: readonly number[];
+      },
+    ) => {
+      const api = createApiClient();
+      const { weekdays, ...rest } = dto;
+      await Promise.all(
+        weekdays.map((wd) =>
+          api.tutors.unavailability.create({ ...rest, weekday: wd }),
+        ),
+      );
+    },
     onSuccess: () => {
       invalidate();
       // Also invalidate any picker that's currently rendering this tutor's
@@ -88,8 +106,10 @@ export function UnavailabilityEditor() {
       toast.error("เวลาสิ้นสุดต้องหลังเวลาเริ่มต้น");
       return;
     }
+    const weekdays =
+      weekday === "all" ? [...ALL_WEEKDAYS] : [weekday];
     create.mutate({
-      weekday,
+      weekdays,
       startMinute,
       endMinute,
       reason: reason.trim() || undefined,
@@ -137,12 +157,15 @@ export function UnavailabilityEditor() {
       <div className="grid sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
         <SelectField label="วัน">
           <select
-            value={weekday}
-            onChange={(e) => setWeekday(Number(e.target.value))}
+            value={String(weekday)}
+            onChange={(e) => {
+              const v = e.target.value;
+              setWeekday(v === "all" ? "all" : Number(v));
+            }}
             className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm font-medium"
           >
             {WEEKDAY_OPTIONS.map((w) => (
-              <option key={w.value} value={w.value}>
+              <option key={String(w.value)} value={String(w.value)}>
                 {w.label}
               </option>
             ))}
