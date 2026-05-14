@@ -87,6 +87,19 @@ export class RefundPolicyService {
     // other shape lands here, prefer the student-protective outcome.
     return { tutorThb: 0, platformThb: 0, studentRefundThb: amountThb };
   }
+
+  /**
+   * Platform-initiated 100% refund — not tied to a postpone outcome.
+   * Used by the overlap cleanup script (no defectCount bump because the
+   * tutor wasn't at fault) and any future admin-driven refund flow.
+   * The RefundLedger row records reasonCode='admin_manual'.
+   */
+  computeAdminManualRefund(amountThb: number): RefundSplit {
+    if (!Number.isInteger(amountThb) || amountThb < 0) {
+      throw new Error(`amountThb must be a non-negative integer, got ${amountThb}`);
+    }
+    return { tutorThb: 0, platformThb: 0, studentRefundThb: amountThb };
+  }
 }
 
 function readPct(key: string, fallback: number): number {

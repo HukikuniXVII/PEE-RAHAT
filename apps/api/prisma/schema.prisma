@@ -453,6 +453,7 @@ enum RefundReason {
   postpone_short_notice_no_agreement
   postpone_unresponsive
   postpone_tutor_initiated_no_agreement
+  admin_manual
 }
 
 model RefundLedger {

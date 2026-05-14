@@ -12,6 +12,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx --env-file=.env prisma/seed.ts",
+    "resolve-overlaps": "tsx --env-file=.env scripts/resolve-existing-overlaps.ts",
     "openapi:export": "pnpm build && node dist/src/scripts/export-openapi.js",
     "clean": "rimraf dist"
   },

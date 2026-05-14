@@ -19,6 +19,21 @@ const ACTIVE_OVERLAP_STATUSES = [
   "postponed",
 ] as const;
 
+/**
+ * Half-open interval overlap: [aStart, aEnd) intersects [bStart, bEnd).
+ * Touching edges (aEnd === bStart) is NOT an overlap. This is the JS twin
+ * of the Postgres predicate in assertNoOverlap so the boundary semantics
+ * are exercised by unit tests.
+ */
+export function intervalsOverlap(
+  aStart: Date,
+  aEnd: Date,
+  bStart: Date,
+  bEnd: Date,
+): boolean {
+  return aStart < bEnd && aEnd > bStart;
+}
+
 interface CreateBookingInput {
   tutorId: string;
   subject: string;
