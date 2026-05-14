@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CalendarClock,
+  CalendarX,
   CheckCircle2,
   Clock,
   Loader2,
@@ -14,12 +15,14 @@ import {
   Wallet,
 } from "lucide-react";
 import { motion } from "motion/react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { PaymentDialog } from "@/components/payment-dialog";
 import { createApiClient } from "@/lib/api-client";
 
+import { PostponeReasonDialog } from "./postpone-reason-dialog";
 import { ReportDialog } from "./report-dialog";
 import { ReviewDialog } from "./review-dialog";
 
@@ -67,9 +70,11 @@ function formatDateTime(iso: string): string {
 
 export function BookingRow({ booking }: Props) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [paying, setPaying] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [reviewing, setReviewing] = useState(false);
+  const [postponing, setPostponing] = useState(false);
 
   const status = STATUS_COPY[booking.status];
 
@@ -84,6 +89,12 @@ export function BookingRow({ booking }: Props) {
     isStudent && booking.status === "completed" && !booking.hasReview;
   const acceptable =
     booking.status === "requested" && booking.viewerSide === "tutor";
+  // FR-TH-10: both sides can request postpone while the class is still upcoming.
+  const postponable =
+    booking.status === "paid" &&
+    new Date(booking.scheduledAt).getTime() > Date.now();
+  const negotiating =
+    booking.status === "postpone_pending" && !!booking.chatThreadId;
 
   const accept = useMutation({
     mutationFn: () => createApiClient().bookings.accept(booking.id),
@@ -194,6 +205,26 @@ export function BookingRow({ booking }: Props) {
               Held in Escrow
             </span>
           )}
+          {postponable && (
+            <button
+              type="button"
+              onClick={() => setPostponing(true)}
+              className="px-4 py-2.5 bg-amber-50 text-amber-700 rounded-xl font-bold text-sm hover:bg-amber-100 transition-all flex items-center gap-2"
+            >
+              <CalendarX size={14} />
+              ขอเลื่อนคลาส
+            </button>
+          )}
+          {negotiating && (
+            <button
+              type="button"
+              onClick={() => router.push(`/chat/thread/${booking.chatThreadId}`)}
+              className="px-4 py-2.5 bg-amber-500 text-white rounded-xl font-bold text-sm hover:bg-amber-600 transition-all flex items-center gap-2"
+            >
+              <CalendarX size={14} />
+              เปิดห้องเจรจา
+            </button>
+          )}
         </div>
       </div>
 
@@ -230,6 +261,18 @@ export function BookingRow({ booking }: Props) {
             queryClient.invalidateQueries({
               queryKey: ["tutors", "byId", booking.tutorId],
             });
+          }}
+        />
+      )}
+
+      {postponing && (
+        <PostponeReasonDialog
+          bookingId={booking.id}
+          onClose={() => setPostponing(false)}
+          onOpened={({ threadId }) => {
+            queryClient.invalidateQueries({ queryKey: ["bookings", "mine"] });
+            toast.success("เปิดห้องเจรจาแล้ว — ตอบกลับภายใน 2 ชั่วโมง");
+            router.push(`/chat/thread/${threadId}`);
           }}
         />
       )}
