@@ -52,8 +52,9 @@ export const createBookingSchema = z.object({
     .refine((v) => !Number.isNaN(Date.parse(v)), {
       message: "Invalid datetime",
     }),
+  // New-booking durations: 30-min was dropped from the booking flow; the
+  // postpone propose path keeps it via proposeSlotSchema.
   durationMinutes: z.union([
-    z.literal(30),
     z.literal(60),
     z.literal(90),
     z.literal(120),

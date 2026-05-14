@@ -16,14 +16,17 @@ import type { SupabaseJwtPayload } from "../auth/supabase-jwt.strategy";
 import { BookingsService } from "./bookings.service";
 import { PostponeService } from "./postpone.service";
 
-const ALLOWED_DURATIONS = [30, 60, 90, 120] as const;
+// New-booking durations stay at 60/90/120. Postpone proposals keep 30
+// because the chat negotiation flow needs the half-hour granularity.
+const CREATE_DURATIONS = [60, 90, 120] as const;
+const PROPOSE_DURATIONS = [30, 60, 90, 120] as const;
 
 class CreateBookingDto {
   @IsString() tutorId!: string;
   @IsString() subject!: string;
   @IsString() scheduledAt!: string;
   @IsInt()
-  @IsIn(ALLOWED_DURATIONS)
+  @IsIn(CREATE_DURATIONS)
   durationMinutes!: number;
 }
 
@@ -39,7 +42,7 @@ class PostponeDto {
 class ProposeSlotDto {
   @IsString() scheduledAt!: string;
   @IsInt()
-  @IsIn(ALLOWED_DURATIONS)
+  @IsIn(PROPOSE_DURATIONS)
   durationMinutes!: number;
 }
 
