@@ -12,7 +12,7 @@ See [`requirements.md`](./requirements.md) for the full product spec.
 | Backend | NestJS (TypeScript) |
 | Database | PostgreSQL via Prisma |
 | Auth | Supabase Auth (JWT validated by NestJS) |
-| Storage | S3-compatible (Cloudflare R2 or AWS S3) for KYC + sheets |
+| Storage | S3-compatible (AWS S3 in prod, MinIO in dev) for KYC + sheets |
 | Cache / Queues | Redis + BullMQ |
 | Payments | Manual PromptPay + SlipOK (Phase 1) → Opn Payments (Phase 2) |
 
@@ -20,23 +20,29 @@ See [`requirements.md`](./requirements.md) for the full product spec.
 
 ```
 apps/
-  web/    → Next.js — UI ONLY, calls API via typed client
-  api/    → NestJS — all business logic, DB, payments
+  web/                       → Next.js — UI ONLY, calls API via typed client
+  api/                       → NestJS — all business logic, DB, payments
+    prisma/migrations/       → versioned SQL migrations
+    scripts/                 → one-off ts scripts (overlap cleanup, etc.)
 packages/
-  types/  → shared DTOs / API contracts (single source of truth)
-  ui/     → shared UI primitives (cn helper, future shadcn components)
-  config/ → shared tsconfig, eslint, tailwind preset
+  types/                     → shared DTOs / API contracts (single source of truth)
+  ui/                        → shared UI primitives (cn helper, dialog, buttons)
+  config/                    → shared tsconfig, eslint, tailwind preset
+docker-compose.yml           → postgres + redis + minio for local dev
 ```
 
 `apps/web` is forbidden by ESLint from importing `@prisma/*`, `@nestjs/*`, or defining `MOCK_*` literals — all data flows through `@peerahat/types` and the typed `apiClient`.
 
 ## Local development
 
-Prereqs: Node 20+, pnpm 9+, PostgreSQL 15+, Redis 7+.
+Prereqs: Node 20+, pnpm 9+, Docker (for postgres / redis / minio).
 
 ```bash
 pnpm install
-cp .env.example .env             # fill in Supabase + DB creds
+cp .env.example .env             # fill in Supabase creds + leave defaults
+
+# Bring up Postgres + Redis + MinIO
+docker compose up -d
 
 # DB
 pnpm --filter @peerahat/api prisma:generate
@@ -50,31 +56,75 @@ pnpm dev:web   # http://localhost:3000
 pnpm dev:api   # http://localhost:3001/api
 ```
 
-## What's implemented (Phase 1 scaffold)
+### Useful commands
 
-- ✅ Monorepo (pnpm + Turborepo)
-- ✅ Shared DTOs in `@peerahat/types` covering all Phase 1 endpoints
-- ✅ All AI Studio screens migrated to App Router routes — **no mock data**
-- ✅ NestJS modules for tutors, bookings, sheets, TCAS, quiz, community, chat, payments, KYC, admin
-- ✅ Prisma schema with all Phase 1 entities + audit log (NFR-05)
-- ✅ Server-side bypass filter (FR-PM-08) wired into `chat/send`
-- ✅ Supabase JWT auth guard
-- ✅ PWA manifest (NFR-10)
+```bash
+pnpm -r typecheck                         # whole workspace
+pnpm --filter @peerahat/api test          # jest (23 unit tests today)
+pnpm --filter @peerahat/api resolve-overlaps --dry-run   # FR-TH-15 cleanup
+```
 
-## TODO before Phase 1 ship
+### Configuration knobs
 
-- [x] Real R2/S3 SDK in `StorageService` (NFR-03)
-- [x] Real SlipOK call in `SlipOkClient` (FR-PM-01)
-- [x] EMVCo PromptPay payload generator (FR-PM-01)
-- [x] BullMQ payout batch job (15th/30th, FR-PM-06) with 3% withholding (FR-PM-07)
-- [x] Cron job to archive verified KYC files to cold storage within 24h (NFR-03)
-- [x] Cron job to release escrow once 24h report window expires (FR-PM-05)
-- [x] Tutor profile detail page (`/tutors/[id]`)
-- [x] Booking flow page (`/tutors/[id]/book`)
-- [x] Chat page (`/chat/[threadId]`)
-- [x] Sheet upload page (`/sheets/upload`)
-- [x] OAuth callback route (`/auth/callback` + Google sign-in on `/login`; LINE Login deferred — needs custom OIDC config)
-- [x] Service worker for offline PWA (NFR-10)
-- [x] Real shadcn/ui Button/Card/Dialog primitives in `@peerahat/ui`
+The defaults in `.env.example` are production-ready. Notable knobs:
 
-Out-of-scope items removed from the AI Studio prototype: Gemini research-paper search, lesson knowledge graph, and AI Mentor / Persona configuration.
+- `BOOKING_DAY_START_HOUR` / `END_HOUR` (default `9` / `21`) — slot picker bounds. Mirrored on the web with `NEXT_PUBLIC_*` so the picker stays in sync without a build flag.
+- `POSTPONE_TUTOR_CUT_SHORT_NOTICE` / `POSTPONE_PLATFORM_FEE_SHORT_NOTICE` (default `50` / `10`) — split percentages applied when a student-initiated postpone is rejected inside the 12 h short-notice window (FR-TH-11). Validated at module init — tutor + platform must sum to ≤ 100.
+- `PAYMENTS_MANUAL_REVIEW=1` — skip the SlipOK call entirely; slips land in the admin "รออนุมัติ" queue for human approval (FR-PM-01).
+- `JOBS_ENABLED=false` — skip BullMQ registration (used by `openapi:export` or any run without Redis).
+
+## Implemented features (Phase 1)
+
+### Booking lifecycle
+- 30-min slot granularity throughout the booking flow (FR-TH-15)
+- Booking durations 60 / 90 / 120 min; postpone proposals additionally allow 30 min
+- Server-authoritative overlap guard via `BookingsService.assertNoOverlap` — half-open intervals, raw SQL with `+ interval N minutes` arithmetic, checks both student and tutor calendars at create / propose / confirm time
+- `GET /tutors/:id/availability` + `GET /bookings/mine/busy` feed the picker's grey-out so blocked slots show before submit
+- One-off cleanup script `scripts/resolve-existing-overlaps.ts` for any pre-FR-TH-15 conflicts (refunds the later booking 100 % via `RefundReason='admin_manual'`)
+
+### Postpone-class negotiation (FR-TH-10..14)
+- Either side opens a 2-hour negotiation chat thread from any paid, future booking
+- BullMQ `postpone-timeout` queue fires at `chatExpiresAt`; resolver classifies outcome (`agreed` / `no_agreement` / `unresponsive` / `tutor_initiated_no_agreement`) by inspecting counterparty messages
+- `RefundPolicyService` centralises every split:
+  - **Agreed** → no money moves; booking cloned to new slot, original marked `postponed`
+  - **Student short-notice no-agreement** → 50 / 10 / 40 (env-driven)
+  - **Tutor unresponsive** or **tutor-initiated declined** → 100 % student refund + `defectCount++`
+- `RefundLedger` records every split; `PaymentIntent.amountThb` reduced in place so the existing payout batch picks up the tutor's portion unchanged
+- Tutor `defectCount` deprioritises ranking — final `orderBy: { defectCount: 'asc' }` tiebreaker in `TutorsService.search` (FR-TH-14)
+- 12 unit tests cover all four refund cases + env validation + boundary rounding
+
+### Tutor unavailability (FR-TH-16)
+- Recurring weekly blocks (`TutorUnavailability` model: `weekday` + `startMinute` + `endMinute` + optional `reason`)
+- `expandWeeklyRules` helper expands rules into concrete intervals; reused by the busy endpoint and the overlap guard
+- Editor on `/tutors/me/edit`: chip-style list with single-click delete + add form (`ทุกวัน` option splats into 7 rules)
+
+### Schedule view
+- `/bookings?view=schedule` (default) renders a modern airy week grid — day rows × 30-min columns with sticky headers, today-row indigo accent, pastel event cards with colored left-accent stripes
+- Mobile (<md) collapses to a vertical day-grouped list
+- Toggle to the original list view (`?view=list`)
+- Span resolution is exact: 30 min = 1 cell, 60 = 2, 90 = 3, 120 = 4
+
+### Other Phase 1 work shipped
+- Tutor intro video supports YouTube / Vimeo / direct file URLs (auto-rewrite to embed where needed)
+- Real R2/S3 SDK in `StorageService` (NFR-03)
+- Real SlipOK call in `SlipOkClient` (FR-PM-01) + EMVCo PromptPay payload generator
+- BullMQ payout batch job, 15th / 30th (FR-PM-06) with 3 % withholding (FR-PM-07)
+- Cron jobs: escrow release after 24 h report window (FR-PM-05); KYC cold-archive within 24 h (NFR-03)
+- Tutor profile detail, booking stepper, chat, sheet upload, OAuth callback (Google), PWA service worker, shadcn-style UI primitives
+
+## Testing
+
+`pnpm --filter @peerahat/api test` runs the Jest suite — **23 tests** across two files:
+
+- `refund-policy.service.spec.ts` (12) — env validation + all four refund cases + rounding edge cases
+- `bookings.service.spec.ts` (11) — `intervalsOverlap` boundary semantics (touching edges, 1-min overlap, 30-min slot adjacency) + `expandWeeklyRules` (multi-day expansion, window boundaries, multi-weekday)
+
+Workspace typecheck:
+
+```bash
+pnpm -r typecheck
+```
+
+## Out of scope (removed from the AI Studio prototype)
+
+Gemini research-paper search, lesson knowledge graph, and AI Mentor / Persona configuration are intentionally not implemented.
