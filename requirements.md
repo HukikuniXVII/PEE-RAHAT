@@ -63,6 +63,11 @@ Pee Rahat is a Thai EdTech marketplace platform connecting high school students 
 | FR-TH-07 | Calendar / availability sync (Google Calendar import, recurring slots) | Should | 2 |
 | FR-TH-08 | In-platform video classroom with recording, retained for student review and dispute evidence | Should | 2 |
 | FR-TH-09 | Review & rating: only students who completed and paid for a class can submit; 1–5 stars + text | Must | 1 |
+| FR-TH-10 | Postpone-class entry: student or tutor can request to postpone a paid booking before `scheduledAt`; opens a 2-hour negotiation chat thread | Must | 1 |
+| FR-TH-11 | Refund-split policy on postpone cancellation: short-notice student-initiated → 50% tutor / 10% platform fee / 40% student refund; tutor-unresponsive or tutor-initiated-declined → 100% student refund; all amounts via `RefundPolicyService` with env-driven percentages | Must | 1 |
+| FR-TH-12 | Postpone negotiation chat: initiator can propose a new slot (≥24h ahead); counterparty can accept (clone booking + keep escrow) or decline (refund path); system messages logged for open/propose/confirm/cancel/timeout | Must | 1 |
+| FR-TH-13 | Postpone timeout worker: BullMQ job fires at `chatExpiresAt` (2h); resolver classifies outcome by whether the counterparty messaged after `PostponeRequest.createdAt`, then runs the cancellation+refund path | Must | 1 |
+| FR-TH-14 | Tutor defect ranking: `TutorProfile.defectCount` increments on tutor-unresponsive or tutor-initiated-decline outcomes; tutor search deprioritizes tutors with `defectCount >= 3` | Must | 1 |
 
 ### 4.2 Sheet Marketplace
 

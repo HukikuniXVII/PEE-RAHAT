@@ -9,7 +9,8 @@ export type PaymentStatus =
   | "released"
   | "refunded"
   | "failed"
-  | "disputed";
+  | "disputed"
+  | "partially_refunded";
 
 export interface PaymentIntent {
   id: string;

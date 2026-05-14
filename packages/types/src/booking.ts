@@ -12,6 +12,11 @@ export const bookingStatusSchema = z.enum([
   "reported",
   "refunded",
   "cancelled",
+  "postpone_pending",
+  "postponed",
+  "cancelled_no_agreement",
+  "cancelled_tutor_unresponsive",
+  "cancelled_tutor_initiated",
 ]);
 
 export type BookingStatus = z.infer<typeof bookingStatusSchema>;

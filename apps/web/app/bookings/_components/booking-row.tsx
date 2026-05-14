@@ -40,6 +40,11 @@ const STATUS_COPY: Record<
   reported: { label: "อยู่ระหว่างตรวจสอบ", tone: "warn" },
   refunded: { label: "คืนเงินแล้ว", tone: "neutral" },
   cancelled: { label: "ยกเลิก", tone: "neutral" },
+  postpone_pending: { label: "กำลังเจรจาเลื่อนคลาส", tone: "warn" },
+  postponed: { label: "เลื่อนคลาสแล้ว", tone: "neutral" },
+  cancelled_no_agreement: { label: "ยกเลิก — ไม่ตกลงเวลาใหม่", tone: "danger" },
+  cancelled_tutor_unresponsive: { label: "ยกเลิก — พี่ติวไม่ตอบ", tone: "danger" },
+  cancelled_tutor_initiated: { label: "ยกเลิก — พี่ติวขอเลื่อน", tone: "danger" },
 };
 
 const TONE_CLASSES: Record<string, string> = {
