@@ -14,7 +14,7 @@ import type {
 import { addHours, differenceInMilliseconds } from "date-fns";
 
 import { ChatService } from "../chat/chat.service";
-import { GoogleMeetService } from "../integrations/google-meet/google-meet.service";
+import { GoogleCalendarService } from "../integrations/google-calendar/google-calendar.service";
 import { RefundPolicyService } from "../payments/refund-policy.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { BookingsService } from "./bookings.service";
@@ -44,7 +44,7 @@ export class PostponeService implements OnModuleInit {
     private readonly refundPolicy: RefundPolicyService,
     private readonly queue: PostponeQueue,
     private readonly bookings: BookingsService,
-    private readonly googleMeet: GoogleMeetService,
+    private readonly googleCalendar: GoogleCalendarService,
   ) {}
 
   onModuleInit() {
@@ -282,18 +282,15 @@ export class PostponeService implements OnModuleInit {
     await this.queue.cancelTimeout(request.id);
 
     // FR-TH-17: drop the prior calendar event (non-fatal on 404) and mint
-    // a fresh Meet link inline on the cloned booking. Same fire-and-log
-    // pattern as the payment path — a Calendar outage shouldn't block the
-    // postpone, since admin can regenerate via the retry endpoint.
+    // a fresh Meet link inline on the cloned booking via the tutor's
+    // connected Google account. Same fire-and-log pattern as the payment
+    // path — a Calendar outage shouldn't block the postpone; admin can
+    // regenerate via /admin/bookings/:id/regenerate-meet.
     if (oldCalendarEventId) {
-      await this.googleMeet.deleteEvent(oldCalendarEventId);
+      await this.googleCalendar.deleteEvent(booking.tutorId, oldCalendarEventId);
     }
     try {
-      if (this.googleMeet.isEnabled()) {
-        await this.googleMeet.createForBooking(newBooking.id);
-      } else {
-        await this.googleMeet.postFallbackMessage(newBooking.id);
-      }
+      await this.googleCalendar.attachToBooking(newBooking.id);
     } catch (err) {
       this.logger.warn(
         `Meet generation failed for postpone-cloned booking ${newBooking.id}: ${(err as Error).message} — admin can retry`,

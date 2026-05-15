@@ -14,7 +14,7 @@ import type {
 import { Prisma } from "@prisma/client";
 import { addHours } from "date-fns";
 
-import { GoogleMeetService } from "../integrations/google-meet/google-meet.service";
+import { GoogleCalendarService } from "../integrations/google-calendar/google-calendar.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { encodePromptPayPayload } from "./promptpay";
 import { ZercleSlipService } from "./zercle-slip/zercle-slip.service";
@@ -26,7 +26,7 @@ export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly zercle: ZercleSlipService,
-    private readonly googleMeet: GoogleMeetService,
+    private readonly googleCalendar: GoogleCalendarService,
   ) {}
 
   async createIntent(
@@ -214,21 +214,15 @@ export class PaymentsService {
   }
 
   /**
-   * FR-TH-17: best-effort Meet link generation at payment-confirm. Calendar
-   * outages, mis-configured service account, or a tutor email Workspace
-   * rejects all bubble up here as errors — we log + swallow so payment
-   * itself succeeds. Admin retries via /admin/bookings/:id/regenerate-meet.
-   *
-   * Disabled (GOOGLE_MEET_ENABLED=false): posts the fallback chat message
-   * so the student knows to ask the tutor for a link.
+   * FR-TH-17: best-effort Meet link generation at payment-confirm. Calls
+   * GoogleCalendarService.attachToBooking which is itself idempotent on
+   * Booking.meetingUrl and gracefully degrades when the tutor hasn't
+   * connected Google. Errors here log + swallow so payment itself
+   * succeeds; admin retries via /admin/bookings/:id/regenerate-meet.
    */
   private async tryGenerateMeet(bookingId: string): Promise<void> {
     try {
-      if (this.googleMeet.isEnabled()) {
-        await this.googleMeet.createForBooking(bookingId);
-      } else {
-        await this.googleMeet.postFallbackMessage(bookingId);
-      }
+      await this.googleCalendar.attachToBooking(bookingId);
     } catch (err) {
       this.logger.error(
         `Meet generation failed for booking ${bookingId}: ${(err as Error).message} — admin can retry via /admin/bookings/:id/regenerate-meet`,

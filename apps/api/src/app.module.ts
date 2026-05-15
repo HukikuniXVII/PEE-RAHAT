@@ -7,7 +7,7 @@ import { BookingsModule } from "./bookings/bookings.module";
 import { ChatModule } from "./chat/chat.module";
 import { CommonModule } from "./common/common.module";
 import { CommunityModule } from "./community/community.module";
-import { GoogleMeetModule } from "./integrations/google-meet/google-meet.module";
+import { GoogleCalendarModule } from "./integrations/google-calendar/google-calendar.module";
 import { JobsModule } from "./jobs/jobs.module";
 import { KycModule } from "./kyc/kyc.module";
 import { PaymentsModule } from "./payments/payments.module";
@@ -38,7 +38,7 @@ import { UsersModule } from "./users/users.module";
     PaymentsModule,
     AdminModule,
     JobsModule,
-    GoogleMeetModule,
+    GoogleCalendarModule,
   ],
 })
 export class AppModule {}

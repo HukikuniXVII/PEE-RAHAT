@@ -9,7 +9,7 @@ import type {
 } from "@peerahat/types";
 
 import { StorageService } from "../common/storage.service";
-import { GoogleMeetService } from "../integrations/google-meet/google-meet.service";
+import { GoogleCalendarService } from "../integrations/google-calendar/google-calendar.service";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
@@ -19,7 +19,7 @@ export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
-    private readonly googleMeet: GoogleMeetService,
+    private readonly googleCalendar: GoogleCalendarService,
   ) {}
 
   async listReports({
@@ -219,11 +219,7 @@ export class AdminService {
       // FR-TH-17: generate Meet link inline; swallow failures so the
       // payment approval itself never depends on Calendar.
       try {
-        if (this.googleMeet.isEnabled()) {
-          await this.googleMeet.createForBooking(booking.id);
-        } else {
-          await this.googleMeet.postFallbackMessage(booking.id);
-        }
+        await this.googleCalendar.attachToBooking(booking.id);
       } catch (err) {
         this.logger.error(
           `Meet generation failed for booking ${booking.id}: ${(err as Error).message} — admin can retry`,
@@ -236,18 +232,17 @@ export class AdminService {
   /**
    * FR-TH-17: admin retry path for the inline Meet generator. The original
    * payment-confirm best-effort call may have failed (Calendar outage,
-   * mis-configured service account, attendee email rejected). This endpoint
-   * deletes any existing event (best-effort 404 swallow) and re-runs the
-   * inline create.
+   * tutor hadn't connected Google yet, attendee email rejected). This
+   * endpoint deletes any existing event (best-effort 404 swallow) and
+   * re-runs attachToBooking.
    *
-   * Idempotent: if Calendar is healthy and the link already exists,
-   * deleting + recreating produces a fresh Meet URL — desirable because
-   * the old link may be the reason admin is retrying.
+   * If the tutor still hasn't connected Google, attachToBooking returns
+   * meetingUrl=null and logs — admin can call this again later.
    */
   async regenerateMeet(bookingId: string) {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
-      select: { id: true, status: true, googleCalendarEventId: true },
+      select: { id: true, status: true, googleCalendarEventId: true, tutorId: true },
     });
     if (!booking) throw new NotFoundException();
     if (booking.status !== "paid") {
@@ -257,9 +252,12 @@ export class AdminService {
     }
 
     if (booking.googleCalendarEventId) {
-      await this.googleMeet.deleteEvent(booking.googleCalendarEventId);
+      await this.googleCalendar.deleteEvent(
+        booking.tutorId,
+        booking.googleCalendarEventId,
+      );
     }
-    // Clear so createForBooking's idempotency check doesn't return the
+    // Clear so attachToBooking's idempotency check doesn't return the
     // stale link.
     await this.prisma.booking.update({
       where: { id: bookingId },
@@ -269,11 +267,7 @@ export class AdminService {
       },
     });
 
-    if (this.googleMeet.isEnabled()) {
-      return this.googleMeet.createForBooking(bookingId);
-    }
-    await this.googleMeet.postFallbackMessage(bookingId);
-    return { meetingUrl: null, reused: false };
+    return this.googleCalendar.attachToBooking(bookingId);
   }
 
   async rejectSlip(intentId: string, reason: string) {
