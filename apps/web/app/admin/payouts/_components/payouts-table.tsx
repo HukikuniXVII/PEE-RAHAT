@@ -6,11 +6,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2,
   CircleSlash,
+  Eye,
   Loader2,
   Play,
   Upload,
   X,
 } from "lucide-react";
+import type { Route } from "next";
+import Link from "next/link";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -267,30 +270,39 @@ export function PayoutsTable({ initialUnpaid, initialPaid }: Props) {
                     )}
                   </td>
                   <td className="p-4 text-right">
-                    {r.status === "completed" ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600">
-                        <CheckCircle2 size={12} />
-                        Paid
-                      </span>
-                    ) : (
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          size="compact"
-                          variant="success"
-                          onClick={() => setTransferring(r)}
-                        >
-                          <Upload size={12} />
-                          ทำเครื่องหมายว่าโอนแล้ว
-                        </Button>
-                        <button
-                          type="button"
-                          onClick={() => setFailing(r)}
-                          className="px-3 py-1.5 text-[10px] font-bold rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100"
-                        >
-                          <CircleSlash size={12} />
-                        </button>
-                      </div>
-                    )}
+                    <div className="flex justify-end gap-2 items-center">
+                      <Link
+                        href={`/admin/payouts/${r.id}` as Route}
+                        className="inline-flex items-center gap-1 px-2 py-1.5 text-[10px] font-bold rounded-lg bg-white border border-slate-200 text-slate-600 hover:border-indigo-400 hover:text-indigo-600"
+                      >
+                        <Eye size={12} />
+                        ดูบัญชี
+                      </Link>
+                      {r.status === "completed" ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600">
+                          <CheckCircle2 size={12} />
+                          Paid
+                        </span>
+                      ) : (
+                        <>
+                          <Button
+                            size="compact"
+                            variant="success"
+                            onClick={() => setTransferring(r)}
+                          >
+                            <Upload size={12} />
+                            ทำเครื่องหมายว่าโอนแล้ว
+                          </Button>
+                          <button
+                            type="button"
+                            onClick={() => setFailing(r)}
+                            className="px-3 py-1.5 text-[10px] font-bold rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100"
+                          >
+                            <CircleSlash size={12} />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

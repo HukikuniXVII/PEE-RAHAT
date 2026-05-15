@@ -3,7 +3,9 @@
 import type { AdminKycQueueItem } from "@peerahat/types";
 import { Button } from "@peerahat/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { ArrowRight, CheckCircle2, Loader2, XCircle } from "lucide-react";
+import type { Route } from "next";
+import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -109,6 +111,13 @@ function SubmissionCard({
       </div>
 
       <div className="p-5 space-y-3">
+        <Link
+          href={`/admin/kyc/${item.id}` as Route}
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700"
+        >
+          ดูข้อมูลบัญชีและตรวจสอบ
+          <ArrowRight size={12} />
+        </Link>
         {rejecting ? (
           <div className="space-y-3">
             <label className="block text-xs font-bold uppercase tracking-widest text-slate-500">
