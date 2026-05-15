@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import type { AdminPayoutRow } from "@peerahat/types";
+import type { AdminPayoutQueueGroup, AdminPayoutRow } from "@peerahat/types";
 
 import { PrismaService } from "../prisma/prisma.service";
 import { pricePayout } from "./pricing";
@@ -133,13 +133,141 @@ export class PayoutsService {
     return this.computeForPeriod(periodStart, periodEnd);
   }
 
-  async markPaid(payoutId: string) {
-    const existing = await this.prisma.payout.findUnique({ where: { id: payoutId } });
-    if (!existing) throw new NotFoundException();
-    if (existing.paidAt) throw new BadRequestException("Payout already marked paid");
-    return this.prisma.payout.update({
-      where: { id: payoutId },
-      data: { paidAt: new Date() },
+  /**
+   * FR-PM-06: preview of the next batch — every released_for_payout intent
+   * not yet linked to a Payout, grouped by tutor. Read-only; the admin
+   * sanity-checks the queue before calling generateBatch.
+   */
+  async queue(): Promise<AdminPayoutQueueGroup[]> {
+    const intents = await this.prisma.paymentIntent.findMany({
+      where: {
+        status: "released_for_payout",
+        itemType: "booking",
+        bookingId: { not: null },
+        payoutId: null,
+      },
+      include: {
+        booking: {
+          include: { tutor: { include: { user: true } } },
+        },
+      },
     });
+
+    type Group = AdminPayoutQueueGroup;
+    const byTutor = new Map<string, Group>();
+    for (const intent of intents) {
+      if (!intent.booking) continue;
+      const t = intent.booking.tutor;
+      const existing = byTutor.get(t.id) ?? {
+        tutorId: t.id,
+        tutorDisplayName: t.user.displayName,
+        // PromptPay number lives on the tutor's user record once tutors fill
+        // it in — for now, surface null so the admin manually looks it up.
+        tutorPromptPay: null,
+        intentIds: [] as string[],
+        classCount: 0,
+        grossThb: 0,
+        commissionThb: 0,
+        withholdingTaxThb: 0,
+        netThb: 0,
+      };
+      existing.intentIds.push(intent.id);
+      existing.classCount += 1;
+      existing.grossThb += intent.amountThb;
+      byTutor.set(t.id, existing);
+    }
+
+    return [...byTutor.values()].map((g) => {
+      const pricing = pricePayout(g.grossThb);
+      return {
+        ...g,
+        commissionThb: pricing.commissionThb,
+        withholdingTaxThb: pricing.withholdingTaxThb,
+        netThb: pricing.netThb,
+      };
+    });
+  }
+
+  /**
+   * FR-PM-06: admin-triggered batch generation. Aggregates every
+   * released_for_payout intent into one Payout per tutor. The batchDate
+   * (typically the 15th or 30th) is stored as scheduledAt; periodStart /
+   * periodEnd cover the open queue window — from the latest prior batch
+   * to batchDate.
+   */
+  async generateBatch(batchDate: Date) {
+    const last = await this.prisma.payout.findFirst({
+      orderBy: { periodEnd: "desc" },
+    });
+    const periodStart =
+      last?.periodEnd ?? new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+    return this.computeForPeriod(periodStart, batchDate);
+  }
+
+  /**
+   * FR-PM-06: admin marks the manual PromptPay transfer to tutor done.
+   * Status moves to 'completed', linked intents go to 'paid_out', and the
+   * upload proof slip + notes are persisted for the audit trail.
+   */
+  async markTransferred(
+    payoutId: string,
+    args: { adminUserId: string; slipObjectKey: string; notes?: string },
+  ) {
+    const existing = await this.prisma.payout.findUnique({
+      where: { id: payoutId },
+      include: { intents: { select: { id: true } } },
+    });
+    if (!existing) throw new NotFoundException();
+    if (existing.status === "completed") {
+      throw new BadRequestException("Payout already marked completed");
+    }
+    const now = new Date();
+    await this.prisma.$transaction([
+      this.prisma.payout.update({
+        where: { id: payoutId },
+        data: {
+          status: "completed",
+          transferredAt: now,
+          transferredBy: args.adminUserId,
+          transferSlipKey: args.slipObjectKey,
+          notes: args.notes,
+          paidAt: now,
+        },
+      }),
+      this.prisma.paymentIntent.updateMany({
+        where: { id: { in: existing.intents.map((i) => i.id) } },
+        data: { status: "paid_out" },
+      }),
+    ]);
+    return this.prisma.payout.findUniqueOrThrow({ where: { id: payoutId } });
+  }
+
+  /**
+   * FR-PM-06: admin flags a payout as failed (tutor account closed,
+   * incorrect PromptPay number, etc.). Intents stay at released_for_payout
+   * so the next batch picks them up again after the issue is resolved;
+   * unlink from the failed Payout row.
+   */
+  async markFailed(payoutId: string, reason: string) {
+    const existing = await this.prisma.payout.findUnique({
+      where: { id: payoutId },
+    });
+    if (!existing) throw new NotFoundException();
+    if (existing.status === "completed") {
+      throw new BadRequestException(
+        "Cannot fail a payout that's already completed",
+      );
+    }
+    await this.prisma.$transaction([
+      this.prisma.payout.update({
+        where: { id: payoutId },
+        data: { status: "failed", notes: reason },
+      }),
+      this.prisma.paymentIntent.updateMany({
+        where: { payoutId },
+        data: { payoutId: null },
+      }),
+    ]);
+    return this.prisma.payout.findUniqueOrThrow({ where: { id: payoutId } });
   }
 }

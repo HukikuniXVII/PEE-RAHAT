@@ -33,6 +33,21 @@ class ComputePayoutsDto {
   @IsString() periodEnd!: string;
 }
 
+class GeneratePayoutBatchDto {
+  @IsString() batchDate!: string;
+}
+
+class MarkPayoutTransferredDto {
+  @IsString() slipObjectKey!: string;
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+class FailPayoutDto {
+  @IsString() reason!: string;
+}
+
 @Controller("admin")
 @UseGuards(SupabaseAuthGuard)
 export class AdminController {
@@ -154,17 +169,68 @@ export class AdminController {
     );
   }
 
-  @Post("payouts/:id/mark-paid")
-  async markPayoutPaid(
+  /**
+   * FR-PM-06: preview the next batch — released_for_payout intents grouped
+   * by tutor, with commission / withholding pre-computed so the admin sees
+   * the exact net amount to transfer per row.
+   */
+  @Get("payouts/queue")
+  async payoutQueue(@CurrentUser() user: SupabaseJwtPayload) {
+    await this.assertAdmin(user.sub);
+    return this.payouts.queue();
+  }
+
+  /**
+   * FR-PM-06: admin clicks "Generate batch for {date}" to aggregate the
+   * queue into per-tutor Payout rows. batchDate is typically the 15th or
+   * 30th.
+   */
+  @Post("payouts/generate-batch")
+  async generatePayoutBatch(
     @CurrentUser() user: SupabaseJwtPayload,
-    @Param("id") id: string,
+    @Body() dto: GeneratePayoutBatchDto,
   ) {
     await this.assertAdmin(user.sub);
-    return this.payouts.markPaid(id);
+    return this.payouts.generateBatch(new Date(dto.batchDate));
+  }
+
+  /**
+   * FR-PM-06: admin confirms they've transferred the net amount to the
+   * tutor's PromptPay, uploading the proof slip. The Payout row moves to
+   * 'completed' and every linked intent flips to 'paid_out'.
+   */
+  @Post("payouts/:id/mark-transferred")
+  async markPayoutTransferred(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") id: string,
+    @Body() dto: MarkPayoutTransferredDto,
+  ) {
+    const admin = await this.assertAdmin(user.sub);
+    return this.payouts.markTransferred(id, {
+      adminUserId: admin.id,
+      slipObjectKey: dto.slipObjectKey,
+      notes: dto.notes,
+    });
+  }
+
+  /**
+   * FR-PM-06: admin flags a payout as failed (tutor account problem,
+   * wrong PromptPay number, etc.). Linked intents are returned to the
+   * released_for_payout queue so the next batch picks them up.
+   */
+  @Post("payouts/:id/fail")
+  async failPayout(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") id: string,
+    @Body() dto: FailPayoutDto,
+  ) {
+    await this.assertAdmin(user.sub);
+    return this.payouts.markFailed(id, dto.reason);
   }
 
   private async assertAdmin(supabaseId: string) {
     const u = await this.prisma.user.findUnique({ where: { supabaseId } });
     if (!u || u.role !== "admin") throw new ForbiddenException();
+    return u;
   }
 }
