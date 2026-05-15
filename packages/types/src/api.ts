@@ -21,7 +21,10 @@ export const API_PATHS = {
   adminReports: "/admin/reports",
   adminResolveReport: (id: string) => `/admin/reports/${id}/resolve`,
   adminKycQueue: "/admin/kyc/queue",
+  adminKycById: (id: string) => `/admin/kyc/${id}`,
   adminReviewKyc: (id: string) => `/admin/kyc/${id}/review`,
+  adminTutorPassbook: (tutorId: string) =>
+    `/admin/tutors/${tutorId}/passbook`,
   adminPaymentsQueue: "/admin/payments/queue",
   adminApprovePayment: (id: string) => `/admin/payments/${id}/approve`,
   adminRejectPayment: (id: string) => `/admin/payments/${id}/reject`,
@@ -30,6 +33,7 @@ export const API_PATHS = {
   adminRevealTutorBank: (tutorId: string) =>
     `/admin/tutors/${tutorId}/bank/reveal`,
   adminPayouts: "/admin/payouts",
+  adminPayoutById: (id: string) => `/admin/payouts/${id}`,
   adminComputePayouts: "/admin/payouts/compute",
   adminPayoutQueue: "/admin/payouts/queue",
   adminGeneratePayoutBatch: "/admin/payouts/generate-batch",

@@ -1,7 +1,10 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import type {
+  AdminKycDetail,
   AdminKycQueueItem,
+  AdminPassbookView,
   AdminPaymentRow,
+  AdminPayoutDetail,
   AdminReport,
   PaymentItemType,
   PaymentStatus,
@@ -10,6 +13,7 @@ import type {
 
 import type { AdminRevealedBankInfo, BankName } from "@peerahat/types";
 
+import { AuditLogService } from "../common/audit-log.service";
 import { CryptoService } from "../common/crypto.service";
 import { StorageService } from "../common/storage.service";
 import { GoogleCalendarService } from "../integrations/google-calendar/google-calendar.service";
@@ -24,7 +28,175 @@ export class AdminService {
     private readonly storage: StorageService,
     private readonly googleCalendar: GoogleCalendarService,
     private readonly crypto: CryptoService,
+    private readonly audit: AuditLogService,
   ) {}
+
+  /**
+   * FR-TH-02 / PDPA: build the passbook + bank block for an admin surface
+   * and write an AdminAuditLog row. Returns null when the tutor has no
+   * passbook on file yet (pre-feature legacy). The signed URL is fresh on
+   * every call — admin UIs must not cache it past the 5-minute expiry.
+   */
+  private async buildPassbookView(args: {
+    adminId: string;
+    targetType: "tutor" | "kyc" | "payout";
+    targetId: string;
+    passbookObjectKey: string | null;
+    bankName: string | null;
+    bankAccountNumber: string | null;
+    bankAccountName: string | null;
+    ip?: string;
+  }): Promise<AdminPassbookView | null> {
+    if (
+      !args.passbookObjectKey ||
+      !args.bankName ||
+      !args.bankAccountNumber ||
+      !args.bankAccountName
+    ) {
+      return null;
+    }
+    const signed = await this.storage.signDownload(args.passbookObjectKey);
+    await this.audit.recordAdminAction({
+      adminId: args.adminId,
+      action: "view_passbook",
+      targetType: args.targetType,
+      targetId: args.targetId,
+      ip: args.ip,
+    });
+    return {
+      imageUrl: signed.url,
+      imageExpiresAt: signed.expiresAt,
+      bankName: args.bankName as BankName,
+      bankAccountNumberFull: this.crypto.decrypt(args.bankAccountNumber),
+      bankAccountName: args.bankAccountName,
+    };
+  }
+
+  /**
+   * FR-TH-02: per-submission KYC detail used by the admin review page.
+   * The queue endpoint omits passbook + idName so the queue render stays
+   * cheap and a passbook view doesn't get audit-logged on list load.
+   */
+  async kycById(
+    adminId: string,
+    submissionId: string,
+    ip?: string,
+  ): Promise<AdminKycDetail> {
+    const sub = await this.prisma.kycSubmission.findUnique({
+      where: { id: submissionId },
+      include: { user: true },
+    });
+    if (!sub) throw new NotFoundException();
+    const [idPhoto, selfie, transcript, passbook] = await Promise.all([
+      this.storage.signDownload(sub.idPhotoKey),
+      this.storage.signDownload(sub.selfieKey),
+      this.storage.signDownload(sub.transcriptKey),
+      this.buildPassbookView({
+        adminId,
+        targetType: "kyc",
+        targetId: sub.id,
+        passbookObjectKey: sub.passbookObjectKey,
+        bankName: sub.bankName,
+        bankAccountNumber: sub.bankAccountNumber,
+        bankAccountName: sub.bankAccountName,
+        ip,
+      }),
+    ]);
+    return {
+      id: sub.id,
+      userId: sub.userId,
+      userDisplayName: sub.user.displayName,
+      userEmail: sub.user.email,
+      idPhotoUrl: idPhoto.url,
+      selfieUrl: selfie.url,
+      transcriptUrl: transcript.url,
+      idName: sub.idName,
+      status: sub.status,
+      rejectionReason: sub.rejectionReason,
+      submittedAt: sub.submittedAt.toISOString(),
+      reviewedAt: sub.reviewedAt ? sub.reviewedAt.toISOString() : null,
+      passbook,
+    };
+  }
+
+  /**
+   * FR-TH-02: standalone passbook block for a tutor — used by the admin
+   * tutor-detail page outside of a KYC or payout context. Tutor-level
+   * passbook reflects the latest admin-approved KYC (mirrored on approve).
+   */
+  async tutorPassbook(
+    adminId: string,
+    tutorId: string,
+    ip?: string,
+  ): Promise<AdminPassbookView | null> {
+    const tutor = await this.prisma.tutorProfile.findUnique({
+      where: { id: tutorId },
+      select: {
+        passbookObjectKey: true,
+        bankName: true,
+        bankAccountNumber: true,
+        bankAccountName: true,
+      },
+    });
+    if (!tutor) throw new NotFoundException();
+    return this.buildPassbookView({
+      adminId,
+      targetType: "tutor",
+      targetId: tutorId,
+      passbookObjectKey: tutor.passbookObjectKey,
+      bankName: tutor.bankName,
+      bankAccountNumber: tutor.bankAccountNumber,
+      bankAccountName: tutor.bankAccountName,
+      ip,
+    });
+  }
+
+  /**
+   * FR-PM-06: per-payout detail. Same row shape as the list endpoint but
+   * adds the tutor's current passbook block so the admin can sanity-check
+   * the receiving bank account before clicking "mark transferred".
+   */
+  async payoutById(
+    adminId: string,
+    payoutId: string,
+    ip?: string,
+  ): Promise<AdminPayoutDetail> {
+    const row = await this.prisma.payout.findUnique({
+      where: { id: payoutId },
+      include: { tutor: { include: { user: true } } },
+    });
+    if (!row) throw new NotFoundException();
+    const passbook = await this.buildPassbookView({
+      adminId,
+      targetType: "payout",
+      targetId: row.id,
+      passbookObjectKey: row.tutor.passbookObjectKey,
+      bankName: row.tutor.bankName,
+      bankAccountNumber: row.tutor.bankAccountNumber,
+      bankAccountName: row.tutor.bankAccountName,
+      ip,
+    });
+    return {
+      id: row.id,
+      tutorId: row.tutorId,
+      tutorDisplayName: row.tutor.user.displayName,
+      periodStart: row.periodStart.toISOString(),
+      periodEnd: row.periodEnd.toISOString(),
+      grossThb: row.grossThb,
+      commissionThb: row.commissionThb,
+      withholdingTaxThb: row.withholdingTaxThb,
+      netThb: row.netThb,
+      scheduledAt: row.scheduledAt.toISOString(),
+      status: row.status,
+      transferredAt: row.transferredAt
+        ? row.transferredAt.toISOString()
+        : null,
+      transferredBy: row.transferredBy,
+      transferSlipKey: row.transferSlipKey,
+      notes: row.notes,
+      passbook,
+    };
+  }
 
   /**
    * FR-TH-02: admin reveal of a tutor's full bank account number. Used

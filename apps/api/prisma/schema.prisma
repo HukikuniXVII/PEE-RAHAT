@@ -41,6 +41,7 @@ model User {
   sentMessages              ChatMessage[]
   threadsAsStudent          ChatThread[]      @relation("StudentChat")
   loginAuditLogs            LoginAuditLog[]
+  adminAuditLogs            AdminAuditLog[]   @relation("AdminAuditLogs")
   postponeRequestsInitiated PostponeRequest[]
 }
 
@@ -501,6 +502,25 @@ model LoginAuditLog {
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+// PDPA / Computer Crime Act: admin-side audit trail for sensitive
+// surfaces (passbook view, bank reveal, etc.). Distinct from LoginAuditLog
+// so the action / target columns can be queried directly without parsing
+// userAgent strings. NFR-05 retention applies.
+model AdminAuditLog {
+  id         String   @id @default(uuid())
+  adminId    String
+  admin      User     @relation("AdminAuditLogs", fields: [adminId], references: [id])
+  action     String   // e.g. "view_passbook"
+  targetType String   // "tutor" | "kyc" | "payout"
+  targetId   String
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([adminId, createdAt])
+  @@index([targetType, targetId])
 }
 
 // ─── Postpone-class negotiation (FR-TH-10..14) ────────────────────────────

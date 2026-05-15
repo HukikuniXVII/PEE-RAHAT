@@ -1,7 +1,10 @@
 import {
   API_PATHS,
+  type AdminKycDetail,
   type AdminKycQueueItem,
+  type AdminPassbookView,
   type AdminPaymentRow,
+  type AdminPayoutDetail,
   type AdminPayoutQueueGroup,
   type AdminPayoutRow,
   type AdminReport,
@@ -195,10 +198,21 @@ export function createApiClient(opts: ApiClientOptions = {}) {
         ),
       kycQueue: () =>
         request<AdminKycQueueItem[]>(API_PATHS.adminKycQueue, {}, token),
+      // FR-TH-02: per-submission detail. Each call audit-logs the passbook
+      // read server-side, so callers should fetch this on landing — not
+      // poll. Signed URLs in the response expire in 5 minutes.
+      kycById: (id: string) =>
+        request<AdminKycDetail>(API_PATHS.adminKycById(id), {}, token),
       reviewKyc: (id: string, decision: KycReviewDecision, reason?: string) =>
         request<{ id: string; status: string }>(
           API_PATHS.adminReviewKyc(id),
           { method: "POST", body: JSON.stringify({ decision, reason }) },
+          token,
+        ),
+      tutorPassbook: (tutorId: string) =>
+        request<AdminPassbookView | null>(
+          API_PATHS.adminTutorPassbook(tutorId),
+          {},
           token,
         ),
       paymentsQueue: (opts: { status?: "pending" | "success" | "failed" } = {}) =>
@@ -225,6 +239,8 @@ export function createApiClient(opts: ApiClientOptions = {}) {
           {},
           token,
         ),
+      payoutById: (id: string) =>
+        request<AdminPayoutDetail>(API_PATHS.adminPayoutById(id), {}, token),
       computePayouts: (dto: ComputePayoutsDto) =>
         request<AdminPayoutRow[]>(
           API_PATHS.adminComputePayouts,

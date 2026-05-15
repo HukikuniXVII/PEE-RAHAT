@@ -64,6 +64,18 @@ export class AdminController {
     return this.admin.kycQueue();
   }
 
+  // FR-TH-02 / PDPA: per-submission detail. Loading this view audit-logs
+  // the passbook read (if any) — must stay a separate call from the queue.
+  @Get("kyc/:id")
+  async kycById(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") id: string,
+    @Ip() ip: string,
+  ) {
+    const admin = await this.assertAdmin(user.sub);
+    return this.admin.kycById(admin.id, id, ip);
+  }
+
   @Post("kyc/:id/review")
   async reviewKyc(
     @CurrentUser() user: SupabaseJwtPayload,
@@ -170,6 +182,21 @@ export class AdminController {
     return this.admin.revealBank(admin.id, tutorId, ip);
   }
 
+  /**
+   * FR-TH-02 / PDPA: standalone passbook block for a tutor, used by the
+   * admin tutor-detail page outside of a KYC or payout context. Audit
+   * log + 5-min signed URL behavior matches the other passbook reads.
+   */
+  @Get("tutors/:id/passbook")
+  async tutorPassbook(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") tutorId: string,
+    @Ip() ip: string,
+  ) {
+    const admin = await this.assertAdmin(user.sub);
+    return this.admin.tutorPassbook(admin.id, tutorId, ip);
+  }
+
   // FR-PM-06 / FR-PM-07: payout batches on the 15th and 30th. Listing is
   // read-only; compute creates Payout rows for every tutor with released
   // escrow inside the period; mark-paid is the manual bank-transfer
@@ -210,6 +237,25 @@ export class AdminController {
   async payoutQueue(@CurrentUser() user: SupabaseJwtPayload) {
     await this.assertAdmin(user.sub);
     return this.payouts.queue();
+  }
+
+  /**
+   * FR-PM-06: per-payout detail. Same row shape as the list endpoint but
+   * embeds the tutor's current passbook block so the admin can cross-check
+   * the bank account before clicking "mark transferred". Loading this
+   * view audit-logs the passbook read (if any).
+   *
+   * Declared AFTER /payouts/queue so Express's first-match routing doesn't
+   * eat that static path as `id="queue"`.
+   */
+  @Get("payouts/:id")
+  async payoutById(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") id: string,
+    @Ip() ip: string,
+  ) {
+    const admin = await this.assertAdmin(user.sub);
+    return this.admin.payoutById(admin.id, id, ip);
   }
 
   /**
