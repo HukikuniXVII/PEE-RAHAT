@@ -138,6 +138,22 @@ export class AdminController {
     return this.admin.freezeBooking(id);
   }
 
+  /**
+   * FR-TH-17: admin force-regenerates a booking's Meet link. Used when the
+   * inline generator failed at payment-confirm (Calendar outage, etc.) or
+   * when the existing link is broken and the class is about to start.
+   * Deletes the old Calendar event before minting a new one so attendees'
+   * calendars stay clean.
+   */
+  @Post("bookings/:id/regenerate-meet")
+  async regenerateMeet(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") id: string,
+  ) {
+    await this.assertAdmin(user.sub);
+    return this.admin.regenerateMeet(id);
+  }
+
   // FR-PM-06 / FR-PM-07: payout batches on the 15th and 30th. Listing is
   // read-only; compute creates Payout rows for every tutor with released
   // escrow inside the period; mark-paid is the manual bank-transfer

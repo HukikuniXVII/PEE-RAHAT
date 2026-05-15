@@ -233,6 +233,50 @@ export class AdminService {
     return updated;
   }
 
+  /**
+   * FR-TH-17: admin retry path for the inline Meet generator. The original
+   * payment-confirm best-effort call may have failed (Calendar outage,
+   * mis-configured service account, attendee email rejected). This endpoint
+   * deletes any existing event (best-effort 404 swallow) and re-runs the
+   * inline create.
+   *
+   * Idempotent: if Calendar is healthy and the link already exists,
+   * deleting + recreating produces a fresh Meet URL — desirable because
+   * the old link may be the reason admin is retrying.
+   */
+  async regenerateMeet(bookingId: string) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: { id: true, status: true, googleCalendarEventId: true },
+    });
+    if (!booking) throw new NotFoundException();
+    if (booking.status !== "paid") {
+      throw new BadRequestException(
+        `Booking is ${booking.status}, not paid — Meet link is only generated for paid bookings`,
+      );
+    }
+
+    if (booking.googleCalendarEventId) {
+      await this.googleMeet.deleteEvent(booking.googleCalendarEventId);
+    }
+    // Clear so createForBooking's idempotency check doesn't return the
+    // stale link.
+    await this.prisma.booking.update({
+      where: { id: bookingId },
+      data: {
+        meetingUrl: null,
+        meetingGeneratedAt: null,
+        googleCalendarEventId: null,
+      },
+    });
+
+    if (this.googleMeet.isEnabled()) {
+      return this.googleMeet.createForBooking(bookingId);
+    }
+    await this.googleMeet.postFallbackMessage(bookingId);
+    return { meetingUrl: null, reused: false };
+  }
+
   async rejectSlip(intentId: string, reason: string) {
     const intent = await this.prisma.paymentIntent.findUnique({
       where: { id: intentId },
