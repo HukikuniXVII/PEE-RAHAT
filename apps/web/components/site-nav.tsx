@@ -79,6 +79,11 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
     retry: false,
   });
   const isAdmin = meQuery.data?.role === "admin";
+  // Tutor menus gate on role === "tutor" — having a TutorProfile alone
+  // isn't enough (a user can have a stale profile from an abandoned
+  // onboarding while acting as a student elsewhere). tutorProfileId is
+  // still needed to build the "My Profile" link target.
+  const isTutor = meQuery.data?.role === "tutor";
   const tutorProfileId = meQuery.data?.tutorProfileId;
 
   const isActive = (href: string) =>
@@ -215,7 +220,7 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
                         <CalendarCheck size={14} />
                         My Bookings
                       </Link>
-                      {tutorProfileId ? (
+                      {isTutor && tutorProfileId ? (
                         <>
                           <Link
                             href={`/tutors/${tutorProfileId}` as Route}
