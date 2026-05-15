@@ -519,6 +519,27 @@ export function createApiClient(opts: ApiClientOptions = {}) {
           token,
         ),
     },
+    auth: {
+      // FR-TH-17 rev3: tutor's Google connect / disconnect / status surface.
+      googleConnect: () =>
+        request<{ authorizationUrl: string }>(
+          API_PATHS.authGoogleConnect,
+          { method: "POST" },
+          token,
+        ),
+      googleDisconnect: () =>
+        request<{ connected: false }>(
+          API_PATHS.authGoogleDisconnect,
+          { method: "POST" },
+          token,
+        ),
+      googleStatus: () =>
+        request<{ connected: boolean; email?: string; connectedAt?: string }>(
+          API_PATHS.authGoogleStatus,
+          {},
+          token,
+        ),
+    },
   };
 }
 

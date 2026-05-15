@@ -23,19 +23,15 @@ export class GoogleCalendarController {
   ) {}
 
   /**
-   * FR-TH-17: kicks off the tutor's OAuth flow. Redirects the browser to
-   * Google's consent screen with a signed state token carrying tutorId.
-   * Auth-required: only tutors can connect their own Google account.
+   * FR-TH-17: kicks off the tutor's OAuth flow. Returns the authorization
+   * URL as JSON so the frontend can redirect (browser <a> links can't
+   * send the Bearer token this endpoint requires for auth).
    */
-  @Get("connect")
+  @Post("connect")
   @UseGuards(SupabaseAuthGuard)
-  async connect(
-    @CurrentUser() user: SupabaseJwtPayload,
-    @Res() res: Response,
-  ) {
+  async connect(@CurrentUser() user: SupabaseJwtPayload) {
     const tutor = await this.requireTutor(user.sub);
-    const url = this.oauth.getAuthorizationUrl(tutor.id);
-    res.redirect(url);
+    return { authorizationUrl: this.oauth.getAuthorizationUrl(tutor.id) };
   }
 
   /**
