@@ -11,6 +11,24 @@ import { ChatService } from "../../chat/chat.service";
 import { PrismaService } from "../../prisma/prisma.service";
 
 /**
+ * Pull the join URL off a Calendar event. `hangoutLink` is the canonical
+ * field but Workspace sometimes omits it for service-account-created
+ * events; the same URL is mirrored on
+ * `conferenceData.entryPoints[].uri` where `entryPointType === "video"`.
+ * This fallback keeps us robust against the inconsistency.
+ */
+function extractMeetingUrl(
+  event: { hangoutLink?: string | null; conferenceData?: { entryPoints?: Array<{ entryPointType?: string | null; uri?: string | null }> | null } | null } | null | undefined,
+): string | null {
+  if (!event) return null;
+  if (event.hangoutLink) return event.hangoutLink;
+  const entry = event.conferenceData?.entryPoints?.find(
+    (e) => e.entryPointType === "video",
+  );
+  return entry?.uri ?? null;
+}
+
+/**
  * FR-TH-17: wraps the Google Calendar API to mint a Meet link for a paid
  * booking, then posts a system message into the booking's chat thread.
  *
@@ -89,11 +107,11 @@ export class GoogleMeetService {
       },
     });
 
-    const meetingUrl = event.data.hangoutLink ?? null;
+    const meetingUrl = extractMeetingUrl(event.data);
     const calendarEventId = event.data.id ?? null;
     if (!meetingUrl) {
       this.logger.error(
-        `Calendar event ${calendarEventId} created without hangoutLink — Workspace conferencing may be disabled`,
+        `Calendar event ${calendarEventId} created without a Meet entry point — Workspace conferencing may be disabled`,
       );
       return { meetingUrl: null, reused: false };
     }

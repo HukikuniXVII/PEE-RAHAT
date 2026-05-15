@@ -155,7 +155,7 @@ describe("GoogleMeetService (FR-TH-17)", () => {
       await expect(svc.createForBooking("bk_1")).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it("logs but does not throw when hangoutLink is missing from Calendar response", async () => {
+    it("logs but does not throw when hangoutLink AND entryPoints are missing", async () => {
       eventsInsert.mockResolvedValueOnce({ data: { id: "evt_1" } });
       const { svc, prisma, chat } = makeService();
 
@@ -166,6 +166,54 @@ describe("GoogleMeetService (FR-TH-17)", () => {
       // to ship a half-broken state to the student.
       expect(prisma.booking.update).not.toHaveBeenCalled();
       expect(chat.postSystemMessage).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("createForBooking — hangoutLink fallback", () => {
+    it("falls back to conferenceData.entryPoints[].uri (video) when hangoutLink missing", async () => {
+      // Workspace sometimes omits hangoutLink for service-account-created
+      // events; the same URL is mirrored on the video entry point.
+      eventsInsert.mockResolvedValueOnce({
+        data: {
+          id: "evt_2",
+          conferenceData: {
+            entryPoints: [
+              { entryPointType: "more", uri: "https://meet.google.com/more" },
+              { entryPointType: "video", uri: "https://meet.google.com/from-entry-point" },
+              { entryPointType: "phone", uri: "tel:+1-555-0100" },
+            ],
+          },
+        },
+      });
+      const { svc, prisma } = makeService();
+
+      const result = await svc.createForBooking("bk_1");
+
+      expect(result.meetingUrl).toBe("https://meet.google.com/from-entry-point");
+      expect(prisma.booking.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            meetingUrl: "https://meet.google.com/from-entry-point",
+          }),
+        }),
+      );
+    });
+
+    it("prefers hangoutLink when both are present", async () => {
+      eventsInsert.mockResolvedValueOnce({
+        data: {
+          id: "evt_3",
+          hangoutLink: "https://meet.google.com/canonical",
+          conferenceData: {
+            entryPoints: [
+              { entryPointType: "video", uri: "https://meet.google.com/fallback" },
+            ],
+          },
+        },
+      });
+      const { svc } = makeService();
+      const result = await svc.createForBooking("bk_1");
+      expect(result.meetingUrl).toBe("https://meet.google.com/canonical");
     });
   });
 
