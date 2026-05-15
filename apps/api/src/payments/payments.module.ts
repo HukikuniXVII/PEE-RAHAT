@@ -5,12 +5,12 @@ import { PaymentsController } from "./payments.controller";
 import { PaymentsService } from "./payments.service";
 import { PayoutsService } from "./payouts.service";
 import { RefundPolicyService } from "./refund-policy.service";
-import { SlipOkClient } from "./slip-ok.client";
+import { ZercleSlipModule } from "./zercle-slip/zercle-slip.module";
 
 @Module({
-  imports: [GoogleMeetModule],
+  imports: [GoogleMeetModule, ZercleSlipModule],
   controllers: [PaymentsController],
-  providers: [PaymentsService, PayoutsService, RefundPolicyService, SlipOkClient],
+  providers: [PaymentsService, PayoutsService, RefundPolicyService],
   exports: [PaymentsService, PayoutsService, RefundPolicyService],
 })
 export class PaymentsModule {}

@@ -10,18 +10,19 @@ import type {
   SlipVerificationResult,
   UploadSlipDto,
 } from "@peerahat/types";
+import { Prisma } from "@prisma/client";
 import { addHours } from "date-fns";
 
 import { ClassStartQueue } from "../integrations/google-meet/class-start.queue";
 import { PrismaService } from "../prisma/prisma.service";
 import { encodePromptPayPayload } from "./promptpay";
-import { SlipOkClient } from "./slip-ok.client";
+import { ZercleSlipService } from "./zercle-slip/zercle-slip.service";
 
 @Injectable()
 export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly slipOk: SlipOkClient,
+    private readonly zercle: ZercleSlipService,
     private readonly classStart: ClassStartQueue,
   ) {}
 
@@ -121,15 +122,19 @@ export class PaymentsService {
     if (!intent) throw new NotFoundException();
     if (intent.payerId !== user.id) throw new ForbiddenException();
 
-    // FR-PM-01: PAYMENTS_MANUAL_REVIEW=1 routes every slip straight to the
-    // admin "รออนุมัติ" queue. No SlipOK call, no amount auto-check — the
-    // human reviewer reads the slip image and uses approveSlip/rejectSlip
-    // to move funds into escrow. Used when SlipOK is unavailable, costly,
-    // or not yet contracted in this environment.
-    if (this.isManualReviewOnly()) {
+    // FR-PM-02: when ZercleSlip is disabled (or not yet provisioned in this
+    // environment), every slip is routed to the admin "รออนุมัติ" queue
+    // where approveSlip/rejectSlip moves funds into escrow manually. The
+    // ZercleSlipService itself returns ok:false in this state — we short-
+    // circuit one DB round-trip by checking the flag here.
+    if (!this.zercle.isEnabled()) {
       const updated = await this.prisma.paymentIntent.update({
         where: { id: intent.id },
-        data: { slipObjectKey: dto.slipObjectKey, status: "slip_uploaded" },
+        data: {
+          slipObjectKey: dto.slipObjectKey,
+          slipUploadedAt: new Date(),
+          status: "slip_uploaded",
+        },
       });
       return {
         paymentIntentId: updated.id,
@@ -146,20 +151,32 @@ export class PaymentsService {
       },
     });
 
-    const verdict = await this.slipOk.verify(dto.slipObjectKey, intent.amountThb);
+    const verdict = await this.zercle.verify({
+      slipObjectKey: dto.slipObjectKey,
+      expectedAmountThb: intent.amountThb,
+    });
 
-    if (!verdict.success || verdict.amountThb !== intent.amountThb) {
+    if (!verdict.ok) {
       await this.prisma.paymentIntent.update({
         where: { id: intent.id },
         data: {
           status: "failed",
-          failureReason: verdict.failureReason ?? "Amount mismatch",
+          failureReason: verdict.reason,
+          // Persist the raw ZercleSlip payload (when present) so the admin
+          // queue can show the sender / recipient / amount the slip OCR'd
+          // to, even on failures. Cast to Prisma's JSON input shape —
+          // the structured interface is strict for callers; Prisma wants
+          // an index-signature object.
+          zercleResponse:
+            verdict.raw === null
+              ? undefined
+              : (verdict.raw as unknown as Prisma.InputJsonValue),
         },
       });
       return {
         paymentIntentId: intent.id,
         status: "failed",
-        failureReason: verdict.failureReason ?? "Amount mismatch",
+        failureReason: verdict.reason,
       };
     }
 
@@ -167,9 +184,10 @@ export class PaymentsService {
       where: { id: intent.id },
       data: {
         status: "held_in_escrow",
-        transactionId: verdict.slipOkRef,
+        transactionId: verdict.transactionId,
         verifiedAmountThb: verdict.amountThb,
         zercleVerifiedAt: new Date(),
+        zercleResponse: verdict.raw as unknown as Prisma.InputJsonValue,
       },
     });
 
@@ -186,13 +204,8 @@ export class PaymentsService {
     return {
       paymentIntentId: updated.id,
       status: "held_in_escrow",
-      transactionId: verdict.slipOkRef,
+      transactionId: verdict.transactionId,
     };
-  }
-
-  private isManualReviewOnly(): boolean {
-    const raw = process.env.PAYMENTS_MANUAL_REVIEW;
-    return raw === "1" || raw === "true";
   }
 
   private buildPromptPayPayload(amountThb: number): string {
