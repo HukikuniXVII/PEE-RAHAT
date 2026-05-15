@@ -74,7 +74,7 @@ Add to your runtime secrets (e.g. AWS Secrets Manager, Doppler):
 | `GOOGLE_MEET_ENABLED` | `true` to fire Calendar; `false` posts the fallback chat message instead |
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | the service account's address, e.g. `peerahat-meet-bot@peerahat-prod.iam.gserviceaccount.com` |
 | `GOOGLE_SERVICE_ACCOUNT_KEY_BASE64` | base64 from step 4 |
-| `GOOGLE_CALENDAR_OWNER_EMAIL` | the Workspace mailbox the worker impersonates, e.g. `classes@peerahat.co` |
+| `GOOGLE_CALENDAR_OWNER_EMAIL` | the Workspace mailbox the service account impersonates, e.g. `classes@peerahat.co` |
 
 `GOOGLE_MEET_ENABLED=false` keeps the booking flow shippable before
 Workspace is provisioned — payment-confirm logs the booking and posts a
