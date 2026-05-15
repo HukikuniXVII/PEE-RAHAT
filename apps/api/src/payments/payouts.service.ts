@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import type { AdminPayoutQueueGroup, AdminPayoutRow } from "@peerahat/types";
 
+import { CryptoService } from "../common/crypto.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { pricePayout } from "./pricing";
 
@@ -15,7 +16,10 @@ import { pricePayout } from "./pricing";
 
 @Injectable()
 export class PayoutsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly crypto: CryptoService,
+  ) {}
 
   /**
    * Aggregate every released-escrow booking inside the period into one
@@ -161,9 +165,16 @@ export class PayoutsService {
       const existing = byTutor.get(t.id) ?? {
         tutorId: t.id,
         tutorDisplayName: t.user.displayName,
-        // PromptPay number lives on the tutor's user record once tutors fill
-        // it in — for now, surface null so the admin manually looks it up.
+        // FR-TH-02: surface masked bank info so admin can match the
+        // transfer at a glance without revealing the full account number.
+        // tutorPromptPay is legacy noise (the column doesn't exist) — kept
+        // null for backwards-compat with the existing UI shape.
         tutorPromptPay: null,
+        bankName: (t.bankName as Group["bankName"]) ?? null,
+        bankAccountLast4: t.bankAccountNumber
+          ? this.crypto.decrypt(t.bankAccountNumber).slice(-4)
+          : null,
+        bankAccountName: t.bankAccountName ?? null,
         intentIds: [] as string[],
         classCount: 0,
         grossThb: 0,

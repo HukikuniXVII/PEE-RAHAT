@@ -27,6 +27,8 @@ export const API_PATHS = {
   adminRejectPayment: (id: string) => `/admin/payments/${id}/reject`,
   adminRegenerateMeet: (id: string) =>
     `/admin/bookings/${id}/regenerate-meet`,
+  adminRevealTutorBank: (tutorId: string) =>
+    `/admin/tutors/${tutorId}/bank/reveal`,
   adminPayouts: "/admin/payouts",
   adminComputePayouts: "/admin/payouts/compute",
   adminPayoutQueue: "/admin/payouts/queue",

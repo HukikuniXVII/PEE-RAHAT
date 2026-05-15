@@ -3,6 +3,7 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  Ip,
   Param,
   Post,
   Query,
@@ -152,6 +153,21 @@ export class AdminController {
   ) {
     await this.assertAdmin(user.sub);
     return this.admin.regenerateMeet(id);
+  }
+
+  /**
+   * FR-TH-02: reveal full bank account number for a tutor. Used right
+   * before admin makes the manual transfer. Every call writes an audit
+   * row so we can prove who saw what.
+   */
+  @Post("tutors/:id/bank/reveal")
+  async revealBank(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") tutorId: string,
+    @Ip() ip: string,
+  ) {
+    const admin = await this.assertAdmin(user.sub);
+    return this.admin.revealBank(admin.id, tutorId, ip);
   }
 
   // FR-PM-06 / FR-PM-07: payout batches on the 15th and 30th. Listing is

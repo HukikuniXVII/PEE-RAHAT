@@ -1,4 +1,5 @@
 import type { ReportTargetType } from "./community";
+import type { BankName } from "./kyc";
 import type { PayoutStatus, PaymentItemType, PaymentStatus } from "./payment";
 
 export interface AdminReport {
@@ -81,10 +82,22 @@ export interface AdminPayoutQueueGroup {
   tutorId: string;
   tutorDisplayName: string;
   tutorPromptPay: string | null;
+  /** FR-TH-02: masked bank info — admin sanity-checks before clicking
+   *  reveal. */
+  bankName: BankName | null;
+  bankAccountLast4: string | null;
+  bankAccountName: string | null;
   intentIds: string[];
   classCount: number;
   grossThb: number;
   commissionThb: number;
   withholdingTaxThb: number;
   netThb: number;
+}
+
+/** FR-TH-02: admin reveal — full account number, audit-logged. */
+export interface AdminRevealedBankInfo {
+  bankName: BankName;
+  accountNumber: string;
+  accountName: string;
 }

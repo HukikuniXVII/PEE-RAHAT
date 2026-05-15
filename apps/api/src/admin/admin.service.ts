@@ -8,6 +8,9 @@ import type {
   ReportTargetType,
 } from "@peerahat/types";
 
+import type { AdminRevealedBankInfo, BankName } from "@peerahat/types";
+
+import { CryptoService } from "../common/crypto.service";
 import { StorageService } from "../common/storage.service";
 import { GoogleCalendarService } from "../integrations/google-calendar/google-calendar.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -20,7 +23,55 @@ export class AdminService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly googleCalendar: GoogleCalendarService,
+    private readonly crypto: CryptoService,
   ) {}
+
+  /**
+   * FR-TH-02: admin reveal of a tutor's full bank account number. Used
+   * when the admin is about to send the manual PromptPay transfer and
+   * needs to copy/paste the full number into their banking app.
+   *
+   * Audit-logged via LoginAuditLog with a synthetic userAgent string —
+   * keeps a permanent record of who revealed which tutor's account and
+   * when, without needing a new dedicated audit table. NFR-05 retention
+   * (≥90 days) covers it.
+   */
+  async revealBank(
+    adminUserId: string,
+    tutorId: string,
+    requesterIp: string,
+  ): Promise<AdminRevealedBankInfo> {
+    const tutor = await this.prisma.tutorProfile.findUnique({
+      where: { id: tutorId },
+      select: {
+        bankName: true,
+        bankAccountNumber: true,
+        bankAccountName: true,
+      },
+    });
+    if (
+      !tutor ||
+      !tutor.bankAccountNumber ||
+      !tutor.bankName ||
+      !tutor.bankAccountName
+    ) {
+      throw new NotFoundException(
+        "Tutor has no bank info on file — they may not have finished KYC yet",
+      );
+    }
+    await this.prisma.loginAuditLog.create({
+      data: {
+        userId: adminUserId,
+        ip: requesterIp,
+        userAgent: `admin-reveal-bank:tutor=${tutorId}`,
+      },
+    });
+    return {
+      bankName: tutor.bankName as BankName,
+      accountNumber: this.crypto.decrypt(tutor.bankAccountNumber),
+      accountName: tutor.bankAccountName,
+    };
+  }
 
   async listReports({
     page = 1,
