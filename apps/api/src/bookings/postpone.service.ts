@@ -14,7 +14,6 @@ import type {
 import { addHours, differenceInMilliseconds } from "date-fns";
 
 import { ChatService } from "../chat/chat.service";
-import { ClassStartQueue } from "../integrations/google-meet/class-start.queue";
 import { GoogleMeetService } from "../integrations/google-meet/google-meet.service";
 import { RefundPolicyService } from "../payments/refund-policy.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -46,7 +45,6 @@ export class PostponeService implements OnModuleInit {
     private readonly queue: PostponeQueue,
     private readonly bookings: BookingsService,
     private readonly googleMeet: GoogleMeetService,
-    private readonly classStart: ClassStartQueue,
   ) {}
 
   onModuleInit() {
@@ -284,14 +282,24 @@ export class PostponeService implements OnModuleInit {
     await this.chat.closeThread(thread.id);
     await this.queue.cancelTimeout(request.id);
 
-    // FR-TH-17: cancel the old class-start job (a no-op if the link was
-    // already minted), drop the prior calendar event (non-fatal on 404),
-    // and enqueue a fresh job for the cloned booking's new slot.
-    await this.classStart.cancelForBooking(booking.id);
+    // FR-TH-17: drop the prior calendar event (non-fatal on 404) and mint
+    // a fresh Meet link inline on the cloned booking. Same fire-and-log
+    // pattern as the payment path — a Calendar outage shouldn't block the
+    // postpone, since admin can regenerate via the retry endpoint.
     if (oldCalendarEventId) {
       await this.googleMeet.deleteEvent(oldCalendarEventId);
     }
-    await this.classStart.enqueueForBooking(newBooking.id, newBooking.scheduledAt);
+    try {
+      if (this.googleMeet.isEnabled()) {
+        await this.googleMeet.createForBooking(newBooking.id);
+      } else {
+        await this.googleMeet.postFallbackMessage(newBooking.id);
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Meet generation failed for postpone-cloned booking ${newBooking.id}: ${(err as Error).message} — admin can retry`,
+      );
+    }
 
     return { newBookingId: newBooking.id };
   }

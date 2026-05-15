@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import type {
   AdminKycQueueItem,
   AdminPaymentRow,
@@ -9,15 +9,17 @@ import type {
 } from "@peerahat/types";
 
 import { StorageService } from "../common/storage.service";
-import { ClassStartQueue } from "../integrations/google-meet/class-start.queue";
+import { GoogleMeetService } from "../integrations/google-meet/google-meet.service";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
 export class AdminService {
+  private readonly logger = new Logger(AdminService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
-    private readonly classStart: ClassStartQueue,
+    private readonly googleMeet: GoogleMeetService,
   ) {}
 
   async listReports({
@@ -214,9 +216,19 @@ export class AdminService {
         where: { id: intent.bookingId },
         data: { status: "paid", reportWindowEndsAt },
       });
-      // FR-TH-17: schedule Google Meet link generation. Idempotent on
-      // bookingId; safe if an admin re-approves after a transient error.
-      await this.classStart.enqueueForBooking(booking.id, booking.scheduledAt);
+      // FR-TH-17: generate Meet link inline; swallow failures so the
+      // payment approval itself never depends on Calendar.
+      try {
+        if (this.googleMeet.isEnabled()) {
+          await this.googleMeet.createForBooking(booking.id);
+        } else {
+          await this.googleMeet.postFallbackMessage(booking.id);
+        }
+      } catch (err) {
+        this.logger.error(
+          `Meet generation failed for booking ${booking.id}: ${(err as Error).message} — admin can retry`,
+        );
+      }
     }
     return updated;
   }

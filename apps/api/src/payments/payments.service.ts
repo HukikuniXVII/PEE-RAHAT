@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import type {
@@ -13,17 +14,19 @@ import type {
 import { Prisma } from "@prisma/client";
 import { addHours } from "date-fns";
 
-import { ClassStartQueue } from "../integrations/google-meet/class-start.queue";
+import { GoogleMeetService } from "../integrations/google-meet/google-meet.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { encodePromptPayPayload } from "./promptpay";
 import { ZercleSlipService } from "./zercle-slip/zercle-slip.service";
 
 @Injectable()
 export class PaymentsService {
+  private readonly logger = new Logger(PaymentsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly zercle: ZercleSlipService,
-    private readonly classStart: ClassStartQueue,
+    private readonly googleMeet: GoogleMeetService,
   ) {}
 
   async createIntent(
@@ -196,9 +199,11 @@ export class PaymentsService {
         where: { id: intent.bookingId },
         data: { status: "paid", reportWindowEndsAt: addHours(new Date(), 24) },
       });
-      // FR-TH-17: schedule the Google Meet link generation. Idempotent on
-      // bookingId — safe even if uploadSlip is retried.
-      await this.classStart.enqueueForBooking(booking.id, booking.scheduledAt);
+      // FR-TH-17: generate the Meet link inline at payment-confirm. Wrapped
+      // in try/catch so a Calendar API outage doesn't roll back the payment
+      // — the booking stays paid, and admin can call /admin/bookings/:id/
+      // regenerate-meet later.
+      await this.tryGenerateMeet(booking.id);
     }
 
     return {
@@ -206,6 +211,29 @@ export class PaymentsService {
       status: "held_in_escrow",
       transactionId: verdict.transactionId,
     };
+  }
+
+  /**
+   * FR-TH-17: best-effort Meet link generation at payment-confirm. Calendar
+   * outages, mis-configured service account, or a tutor email Workspace
+   * rejects all bubble up here as errors — we log + swallow so payment
+   * itself succeeds. Admin retries via /admin/bookings/:id/regenerate-meet.
+   *
+   * Disabled (GOOGLE_MEET_ENABLED=false): posts the fallback chat message
+   * so the student knows to ask the tutor for a link.
+   */
+  private async tryGenerateMeet(bookingId: string): Promise<void> {
+    try {
+      if (this.googleMeet.isEnabled()) {
+        await this.googleMeet.createForBooking(bookingId);
+      } else {
+        await this.googleMeet.postFallbackMessage(bookingId);
+      }
+    } catch (err) {
+      this.logger.error(
+        `Meet generation failed for booking ${bookingId}: ${(err as Error).message} — admin can retry via /admin/bookings/:id/regenerate-meet`,
+      );
+    }
   }
 
   private buildPromptPayPayload(amountThb: number): string {
