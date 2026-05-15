@@ -34,13 +34,13 @@ export class GoogleMeetService {
   }
 
   /**
-   * Idempotent: if `booking.meetLink` is already set, returns it without
+   * Idempotent: if `booking.meetingUrl` is already set, returns it without
    * touching Calendar — protects against re-runs (worker retry, postpone
    * re-enqueue collisions, manual replays).
    */
   async createForBooking(
     bookingId: string,
-  ): Promise<{ meetLink: string | null; reused: boolean }> {
+  ): Promise<{ meetingUrl: string | null; reused: boolean }> {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
@@ -50,8 +50,8 @@ export class GoogleMeetService {
     });
     if (!booking) throw new NotFoundException("Booking not found");
 
-    if (booking.meetLink) {
-      return { meetLink: booking.meetLink, reused: true };
+    if (booking.meetingUrl) {
+      return { meetingUrl: booking.meetingUrl, reused: true };
     }
 
     if (!this.isEnabled()) {
@@ -89,20 +89,20 @@ export class GoogleMeetService {
       },
     });
 
-    const meetLink = event.data.hangoutLink ?? null;
+    const meetingUrl = event.data.hangoutLink ?? null;
     const calendarEventId = event.data.id ?? null;
-    if (!meetLink) {
+    if (!meetingUrl) {
       this.logger.error(
         `Calendar event ${calendarEventId} created without hangoutLink — Workspace conferencing may be disabled`,
       );
-      return { meetLink: null, reused: false };
+      return { meetingUrl: null, reused: false };
     }
 
     await this.prisma.booking.update({
       where: { id: booking.id },
       data: {
-        meetLink,
-        meetGeneratedAt: new Date(),
+        meetingUrl,
+        meetingGeneratedAt: new Date(),
         googleCalendarEventId: calendarEventId,
       },
     });
@@ -111,11 +111,11 @@ export class GoogleMeetService {
       subject: booking.subject,
       scheduledAt: startsAt,
       durationMinutes: booking.durationMinutes,
-      meetLink,
+      meetingUrl,
       studentUserId: booking.studentId,
     });
 
-    return { meetLink, reused: false };
+    return { meetingUrl, reused: false };
   }
 
   /**
@@ -164,7 +164,7 @@ export class GoogleMeetService {
       subject: string;
       scheduledAt: Date;
       durationMinutes: number;
-      meetLink: string;
+      meetingUrl: string;
       studentUserId: string;
     },
   ): Promise<void> {
@@ -174,7 +174,7 @@ export class GoogleMeetService {
       "🟢 ถึงเวลาเรียนแล้ว",
       `คลาส: ${args.subject}`,
       `เวลา: ${when} (${args.durationMinutes} นาที)`,
-      `ลิงก์ Google Meet: ${args.meetLink}`,
+      `ลิงก์ Google Meet: ${args.meetingUrl}`,
       "",
       "กดลิงก์ด้านบนเพื่อเข้าห้องเรียน",
     ].join("\n");

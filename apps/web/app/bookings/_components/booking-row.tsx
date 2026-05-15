@@ -79,7 +79,7 @@ export function BookingRow({ booking }: Props) {
     booking.status === "paid" &&
     minutesFromStart <= 120 &&
     minutesFromStart >= -120;
-  const showJoinButton = inJoinWindow && !!booking.meetLink;
+  const showJoinButton = inJoinWindow && !!booking.meetingUrl;
   const readyToStart =
     booking.status === "paid" &&
     minutesFromStart <= 5 &&
@@ -146,7 +146,7 @@ export function BookingRow({ booking }: Props) {
         <div className="flex items-center gap-2">
           {showJoinButton && (
             <a
-              href={booking.meetLink}
+              href={booking.meetingUrl}
               target="_blank"
               rel="noreferrer noopener"
               className="px-4 py-2.5 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 transition-all flex items-center gap-2"

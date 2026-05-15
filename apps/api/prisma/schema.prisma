@@ -155,12 +155,13 @@ model Booking {
   postponeRequestId  String?          @unique
   postponeRequest    PostponeRequest? @relation(fields: [postponeRequestId], references: [id])
 
-  // FR-TH-17: auto-generated Google Meet at class start. Populated by the
-  // class-start worker calling Calendar API ~5 min before scheduledAt.
-  // Null until the worker fires; cleared on postpone-confirm so the cloned
-  // booking regenerates a fresh link/event for the new slot.
-  meetLink              String?
-  meetGeneratedAt       DateTime?
+  // FR-TH-17: auto-generated Google Meet link. Created inline at payment-
+  // confirm (slip-verify or admin approval), so the link is sitting on the
+  // booking from the moment escrow opens. Cleared on postpone-confirm so
+  // the cloned booking regenerates a fresh link/event for the new slot.
+  // Admin can force-regenerate via POST /admin/bookings/:id/regenerate-meet.
+  meetingUrl            String?
+  meetingGeneratedAt    DateTime?
   googleCalendarEventId String?
 
   createdAt          DateTime         @default(now())

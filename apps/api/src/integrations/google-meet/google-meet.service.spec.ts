@@ -21,7 +21,7 @@ const SAMPLE_BOOKING = {
   subject: "Math A-Level",
   scheduledAt: new Date("2026-05-20T13:00:00Z"),
   durationMinutes: 60,
-  meetLink: null as string | null,
+  meetingUrl: null as string | null,
   student: {
     id: "u_student",
     email: "student@example.com",
@@ -92,7 +92,7 @@ describe("GoogleMeetService (FR-TH-17)", () => {
 
       const result = await svc.createForBooking("bk_1");
 
-      expect(result).toEqual({ meetLink: "https://meet.google.com/abc-defg-hij", reused: false });
+      expect(result).toEqual({ meetingUrl: "https://meet.google.com/abc-defg-hij", reused: false });
       expect(eventsInsert).toHaveBeenCalledTimes(1);
       const insertArgs = eventsInsert.mock.calls[0][0];
       expect(insertArgs.calendarId).toBe("primary");
@@ -108,9 +108,9 @@ describe("GoogleMeetService (FR-TH-17)", () => {
       expect(prisma.booking.update).toHaveBeenCalledWith({
         where: { id: "bk_1" },
         data: expect.objectContaining({
-          meetLink: "https://meet.google.com/abc-defg-hij",
+          meetingUrl: "https://meet.google.com/abc-defg-hij",
           googleCalendarEventId: "evt_1",
-          meetGeneratedAt: expect.any(Date),
+          meetingGeneratedAt: expect.any(Date),
         }),
       });
 
@@ -126,15 +126,15 @@ describe("GoogleMeetService (FR-TH-17)", () => {
   });
 
   describe("createForBooking — idempotency", () => {
-    it("returns existing link without re-hitting Calendar when meetLink already set", async () => {
+    it("returns existing link without re-hitting Calendar when meetingUrl already set", async () => {
       const { svc, prisma, chat } = makeService({
-        booking: { ...SAMPLE_BOOKING, meetLink: "https://meet.google.com/already-there" },
+        booking: { ...SAMPLE_BOOKING, meetingUrl: "https://meet.google.com/already-there" },
       });
 
       const result = await svc.createForBooking("bk_1");
 
       expect(result).toEqual({
-        meetLink: "https://meet.google.com/already-there",
+        meetingUrl: "https://meet.google.com/already-there",
         reused: true,
       });
       expect(eventsInsert).not.toHaveBeenCalled();
@@ -161,7 +161,7 @@ describe("GoogleMeetService (FR-TH-17)", () => {
 
       const result = await svc.createForBooking("bk_1");
 
-      expect(result.meetLink).toBeNull();
+      expect(result.meetingUrl).toBeNull();
       // Persistence and chat skipped when link is missing — we don't want
       // to ship a half-broken state to the student.
       expect(prisma.booking.update).not.toHaveBeenCalled();

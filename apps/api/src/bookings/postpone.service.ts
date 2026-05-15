@@ -266,8 +266,8 @@ export class PostponeService implements OnModuleInit {
         where: { id: booking.id },
         data: {
           status: "postponed",
-          meetLink: null,
-          meetGeneratedAt: null,
+          meetingUrl: null,
+          meetingGeneratedAt: null,
           googleCalendarEventId: null,
         },
       });
