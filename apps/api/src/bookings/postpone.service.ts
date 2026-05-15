@@ -14,6 +14,8 @@ import type {
 import { addHours, differenceInMilliseconds } from "date-fns";
 
 import { ChatService } from "../chat/chat.service";
+import { ClassStartQueue } from "../integrations/google-meet/class-start.queue";
+import { GoogleMeetService } from "../integrations/google-meet/google-meet.service";
 import { RefundPolicyService } from "../payments/refund-policy.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { BookingsService } from "./bookings.service";
@@ -43,6 +45,8 @@ export class PostponeService implements OnModuleInit {
     private readonly refundPolicy: RefundPolicyService,
     private readonly queue: PostponeQueue,
     private readonly bookings: BookingsService,
+    private readonly googleMeet: GoogleMeetService,
+    private readonly classStart: ClassStartQueue,
   ) {}
 
   onModuleInit() {
@@ -213,6 +217,12 @@ export class PostponeService implements OnModuleInit {
       booking.id,
     );
 
+    // FR-TH-17: stash the old event id before the transaction so we can
+    // tell Calendar to delete it after the clone succeeds. Avoiding the
+    // delete-inside-transaction pattern means a 4xx from Google can't
+    // roll back the DB writes.
+    const oldCalendarEventId = booking.googleCalendarEventId;
+
     const newBooking = await this.prisma.$transaction(async (tx) => {
       // 1. mark request agreed
       await tx.postponeRequest.update({
@@ -249,10 +259,17 @@ export class PostponeService implements OnModuleInit {
         data: { bookingId: created.id },
       });
 
-      // 4. mark original as postponed (soft-delete for audit, NFR-05)
+      // 4. mark original as postponed (soft-delete for audit, NFR-05) and
+      //    scrub its meet fields so /bookings/mine doesn't show a stale
+      //    join button against a moved-away slot.
       await tx.booking.update({
         where: { id: booking.id },
-        data: { status: "postponed" },
+        data: {
+          status: "postponed",
+          meetLink: null,
+          meetGeneratedAt: null,
+          googleCalendarEventId: null,
+        },
       });
 
       return created;
@@ -266,6 +283,15 @@ export class PostponeService implements OnModuleInit {
     );
     await this.chat.closeThread(thread.id);
     await this.queue.cancelTimeout(request.id);
+
+    // FR-TH-17: cancel the old class-start job (a no-op if the link was
+    // already minted), drop the prior calendar event (non-fatal on 404),
+    // and enqueue a fresh job for the cloned booking's new slot.
+    await this.classStart.cancelForBooking(booking.id);
+    if (oldCalendarEventId) {
+      await this.googleMeet.deleteEvent(oldCalendarEventId);
+    }
+    await this.classStart.enqueueForBooking(newBooking.id, newBooking.scheduledAt);
 
     return { newBookingId: newBooking.id };
   }

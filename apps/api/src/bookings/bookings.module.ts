@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 
 import { ChatModule } from "../chat/chat.module";
+import { GoogleMeetModule } from "../integrations/google-meet/google-meet.module";
 import { PaymentsModule } from "../payments/payments.module";
 import { BookingsController } from "./bookings.controller";
 import { BookingsService } from "./bookings.service";
@@ -8,7 +9,7 @@ import { PostponeQueue } from "./postpone.queue";
 import { PostponeService } from "./postpone.service";
 
 @Module({
-  imports: [ChatModule, PaymentsModule],
+  imports: [ChatModule, PaymentsModule, GoogleMeetModule],
   controllers: [BookingsController],
   providers: [BookingsService, PostponeService, PostponeQueue],
   exports: [BookingsService, PostponeService],
