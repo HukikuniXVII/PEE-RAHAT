@@ -67,25 +67,41 @@ export function BankEditCard({ initial }: Props) {
 
   if (!bank) {
     return (
-      <section className="bg-white rounded-[40px] border border-amber-200 shadow-sm p-8 space-y-4">
-        <div className="flex items-start gap-3">
-          <AlertTriangle className="text-amber-600 mt-0.5" size={20} />
-          <div className="space-y-1">
-            <h2 className="text-lg font-black text-slate-900">
-              ยังไม่มีข้อมูลบัญชี
-            </h2>
-            <p className="text-sm text-slate-500">
-              คุณยังไม่ได้กรอกข้อมูลบัญชีรับเงิน — ทำขั้นตอน KYC ให้เสร็จก่อน
-            </p>
+      <>
+        <section className="bg-white rounded-[40px] border border-amber-200 shadow-sm p-8 space-y-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="text-amber-600 mt-0.5" size={20} />
+            <div className="space-y-1">
+              <h2 className="text-lg font-black text-slate-900">
+                ยังไม่มีข้อมูลบัญชี
+              </h2>
+              <p className="text-sm text-slate-500">
+                เพิ่มข้อมูลบัญชีธนาคารเพื่อให้แอดมินสามารถโอนค่าตอบแทนได้
+              </p>
+            </div>
           </div>
-        </div>
-        <Link
-          href="/tutors/onboarding"
-          className="inline-flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white rounded-2xl font-bold text-sm hover:bg-indigo-700"
-        >
-          ไปที่ KYC
-        </Link>
-      </section>
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="inline-flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white rounded-2xl font-bold text-sm hover:bg-indigo-700"
+          >
+            <Pencil size={14} />
+            เพิ่มข้อมูลบัญชี
+          </button>
+        </section>
+        {editing && (
+          <BankEditDialog
+            initial={null}
+            onClose={() => setEditing(false)}
+            onSaved={() => {
+              setEditing(false);
+              queryClient.invalidateQueries({
+                queryKey: ["tutors", "me", "bank"],
+              });
+            }}
+          />
+        )}
+      </>
     );
   }
 
@@ -150,13 +166,20 @@ function BankEditDialog({
   onClose,
   onSaved,
 }: {
-  initial: MaskedBankInfo;
+  // initial=null → first-time entry (legacy tutor or just-verified KYC
+  // without bank info yet); also surfaces an idName field so the server
+  // can back-fill the legacy KYC row.
+  initial: MaskedBankInfo | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [bankName, setBankName] = useState<BankName>(initial.bankName);
+  const isFirstEntry = initial === null;
+  const [bankName, setBankName] = useState<BankName>(
+    initial?.bankName ?? "SCB",
+  );
   const [accountNumber, setAccountNumber] = useState("");
-  const [accountName, setAccountName] = useState(initial.accountName);
+  const [accountName, setAccountName] = useState(initial?.accountName ?? "");
+  const [idName, setIdName] = useState("");
   const [passbookObjectKey, setPassbookObjectKey] = useState<string | null>(null);
   const [passbookPreview, setPassbookPreview] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -192,6 +215,7 @@ function BankEditDialog({
           bankAccountName: accountName,
         },
         passbookObjectKey,
+        ...(isFirstEntry && idName.trim() ? { idName: idName.trim() } : {}),
       });
       return createApiClient().tutors.bank.update(dto);
     },
@@ -216,13 +240,21 @@ function BankEditDialog({
   };
 
   const accountValid = /^\d{10,15}$/.test(accountNumber);
-  const ready = !!bankName && accountValid && !!accountName && !!passbookObjectKey;
+  const idNameReady = isFirstEntry ? idName.trim().length >= 2 : true;
+  const ready =
+    !!bankName &&
+    accountValid &&
+    !!accountName &&
+    !!passbookObjectKey &&
+    idNameReady;
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 z-40 flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl my-auto">
         <div className="flex items-start justify-between">
-          <h3 className="text-lg font-black text-slate-900">แก้ไขข้อมูลบัญชี</h3>
+          <h3 className="text-lg font-black text-slate-900">
+            {isFirstEntry ? "เพิ่มข้อมูลบัญชี" : "แก้ไขข้อมูลบัญชี"}
+          </h3>
           <button
             type="button"
             onClick={onClose}
@@ -238,6 +270,29 @@ function BankEditDialog({
             <strong>ชื่อบัญชีต้องตรงกับชื่อในบัตรประชาชน</strong> ที่ใช้สมัคร KYC
           </p>
         </div>
+
+        {isFirstEntry && (
+          <label className="block space-y-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+              ชื่อ-นามสกุล ตามบัตรประชาชน
+            </span>
+            <input
+              type="text"
+              value={idName}
+              onChange={(e) => {
+                setIdName(e.target.value);
+                // Auto-fill the bank account name if it's still empty so
+                // the tutor doesn't have to retype.
+                if (!accountName) setAccountName(e.target.value);
+              }}
+              placeholder="เช่น นาย ก ขขขขข"
+              className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm"
+            />
+            <span className="text-[10px] text-slate-400">
+              ใช้เพื่อยืนยันว่าเป็นบัญชีของคุณเอง — ครั้งถัดไประบบจะใช้ข้อมูลนี้เพื่อตรวจสอบ
+            </span>
+          </label>
+        )}
 
         <label className="block space-y-1.5">
           <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">

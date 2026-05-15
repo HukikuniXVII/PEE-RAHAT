@@ -107,11 +107,15 @@ export const kycSubmitSchema = z.object({
 export type KycSubmitDto = z.infer<typeof kycSubmitSchema>;
 
 // FR-TH-02: profile-edit surface for tutors to change their bank info
-// after KYC approval. bankAccountName still has to match idName from the
-// original KYC submission (server enforces).
+// after KYC approval. bankAccountName has to match idName from the
+// original KYC submission (server enforces). idName is accepted here as
+// a fallback for legacy tutors whose KYC was submitted before FR-TH-02
+// added the column — the server uses it to back-fill the KYC row on
+// first bank-info entry, then enforces the match on future edits.
 export const updateBankSchema = z.object({
   bank: bankInfoSchema,
   passbookObjectKey: z.string().min(1),
+  idName: z.string().trim().min(2).max(120).optional(),
 });
 
 export type UpdateBankDto = z.infer<typeof updateBankSchema>;

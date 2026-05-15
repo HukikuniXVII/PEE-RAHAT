@@ -430,13 +430,29 @@ export class TutorsService {
       where: { userId: tutor.userId, status: "verified" },
       orderBy: { reviewedAt: "desc" },
     });
-    if (!latestKyc || !latestKyc.idName) {
+    if (!latestKyc) {
       throw new BadRequestException(
         "ต้องผ่าน KYC ก่อนจึงจะแก้ไขข้อมูลบัญชีได้",
       );
     }
+
     const bankAccountName = dto.bank.bankAccountName.trim();
-    if (normalizeName(bankAccountName) !== normalizeName(latestKyc.idName)) {
+    // Legacy tutors verified before FR-TH-02 don't have idName on their
+    // KycSubmission — the column was added later. First bank-info entry
+    // for them accepts an idName from the dto (or falls back to the
+    // bankAccountName) and back-fills the KYC row. Subsequent edits enforce
+    // the canonical-name match using that back-filled value.
+    let canonicalIdName = latestKyc.idName;
+    if (!canonicalIdName) {
+      canonicalIdName = (dto.idName ?? bankAccountName).trim();
+      if (canonicalIdName.length < 2) {
+        throw new BadRequestException(
+          "ระบุชื่อ-นามสกุลตามบัตรประชาชนเพื่อบันทึกข้อมูลบัญชี",
+        );
+      }
+    }
+
+    if (normalizeName(bankAccountName) !== normalizeName(canonicalIdName)) {
       throw new BadRequestException(
         "ชื่อบัญชีธนาคารต้องตรงกับชื่อในบัตรประชาชน",
       );
@@ -458,6 +474,10 @@ export class TutorsService {
       this.prisma.kycSubmission.update({
         where: { id: latestKyc.id },
         data: {
+          // Back-fill the canonical idName for legacy KYC rows on first
+          // bank entry — subsequent edits go through the match check
+          // against this value.
+          ...(latestKyc.idName ? {} : { idName: canonicalIdName }),
           passbookObjectKey: dto.passbookObjectKey,
           bankName: dto.bank.bankName,
           bankAccountNumber: encryptedAccount,
