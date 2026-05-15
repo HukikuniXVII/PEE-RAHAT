@@ -76,6 +76,15 @@ model TutorProfile {
   subjects      String[]
   createdAt     DateTime @default(now())
 
+  // FR-TH-17: each tutor connects their own Google account via OAuth2;
+  // the platform holds an encrypted refresh_token and mints Meet links on
+  // their calendar at payment-confirm. googleRefreshToken IS NOT NULL is
+  // a hard search-visibility gate — tutors without Google connected do
+  // not appear in /tutors search results.
+  googleRefreshToken String?
+  googleEmail        String?
+  googleConnectedAt  DateTime?
+
   bookings       Booking[]
   reviews        TutorReview[]
   sheets         StudySheet[]
@@ -156,12 +165,10 @@ model Booking {
   postponeRequest    PostponeRequest? @relation(fields: [postponeRequestId], references: [id])
 
   // FR-TH-17: auto-generated Google Meet link. Created inline at payment-
-  // confirm (slip-verify or admin approval), so the link is sitting on the
-  // booking from the moment escrow opens. Cleared on postpone-confirm so
-  // the cloned booking regenerates a fresh link/event for the new slot.
+  // confirm on the tutor's own calendar via their connected Google account.
+  // Cleared on postpone-confirm so the cloned booking regenerates fresh.
   // Admin can force-regenerate via POST /admin/bookings/:id/regenerate-meet.
   meetingUrl            String?
-  meetingGeneratedAt    DateTime?
   googleCalendarEventId String?
 
   createdAt          DateTime         @default(now())

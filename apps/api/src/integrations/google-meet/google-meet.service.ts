@@ -120,7 +120,6 @@ export class GoogleMeetService {
       where: { id: booking.id },
       data: {
         meetingUrl,
-        meetingGeneratedAt: new Date(),
         googleCalendarEventId: calendarEventId,
       },
     });

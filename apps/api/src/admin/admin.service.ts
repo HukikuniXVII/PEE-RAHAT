@@ -265,7 +265,6 @@ export class AdminService {
       where: { id: bookingId },
       data: {
         meetingUrl: null,
-        meetingGeneratedAt: null,
         googleCalendarEventId: null,
       },
     });
