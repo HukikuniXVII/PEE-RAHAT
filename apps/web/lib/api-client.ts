@@ -131,7 +131,14 @@ async function request<T>(
   }
 
   if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+  // Some Nest endpoints return null from a controller — Express then sends
+  // a 200 with an empty body, which `res.json()` chokes on with
+  // "Unexpected end of JSON input". Read as text, then JSON.parse if the
+  // body is non-empty; otherwise return undefined so consumers can treat
+  // it as "no data".
+  const text = await res.text();
+  if (!text) return undefined as T;
+  return JSON.parse(text) as T;
 }
 
 function qs(params: object): string {
@@ -310,8 +317,16 @@ export function createApiClient(opts: ApiClientOptions = {}) {
       // FR-TH-02: tutor bank-info edit. getMyBank returns null when the
       // tutor has not finished KYC yet; the page redirects accordingly.
       bank: {
-        get: () =>
-          request<MaskedBankInfo | null>(API_PATHS.tutorMyBank, {}, token),
+        // Nest may send an empty 200 body when the controller returns null
+        // (Express + JSON.stringify quirks); the request() helper turns
+        // that into undefined. Normalize to null so consumers can typecheck
+        // on `MaskedBankInfo | null` without an extra | undefined.
+        get: async () =>
+          (await request<MaskedBankInfo | null>(
+            API_PATHS.tutorMyBank,
+            {},
+            token,
+          )) ?? null,
         update: (dto: UpdateBankDto) =>
           request<MaskedBankInfo>(
             API_PATHS.tutorMyBank,
