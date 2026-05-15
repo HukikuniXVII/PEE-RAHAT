@@ -12,6 +12,7 @@ import {
   Loader2,
   Star,
   ThumbsUp,
+  Video,
   Wallet,
 } from "lucide-react";
 import { motion } from "motion/react";
@@ -68,6 +69,21 @@ export function BookingRow({ booking }: Props) {
     new Date(booking.scheduledAt).getTime() > Date.now();
   const negotiating =
     booking.status === "postpone_pending" && !!booking.chatThreadId;
+  // FR-TH-17: show "join class" + "ready to start" affordances around the
+  // scheduled time. The button needs the Meet link to exist (the worker
+  // generates it ~5 min ahead). The ready-chip uses a separate ±5 min
+  // window so the badge changes even when the link is still null.
+  const minutesFromStart =
+    (new Date(booking.scheduledAt).getTime() - Date.now()) / 60_000;
+  const inJoinWindow =
+    booking.status === "paid" &&
+    minutesFromStart <= 120 &&
+    minutesFromStart >= -120;
+  const showJoinButton = inJoinWindow && !!booking.meetLink;
+  const readyToStart =
+    booking.status === "paid" &&
+    minutesFromStart <= 5 &&
+    minutesFromStart >= -5;
 
   const accept = useMutation({
     mutationFn: () => createApiClient().bookings.accept(booking.id),
@@ -119,13 +135,26 @@ export function BookingRow({ booking }: Props) {
         <span
           className={cn(
             "inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full border",
-            TONE_CLASSES[status.tone],
+            readyToStart
+              ? "bg-amber-50 text-amber-700 border-amber-200"
+              : TONE_CLASSES[status.tone],
           )}
         >
-          {status.label}
+          {readyToStart ? "พร้อมเริ่มคลาส" : status.label}
         </span>
 
         <div className="flex items-center gap-2">
+          {showJoinButton && (
+            <a
+              href={booking.meetLink}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="px-4 py-2.5 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 transition-all flex items-center gap-2"
+            >
+              <Video size={14} />
+              เข้าห้องเรียน
+            </a>
+          )}
           {acceptable && (
             <Button
               variant="success"

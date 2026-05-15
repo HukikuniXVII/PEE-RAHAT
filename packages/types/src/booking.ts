@@ -40,6 +40,10 @@ export interface Booking {
   postponeRequest?: PostponeRequest;
   /** Resolved chat-thread id for this booking pair, if any. */
   chatThreadId?: string;
+  /** FR-TH-17: Google Meet URL once the class-start worker has generated it. */
+  meetLink?: string;
+  /** FR-TH-17: when the Meet link was minted; null until ~5 min before scheduledAt. */
+  meetGeneratedAt?: string;
   createdAt: string;
 }
 
