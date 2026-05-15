@@ -64,9 +64,11 @@ const FIELD_ICON: Record<Exclude<KycField, "passbook">, typeof FileText> = {
 
 export function OnboardingFlow() {
   // Phase gate: a user without a TutorProfile must complete onboarding
-  // (FR-TH-03) before submitting KYC photos (FR-TH-02). Reading /users/me
-  // tells us whether the role has already been promoted to "tutor" — a
-  // returning user who finished the profile step skips straight to KYC.
+  // (FR-TH-03) before submitting KYC photos (FR-TH-02). Since commit
+  // 89b99fa, role only flips to "tutor" on admin KYC approval — so we
+  // gate on tutorProfileId presence, not role. Otherwise a student who
+  // submitted the profile but hasn't been approved would see ProfileStep
+  // again and re-submitting would 409 against the unique tutorProfile.userId.
   const meQuery = useQuery({
     queryKey: ["users", "me"],
     queryFn: () => createApiClient().users.me(),
@@ -75,7 +77,9 @@ export function OnboardingFlow() {
   });
   const [profileJustDone, setProfileJustDone] = useState(false);
   const hasProfile =
-    profileJustDone || meQuery.data?.role === "tutor" || meQuery.data?.role === "admin";
+    profileJustDone ||
+    !!meQuery.data?.tutorProfileId ||
+    meQuery.data?.role === "admin";
 
   const [stepIdx, setStepIdx] = useState(0);
   const currentField: Exclude<KycField, "passbook"> | undefined = FIELD_ORDER[stepIdx];
@@ -341,6 +345,19 @@ export function OnboardingFlow() {
                 ใช้เอกสารเหล่านี้เพื่อการยืนยันตัวตนเท่านั้น
               </span>
             </label>
+            {/* Show every blocker the form rejects on so users see why the
+                submit button is greyed out. Was the most common silent
+                failure mode in dev — PDPA unchecked, field too short, etc. */}
+            {Object.keys(form.formState.errors).length > 0 && (
+              <ul className="text-[11px] text-rose-600 space-y-1 bg-rose-50 border border-rose-100 rounded-2xl p-3">
+                {Object.entries(form.formState.errors).map(([field, err]) => (
+                  <li key={field}>
+                    <span className="font-bold">{field}:</span>{" "}
+                    {(err as { message?: string })?.message ?? "ข้อมูลไม่ถูกต้อง"}
+                  </li>
+                ))}
+              </ul>
+            )}
             <Button
               type="submit"
               variant="secondary"
