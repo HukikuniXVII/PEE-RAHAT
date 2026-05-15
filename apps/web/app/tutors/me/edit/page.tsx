@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 import { createApiClient } from "@/lib/api-client";
 
+import { BankStatusBanner } from "./_components/bank-status-banner";
 import { GoogleCalendarCard } from "./_components/google-calendar-card";
 import { ProfileEditForm } from "./_components/profile-edit-form";
 
@@ -16,6 +17,7 @@ export default async function TutorProfileEditPage() {
   return (
     <div className="max-w-3xl mx-auto py-10 px-4 space-y-8">
       <GoogleCalendarCard tutor={tutor} />
+      <BankStatusBanner />
       <ProfileEditForm
         tutor={tutor}
         initialDisplayName={me.displayName}

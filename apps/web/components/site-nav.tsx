@@ -15,6 +15,7 @@ import {
   MessagesSquare,
   Search,
   ShieldCheck,
+  Wallet,
   X,
 } from "lucide-react";
 import type { Route } from "next";
@@ -215,14 +216,24 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
                         My Bookings
                       </Link>
                       {tutorProfileId ? (
-                        <Link
-                          href={`/tutors/${tutorProfileId}` as Route}
-                          onClick={() => setAccountOpen(false)}
-                          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50"
-                        >
-                          <GraduationCap size={14} />
-                          My Profile
-                        </Link>
+                        <>
+                          <Link
+                            href={`/tutors/${tutorProfileId}` as Route}
+                            onClick={() => setAccountOpen(false)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50"
+                          >
+                            <GraduationCap size={14} />
+                            My Profile
+                          </Link>
+                          <Link
+                            href={"/tutors/me/bank" as Route}
+                            onClick={() => setAccountOpen(false)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50"
+                          >
+                            <Wallet size={14} />
+                            บัญชีรับเงิน
+                          </Link>
+                        </>
                       ) : (
                         !isAdmin && (
                           <Link

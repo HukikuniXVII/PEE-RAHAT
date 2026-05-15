@@ -1,0 +1,366 @@
+"use client";
+
+import {
+  type BankName,
+  type MaskedBankInfo,
+  type UpdateBankDto,
+  updateBankSchema,
+} from "@peerahat/types";
+import { Button, cn } from "@peerahat/ui";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ImageIcon,
+  Info,
+  Loader2,
+  Pencil,
+  Upload,
+  X,
+} from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
+import { toast } from "sonner";
+
+import { createApiClient } from "@/lib/api-client";
+
+const BANK_OPTIONS: { value: BankName; label: string }[] = [
+  { value: "SCB", label: "ไทยพาณิชย์ (SCB)" },
+  { value: "KBank", label: "กสิกรไทย (KBank)" },
+  { value: "Krungthai", label: "กรุงไทย (KTB)" },
+  { value: "Bangkok", label: "กรุงเทพ (BBL)" },
+  { value: "TTB", label: "ทหารไทยธนชาต (TTB)" },
+  { value: "TMB", label: "ทหารไทย (TMB)" },
+  { value: "Kiatnakin", label: "เกียรตินาคิน (KKP)" },
+  { value: "CIMB", label: "ซีไอเอ็มบี (CIMB)" },
+  { value: "UOB", label: "ยูโอบี (UOB)" },
+  { value: "GSB", label: "ออมสิน (GSB)" },
+  { value: "BAAC", label: "ธ.ก.ส. (BAAC)" },
+  { value: "GHB", label: "อาคารสงเคราะห์ (GHB)" },
+  { value: "LH", label: "แลนด์ แอนด์ เฮ้าส์ (LH)" },
+  { value: "ICBC", label: "ไอซีบีซี (ICBC)" },
+  { value: "TISCO", label: "ทิสโก้ (TISCO)" },
+  { value: "Other", label: "ธนาคารอื่น" },
+];
+
+const BANK_LABEL: Record<BankName, string> = Object.fromEntries(
+  BANK_OPTIONS.map((b) => [b.value, b.label]),
+) as Record<BankName, string>;
+
+const MAX_BYTES = 5 * 1024 * 1024;
+const ACCEPTED_MIME = ["image/jpeg", "image/png", "image/webp"];
+
+interface Props {
+  initial: MaskedBankInfo | null;
+}
+
+export function BankEditCard({ initial }: Props) {
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+
+  const query = useQuery({
+    queryKey: ["tutors", "me", "bank"],
+    queryFn: () => createApiClient().tutors.bank.get(),
+    initialData: initial,
+  });
+  const bank = query.data;
+
+  if (!bank) {
+    return (
+      <section className="bg-white rounded-[40px] border border-amber-200 shadow-sm p-8 space-y-4">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="text-amber-600 mt-0.5" size={20} />
+          <div className="space-y-1">
+            <h2 className="text-lg font-black text-slate-900">
+              ยังไม่มีข้อมูลบัญชี
+            </h2>
+            <p className="text-sm text-slate-500">
+              คุณยังไม่ได้กรอกข้อมูลบัญชีรับเงิน — ทำขั้นตอน KYC ให้เสร็จก่อน
+            </p>
+          </div>
+        </div>
+        <Link
+          href="/tutors/onboarding"
+          className="inline-flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white rounded-2xl font-bold text-sm hover:bg-indigo-700"
+        >
+          ไปที่ KYC
+        </Link>
+      </section>
+    );
+  }
+
+  return (
+    <>
+      <section className="bg-white rounded-[40px] border border-slate-200 shadow-sm p-8 space-y-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              บัญชีปัจจุบัน
+            </p>
+            <h2 className="text-2xl font-black text-slate-900">
+              {BANK_LABEL[bank.bankName]}
+            </h2>
+            <p className="text-sm font-mono text-slate-600 tracking-wider">
+              •••• •••• {bank.accountLast4}
+            </p>
+            <p className="text-sm text-slate-500">{bank.accountName}</p>
+            <p className="text-[10px] text-slate-400 pt-1">
+              อัปเดตล่าสุด {new Date(bank.updatedAt).toLocaleString("th-TH")}
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">
+            <CheckCircle2 size={12} />
+            Active
+          </span>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200"
+        >
+          <Pencil size={14} />
+          แก้ไขข้อมูลบัญชี
+        </button>
+
+        <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-100 rounded-2xl">
+          <Info className="text-amber-600 shrink-0 mt-0.5" size={14} />
+          <p className="text-[11px] text-amber-700 leading-relaxed">
+            การเปลี่ยนแปลงข้อมูลบัญชีจะมีผลกับการโอนเงินรอบถัดไป (ทุกวันที่ 15 และ 30)
+          </p>
+        </div>
+      </section>
+
+      {editing && (
+        <BankEditDialog
+          initial={bank}
+          onClose={() => setEditing(false)}
+          onSaved={() => {
+            setEditing(false);
+            queryClient.invalidateQueries({ queryKey: ["tutors", "me", "bank"] });
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function BankEditDialog({
+  initial,
+  onClose,
+  onSaved,
+}: {
+  initial: MaskedBankInfo;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [bankName, setBankName] = useState<BankName>(initial.bankName);
+  const [accountNumber, setAccountNumber] = useState("");
+  const [accountName, setAccountName] = useState(initial.accountName);
+  const [passbookObjectKey, setPassbookObjectKey] = useState<string | null>(null);
+  const [passbookPreview, setPassbookPreview] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+
+  const upload = useMutation({
+    mutationFn: async (file: File) => {
+      const api = createApiClient();
+      const intent = await api.kyc.requestUpload("passbook", file.type);
+      const put = await fetch(intent.uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!put.ok && !intent.uploadUrl.startsWith("https://storage.local")) {
+        throw new Error(`Upload failed: ${put.status}`);
+      }
+      return { objectKey: intent.objectKey, file };
+    },
+    onSuccess: ({ objectKey, file }) => {
+      setPassbookObjectKey(objectKey);
+      setPassbookPreview(URL.createObjectURL(file));
+    },
+    onError: (e) => setFileError(e.message),
+  });
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!passbookObjectKey) throw new Error("กรุณาอัปโหลดสมุดบัญชีใหม่");
+      const dto: UpdateBankDto = updateBankSchema.parse({
+        bank: {
+          bankName,
+          bankAccountNumber: accountNumber,
+          bankAccountName: accountName,
+        },
+        passbookObjectKey,
+      });
+      return createApiClient().tutors.bank.update(dto);
+    },
+    onSuccess: () => {
+      toast.success("อัปเดตข้อมูลบัญชีแล้ว");
+      onSaved();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const handleFile = (file: File) => {
+    setFileError(null);
+    if (!ACCEPTED_MIME.includes(file.type)) {
+      setFileError("ไฟล์ต้องเป็น JPG, PNG หรือ WebP");
+      return;
+    }
+    if (file.size > MAX_BYTES) {
+      setFileError("ไฟล์ต้องไม่เกิน 5MB");
+      return;
+    }
+    upload.mutate(file);
+  };
+
+  const accountValid = /^\d{10,15}$/.test(accountNumber);
+  const ready = !!bankName && accountValid && !!accountName && !!passbookObjectKey;
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/40 z-40 flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl my-auto">
+        <div className="flex items-start justify-between">
+          <h3 className="text-lg font-black text-slate-900">แก้ไขข้อมูลบัญชี</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center"
+          >
+            <X size={14} />
+          </button>
+        </div>
+
+        <div className="bg-amber-50 border border-amber-100 rounded-2xl p-3 flex items-start gap-2">
+          <Info className="text-amber-600 shrink-0 mt-0.5" size={14} />
+          <p className="text-[11px] text-amber-700 leading-relaxed">
+            <strong>ชื่อบัญชีต้องตรงกับชื่อในบัตรประชาชน</strong> ที่ใช้สมัคร KYC
+          </p>
+        </div>
+
+        <label className="block space-y-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+            ธนาคาร
+          </span>
+          <select
+            value={bankName}
+            onChange={(e) => setBankName(e.target.value as BankName)}
+            className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm bg-white"
+          >
+            {BANK_OPTIONS.map((b) => (
+              <option key={b.value} value={b.value}>
+                {b.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block space-y-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+            เลขที่บัญชีใหม่
+          </span>
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="\d*"
+            value={accountNumber}
+            onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ""))}
+            placeholder="1234567890"
+            maxLength={15}
+            className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm font-mono tracking-wider"
+          />
+          <span className="text-[10px] text-slate-400">10–15 หลัก ไม่ต้องมีขีดคั่น</span>
+        </label>
+
+        <label className="block space-y-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+            ชื่อบัญชี
+          </span>
+          <input
+            type="text"
+            value={accountName}
+            onChange={(e) => setAccountName(e.target.value)}
+            className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm"
+          />
+        </label>
+
+        <div className="space-y-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+            สมุดบัญชี / สลิป e-Passbook ใหม่
+          </span>
+          <label
+            className={cn(
+              "block w-full rounded-2xl border-2 border-dashed p-4 cursor-pointer transition-all",
+              passbookObjectKey
+                ? "border-emerald-300 bg-emerald-50"
+                : "border-slate-200 bg-slate-50 hover:border-indigo-600",
+              upload.isPending && "opacity-60 cursor-not-allowed",
+            )}
+          >
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="sr-only"
+              disabled={upload.isPending}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleFile(f);
+              }}
+            />
+            {passbookPreview ? (
+              <div className="flex items-center gap-3">
+                <img
+                  src={passbookPreview}
+                  alt="passbook"
+                  className="w-16 h-16 rounded-xl object-cover border border-emerald-200"
+                />
+                <p className="text-xs font-bold text-emerald-700">
+                  อัปโหลดเรียบร้อย
+                </p>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 text-xs text-slate-600">
+                {upload.isPending ? (
+                  <Loader2 size={20} className="animate-spin text-indigo-600" />
+                ) : (
+                  <ImageIcon size={20} className="text-slate-400" />
+                )}
+                <span>JPG, PNG, WebP (ไม่เกิน 5MB)</span>
+                <span className="ml-auto px-3 py-1.5 bg-indigo-600 text-white rounded-lg font-bold inline-flex items-center gap-1">
+                  <Upload size={10} />
+                  เลือกไฟล์
+                </span>
+              </div>
+            )}
+          </label>
+          {fileError && (
+            <p className="text-[11px] text-rose-600 font-medium">{fileError}</p>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-xs font-bold rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200"
+          >
+            ยกเลิก
+          </button>
+          <Button
+            type="button"
+            onClick={() => save.mutate()}
+            disabled={!ready || save.isPending}
+          >
+            {save.isPending ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <CheckCircle2 size={14} />
+            )}
+            บันทึก
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}

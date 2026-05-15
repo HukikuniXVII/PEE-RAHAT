@@ -28,9 +28,9 @@ const GRID_HALF_HOURS = GRID_HOURS * 2; // 30 half-hour body columns
 const SLOT_MINUTES = 30;
 const HOUR_RANGE = Array.from({ length: GRID_HOURS }, (_, i) => GRID_START_HOUR + i);
 const HALF_HOUR_RANGE = Array.from({ length: GRID_HALF_HOURS }, (_, i) => i);
-const DAY_ROW_HEIGHT_PX = 80;
-const DAY_LABEL_COL_PX = 104;
-const HALF_HOUR_COL_MIN_PX = 48;
+const HALF_HOUR_ROW_HEIGHT_PX = 32;
+const TIME_LABEL_COL_PX = 88;
+const DAY_COL_MIN_PX = 140;
 
 // Index by Mon-anchored offset (0=Mon ... 6=Sun) — matches the day-bucket
 // indexing used throughout the view.
@@ -269,10 +269,10 @@ export function ScheduleView({ initialBookings }: Props) {
   );
 }
 
-// ── desktop week grid (days = rows, half-hours = cols) ────────────────────
+// ── desktop week grid (half-hours = rows, days = cols) ────────────────────
 // Modern airy redesign: white surface, muted slate header band, pastel
 // event cards with a colored left-accent stripe and soft drop shadow.
-// 30-min column resolution so spans encode duration faithfully:
+// 30-min row resolution so spans encode duration faithfully:
 // 30 min = 1 cell, 60 = 2, 90 = 3, 120 = 4.
 function DesktopWeekGrid({
   days,
@@ -288,8 +288,8 @@ function DesktopWeekGrid({
       <div
         className="grid min-w-max relative bg-white"
         style={{
-          gridTemplateColumns: `${DAY_LABEL_COL_PX}px repeat(${GRID_HALF_HOURS}, minmax(${HALF_HOUR_COL_MIN_PX}px, 1fr))`,
-          gridTemplateRows: `auto repeat(7, ${DAY_ROW_HEIGHT_PX}px)`,
+          gridTemplateColumns: `${TIME_LABEL_COL_PX}px repeat(7, minmax(${DAY_COL_MIN_PX}px, 1fr))`,
+          gridTemplateRows: `auto repeat(${GRID_HALF_HOURS}, ${HALF_HOUR_ROW_HEIGHT_PX}px)`,
         }}
       >
         {/* corner cell — pinned at both axes, light surface */}
@@ -297,83 +297,89 @@ function DesktopWeekGrid({
           className="sticky top-0 left-0 z-30 bg-slate-50 text-slate-400 text-[10px] font-bold tracking-widest flex items-center justify-center border-b border-r border-slate-200"
           style={{ gridColumn: 1, gridRow: 1 }}
         >
-          วัน / เวลา
+          เวลา / วัน
         </div>
 
-        {/* hour headers — sticky-top, each label spans 2 half-hour cells */}
+        {/* day headers — sticky-top, one per day column; today gets an
+            indigo top-accent stripe and indigo text. */}
+        {days.map((day, dayIdx) => {
+          const isToday = sameDay(day, today);
+          const monIdx = day.getDay() === 0 ? 6 : day.getDay() - 1;
+          return (
+            <div
+              key={`dh-${day.toISOString()}`}
+              className={cn(
+                "sticky top-0 z-20 border-b border-l border-slate-200 px-3 flex flex-col items-center justify-center text-center transition-colors",
+                isToday
+                  ? "bg-white border-t-[4px] border-t-indigo-500"
+                  : "bg-slate-50",
+              )}
+              style={{ gridColumn: dayIdx + 2, gridRow: 1 }}
+            >
+              <span
+                className={cn(
+                  "text-[12px] font-bold leading-tight",
+                  isToday ? "text-indigo-700" : "text-slate-700",
+                )}
+              >
+                {WEEKDAY_LABELS[monIdx]}
+              </span>
+              <span
+                className={cn(
+                  "text-[10px] font-medium tabular-nums leading-tight mt-0.5",
+                  isToday ? "text-indigo-500" : "text-slate-400",
+                )}
+              >
+                {day.getDate()}/{day.getMonth() + 1}
+              </span>
+            </div>
+          );
+        })}
+
+        {/* hour labels — sticky-left, each label spans 2 half-hour rows */}
         {HOUR_RANGE.map((hour, i) => {
           const heavier = i % 3 === 0;
-          const colStart = 2 + i * 2;
+          const rowStart = 2 + i * 2;
           return (
             <div
               key={`hh-${hour}`}
               className={cn(
-                "sticky top-0 z-20 bg-slate-50 text-slate-500 text-[11px] font-semibold tabular-nums text-center flex items-center justify-center px-1 border-b border-slate-200",
-                heavier ? "border-l border-slate-200" : "border-l border-slate-100",
+                "sticky left-0 z-10 bg-slate-50 text-slate-500 text-[11px] font-semibold tabular-nums text-center flex items-start justify-center pt-1 px-1 border-r border-slate-200",
+                heavier ? "border-t border-slate-200" : "border-t border-slate-100",
               )}
-              style={{ gridColumn: `${colStart} / span 2`, gridRow: 1 }}
+              style={{ gridColumn: 1, gridRow: `${rowStart} / span 2` }}
             >
               {hour}:00–{hour + 1}:00
             </div>
           );
         })}
 
-        {/* day rows */}
+        {/* day columns */}
         {days.map((day, dayIdx) => {
           const isToday = sameDay(day, today);
           const bookings = dayBuckets[dayIdx] ?? [];
-          const monIdx = day.getDay() === 0 ? 6 : day.getDay() - 1;
           return (
             <Fragment key={day.toISOString()}>
-              {/* day label — sticky-left, soft slate-50 surface; today gets
-                  an indigo left-accent stripe and indigo text. */}
-              <div
-                className={cn(
-                  "sticky left-0 z-10 border-b border-r border-slate-100 px-3 flex flex-col items-center justify-center text-center transition-colors",
-                  isToday
-                    ? "bg-white border-l-[4px] border-l-indigo-500"
-                    : "bg-slate-50",
-                )}
-                style={{ gridColumn: 1, gridRow: dayIdx + 2 }}
-              >
-                <span
-                  className={cn(
-                    "text-[12px] font-bold leading-tight",
-                    isToday ? "text-indigo-700" : "text-slate-700",
-                  )}
-                >
-                  {WEEKDAY_LABELS[monIdx]}
-                </span>
-                <span
-                  className={cn(
-                    "text-[10px] font-medium tabular-nums leading-tight mt-0.5",
-                    isToday ? "text-indigo-500" : "text-slate-400",
-                  )}
-                >
-                  {day.getDate()}/{day.getMonth() + 1}
-                </span>
-              </div>
-
               {/* half-hour body cells: layered gridlines — slate-50 at half-
                   hour, slate-100 at hour, slate-200 every 3 hours. */}
               {HALF_HOUR_RANGE.map((i) => (
                 <div
                   key={`bg-${dayIdx}-${i}`}
                   className={cn(
-                    "border-b border-slate-100",
+                    "border-l border-slate-100",
                     i % 6 === 0
-                      ? "border-l border-slate-200"
+                      ? "border-t border-slate-200"
                       : i % 2 === 0
-                        ? "border-l border-slate-100"
-                        : "border-l border-slate-50",
+                        ? "border-t border-slate-100"
+                        : "border-t border-slate-50",
                     isToday && "bg-indigo-50/40",
                   )}
-                  style={{ gridColumn: i + 2, gridRow: dayIdx + 2 }}
+                  style={{ gridColumn: dayIdx + 2, gridRow: i + 2 }}
                 />
               ))}
 
               {/* events: 4px inset gives the cards breathing room from cell
-                  boundaries; span = duration / 30 min so widths are exact. */}
+                  boundaries; span = duration / 30 min so heights are exact. */}
               {bookings.map((b) => {
                 const start = new Date(b.scheduledAt);
                 const startMinutes =
@@ -383,9 +389,9 @@ function DesktopWeekGrid({
                   0,
                   Math.min(GRID_HALF_HOURS * SLOT_MINUTES, offsetMin),
                 );
-                const colStart = Math.floor(clampedOffset / SLOT_MINUTES) + 2;
-                const maxSpan = GRID_HALF_HOURS + 2 - colStart;
-                const colSpan = Math.max(
+                const rowStart = Math.floor(clampedOffset / SLOT_MINUTES) + 2;
+                const maxSpan = GRID_HALF_HOURS + 2 - rowStart;
+                const rowSpan = Math.max(
                   1,
                   Math.min(
                     maxSpan,
@@ -397,8 +403,8 @@ function DesktopWeekGrid({
                     key={b.id}
                     className="relative z-[1] p-1"
                     style={{
-                      gridColumn: `${colStart} / span ${colSpan}`,
-                      gridRow: dayIdx + 2,
+                      gridColumn: dayIdx + 2,
+                      gridRow: `${rowStart} / span ${rowSpan}`,
                     }}
                   >
                     <ScheduleEvent booking={b} layout="horizontal" />

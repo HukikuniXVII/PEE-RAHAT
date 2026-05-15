@@ -28,6 +28,8 @@ import {
   type KycSubmitDto,
   type KycSubmission,
   type KycUploadIntent,
+  type MaskedBankInfo,
+  type UpdateBankDto,
   type AvailabilityResult,
   type Page,
   type PaymentIntent,
@@ -302,6 +304,18 @@ export function createApiClient(opts: ApiClientOptions = {}) {
           request<void>(
             API_PATHS.tutorMyUnavailabilityById(id),
             { method: "DELETE" },
+            token,
+          ),
+      },
+      // FR-TH-02: tutor bank-info edit. getMyBank returns null when the
+      // tutor has not finished KYC yet; the page redirects accordingly.
+      bank: {
+        get: () =>
+          request<MaskedBankInfo | null>(API_PATHS.tutorMyBank, {}, token),
+        update: (dto: UpdateBankDto) =>
+          request<MaskedBankInfo>(
+            API_PATHS.tutorMyBank,
+            { method: "PATCH", body: JSON.stringify(dto) },
             token,
           ),
       },
