@@ -192,10 +192,12 @@ export class TutorsService {
   }
 
   /**
-   * FR-TH-03 — creates the TutorProfile row and promotes the User to role
-   * "tutor" atomically. Required before a tutor can submit KYC for review
-   * (FR-TH-02): the admin approve path expects a TutorProfile to flip
-   * isVerified on.
+   * FR-TH-03 — creates the TutorProfile row. The User's role stays at
+   * "student" until admin approves the KYC submission
+   * (AdminService.reviewKyc is the only place that promotes the role).
+   * This prevents a user who only filled in the profile form — and never
+   * completed KYC — from being treated as a tutor by search-visibility
+   * gates, dropdowns, or any other role check.
    */
   async onboard(supabaseId: string, dto: TutorOnboardingDto): Promise<Tutor> {
     const user = await this.prisma.user.findUnique({ where: { supabaseId } });
@@ -208,24 +210,17 @@ export class TutorsService {
       throw new ConflictException("คุณได้สมัครเป็นพี่ติวไว้แล้ว");
     }
 
-    const created = await this.prisma.$transaction(async (tx) => {
-      const profile = await tx.tutorProfile.create({
-        data: {
-          userId: user.id,
-          bio: dto.bio,
-          university: dto.university,
-          faculty: dto.faculty,
-          hourlyRate: dto.hourlyRate,
-          subjects: dto.subjects,
-          introVideoUrl: dto.introVideoUrl ?? null,
-        },
-        include: { user: true },
-      });
-      await tx.user.update({
-        where: { id: user.id },
-        data: { role: "tutor" },
-      });
-      return profile;
+    const created = await this.prisma.tutorProfile.create({
+      data: {
+        userId: user.id,
+        bio: dto.bio,
+        university: dto.university,
+        faculty: dto.faculty,
+        hourlyRate: dto.hourlyRate,
+        subjects: dto.subjects,
+        introVideoUrl: dto.introVideoUrl ?? null,
+      },
+      include: { user: true },
     });
     return this.toDto(created);
   }

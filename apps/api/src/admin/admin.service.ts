@@ -194,17 +194,29 @@ export class AdminService {
       // KycSubmission, and so /tutors/me/bank surfaces the same state.
       // bankAccountNumber stays encrypted (the value on the submission
       // is already the ciphertext blob — passing through verbatim).
-      await this.prisma.tutorProfile.update({
-        where: { userId: sub.userId },
-        data: {
-          isVerified: true,
-          passbookObjectKey: sub.passbookObjectKey,
-          bankName: sub.bankName,
-          bankAccountNumber: sub.bankAccountNumber,
-          bankAccountName: sub.bankAccountName,
-          bankUpdatedAt: new Date(),
-        },
-      });
+      //
+      // Admin approval is also the only place the User's role flips from
+      // "student" to "tutor". TutorsService.onboard intentionally leaves
+      // role unchanged so users who only filled the profile form (and
+      // never finished KYC) don't get treated as tutors by role-gated
+      // surfaces (dropdown, search visibility, etc.).
+      await this.prisma.$transaction([
+        this.prisma.tutorProfile.update({
+          where: { userId: sub.userId },
+          data: {
+            isVerified: true,
+            passbookObjectKey: sub.passbookObjectKey,
+            bankName: sub.bankName,
+            bankAccountNumber: sub.bankAccountNumber,
+            bankAccountName: sub.bankAccountName,
+            bankUpdatedAt: new Date(),
+          },
+        }),
+        this.prisma.user.update({
+          where: { id: sub.userId },
+          data: { role: "tutor" },
+        }),
+      ]);
     }
     return this.prisma.kycSubmission.update({
       where: { id },
