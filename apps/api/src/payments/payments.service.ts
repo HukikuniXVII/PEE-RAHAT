@@ -225,15 +225,20 @@ export class PaymentsService {
   }
 
   /**
-   * FR-PM-05: when the 24h report window closes without a dispute, flip the
-   * intent from `held_in_escrow` to `released` and mark the booking complete
-   * so the next payout batch (FR-PM-06) can pick it up.
+   * FR-PM-05 / FR-PM-06: once the 24h report window closes without dispute
+   * the booking is settled — the class is `completed` and the intent moves
+   * to `released_for_payout`, where it waits for the admin to fold it into
+   * a payout batch on the 15th / 30th.
    *
-   * Stub: real implementation will run as a BullMQ scheduled job; this method
-   * is the pure transition the job will call. Disputed intents (admin freeze)
-   * are excluded so they stay out of payouts.
+   * Disputed intents (admin freeze) are excluded by the `held_in_escrow`
+   * filter — they sit at `disputed` until an admin resolves them.
+   *
+   * This used to flip the intent straight to a `released` status that
+   * auto-batched on a cron. Post manual-payments refactor, release-for-
+   * payout is the only auto transition; the batch creation is admin-
+   * triggered via /admin/payouts/generate-batch.
    */
-  async releaseExpiredEscrow(now: Date = new Date()): Promise<{ released: number }> {
+  async releaseForPayout(now: Date = new Date()): Promise<{ released: number }> {
     const due = await this.prisma.booking.findMany({
       where: {
         status: "paid",
