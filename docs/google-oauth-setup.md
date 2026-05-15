@@ -21,8 +21,12 @@ You need a Cloud project to host the OAuth client. Free works.
 2. User type: **External** (since tutors are individual Gmail accounts,
    not a Workspace tenant).
 3. Fill in app name (`Pee Rahat`), support email, developer email.
-4. Scopes: add `https://www.googleapis.com/auth/calendar.events`
-   (the only scope we need — minimum-privilege).
+4. Scopes: add all three. `calendar.events` is for the Meet creation;
+   `userinfo.email` + `openid` let the OAuth callback read the tutor's
+   Google address to persist alongside the refresh token.
+   - `https://www.googleapis.com/auth/calendar.events`
+   - `https://www.googleapis.com/auth/userinfo.email`
+   - `openid`
 5. Test users: while the app is unverified, add the Gmail addresses of
    the tutors you want to test with. Move to **production** after
    Google verifies — until then non-test-users will see the "unverified
