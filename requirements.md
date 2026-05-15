@@ -68,6 +68,7 @@ Pee Rahat is a Thai EdTech marketplace platform connecting high school students 
 | FR-TH-12 | Postpone negotiation chat: initiator can propose a new slot (≥24h ahead); counterparty can accept (clone booking + keep escrow) or decline (refund path); system messages logged for open/propose/confirm/cancel/timeout | Must | 1 |
 | FR-TH-13 | Postpone timeout worker: BullMQ job fires at `chatExpiresAt` (2h); resolver classifies outcome by whether the counterparty messaged after `PostponeRequest.createdAt`, then runs the cancellation+refund path | Must | 1 |
 | FR-TH-14 | Tutor defect ranking: `TutorProfile.defectCount` increments on tutor-unresponsive or tutor-initiated-decline outcomes; tutor search deprioritizes tutors with `defectCount >= 3` | Must | 1 |
+| FR-TH-17 | Auto-generated Google Meet link at class start: a BullMQ worker fires at `scheduledAt − GOOGLE_MEET_LEAD_MINUTES` for paid bookings, calls Google Calendar API (`events.insert` with `conferenceData`) under a platform service account to create the Meet, persists `meetLink` + `googleCalendarEventId` on the booking, and posts a system chat message with the link. Postpone-confirm deletes the old event and re-enqueues. When `GOOGLE_MEET_ENABLED=false` the worker posts a fallback message. Bridges the §11 "use Google Meet externally" gap without implementing in-platform video (FR-TH-08 stays Phase 2). | Must | 1 |
 
 ### 4.2 Sheet Marketplace
 
