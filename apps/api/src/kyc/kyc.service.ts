@@ -1,12 +1,27 @@
-import { BadRequestException, Injectable, Logger } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  UnprocessableEntityException,
+} from "@nestjs/common";
 import type {
   KycSubmission,
   KycSubmitDto,
   KycUploadIntent,
 } from "@peerahat/types";
 
+import { CryptoService } from "../common/crypto.service";
 import { StorageService } from "../common/storage.service";
 import { PrismaService } from "../prisma/prisma.service";
+
+/**
+ * FR-TH-02: name normalization for the bankAccountName === idName check.
+ * Thai has no case so toLowerCase is a no-op for ID names, but the trim +
+ * whitespace-collapse covers the common slips (extra spaces, NBSP runs).
+ */
+export function normalizeName(s: string): string {
+  return s.replace(/\s+/g, " ").trim().toLowerCase();
+}
 
 @Injectable()
 export class KycService {
@@ -15,6 +30,7 @@ export class KycService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly crypto: CryptoService,
   ) {}
 
   async requestUpload(
@@ -35,12 +51,28 @@ export class KycService {
     const user = await this.prisma.user.findUnique({ where: { supabaseId } });
     if (!user) throw new BadRequestException("Unknown user");
 
+    // FR-TH-02: bankAccountName must match the legal name on the ID
+    // (normalized). 422 because the data is well-formed but fails a
+    // business invariant — distinct from 400 schema validation.
+    const idName = dto.idName.trim();
+    const bankAccountName = dto.bank.bankAccountName.trim();
+    if (normalizeName(bankAccountName) !== normalizeName(idName)) {
+      throw new UnprocessableEntityException(
+        "ชื่อบัญชีธนาคารต้องตรงกับชื่อในบัตรประชาชน",
+      );
+    }
+
     const submission = await this.prisma.kycSubmission.create({
       data: {
         userId: user.id,
         idPhotoKey: dto.idPhotoKey,
         selfieKey: dto.selfieKey,
         transcriptKey: dto.transcriptKey,
+        idName,
+        passbookObjectKey: dto.passbookObjectKey,
+        bankName: dto.bank.bankName,
+        bankAccountNumber: this.crypto.encrypt(dto.bank.bankAccountNumber),
+        bankAccountName,
         status: "pending",
       },
     });
@@ -51,6 +83,7 @@ export class KycService {
       idPhotoKey: submission.idPhotoKey,
       selfieKey: submission.selfieKey,
       transcriptKey: submission.transcriptKey,
+      passbookObjectKey: submission.passbookObjectKey ?? undefined,
       status: submission.status,
       submittedAt: submission.submittedAt.toISOString(),
     };

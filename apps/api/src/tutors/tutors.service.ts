@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import type {
+  MaskedBankInfo,
   Subject,
   Tutor,
   TutorOnboardingDto,
@@ -13,19 +14,23 @@ import type {
   TutorReview,
   TutorSearchQuery,
   TutorSearchResult,
+  UpdateBankDto,
 } from "@peerahat/types";
 import type { Prisma } from "@prisma/client";
 
 import type { TutorUnavailability } from "@peerahat/types";
 
 import { BookingsService, type BusySlot } from "../bookings/bookings.service";
+import { CryptoService } from "../common/crypto.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { normalizeName } from "../kyc/kyc.service";
 
 @Injectable()
 export class TutorsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly bookings: BookingsService,
+    private readonly crypto: CryptoService,
   ) {}
 
   /**
@@ -123,9 +128,12 @@ export class TutorsService {
     // tutor without OAuth can't deliver a class — surfacing them in
     // search would be a dead-end. The connection state is also the
     // platform's "ready to take bookings" signal alongside isVerified.
+    // Additional gate (FR-TH-02): tutors without bank info can't be paid;
+    // hiding them from search prevents bookings that would block on payout.
     const where: Prisma.TutorProfileWhereInput = {
       isVerified: true,
       googleRefreshToken: { not: null },
+      bankAccountNumber: { not: null },
     };
     if (query.subject) {
       where.subjects = { has: query.subject };
@@ -383,5 +391,98 @@ export class TutorsService {
       avatarUrl: row.user.avatarUrl ?? "",
       googleConnected: row.googleRefreshToken !== null,
     };
+  }
+
+  // ── FR-TH-02: bank-info edit surface ───────────────────────────────────
+  /** Masked bank info for the tutor's own profile page — never returns the
+   *  full account number. */
+  async getMyBank(supabaseId: string): Promise<MaskedBankInfo | null> {
+    const tutor = await this.requireTutorBySupabaseId(supabaseId);
+    if (
+      !tutor.bankAccountNumber ||
+      !tutor.bankName ||
+      !tutor.bankAccountName ||
+      !tutor.bankUpdatedAt
+    ) {
+      return null;
+    }
+    const accountNumber = this.crypto.decrypt(tutor.bankAccountNumber);
+    return {
+      bankName: tutor.bankName as MaskedBankInfo["bankName"],
+      accountLast4: accountNumber.slice(-4),
+      accountName: tutor.bankAccountName,
+      updatedAt: tutor.bankUpdatedAt.toISOString(),
+    };
+  }
+
+  /**
+   * FR-TH-02: tutor edits their bank info after KYC approval. Server
+   * re-runs the bankAccountName === idName check (against the *latest
+   * verified* KycSubmission). Also writes back to that KycSubmission so
+   * admin queues stay in sync.
+   */
+  async updateMyBank(
+    supabaseId: string,
+    dto: UpdateBankDto,
+  ): Promise<MaskedBankInfo> {
+    const tutor = await this.requireTutorBySupabaseId(supabaseId);
+    const latestKyc = await this.prisma.kycSubmission.findFirst({
+      where: { userId: tutor.userId, status: "verified" },
+      orderBy: { reviewedAt: "desc" },
+    });
+    if (!latestKyc || !latestKyc.idName) {
+      throw new BadRequestException(
+        "ต้องผ่าน KYC ก่อนจึงจะแก้ไขข้อมูลบัญชีได้",
+      );
+    }
+    const bankAccountName = dto.bank.bankAccountName.trim();
+    if (normalizeName(bankAccountName) !== normalizeName(latestKyc.idName)) {
+      throw new BadRequestException(
+        "ชื่อบัญชีธนาคารต้องตรงกับชื่อในบัตรประชาชน",
+      );
+    }
+    const encryptedAccount = this.crypto.encrypt(dto.bank.bankAccountNumber);
+    const now = new Date();
+
+    await this.prisma.$transaction([
+      this.prisma.tutorProfile.update({
+        where: { id: tutor.id },
+        data: {
+          passbookObjectKey: dto.passbookObjectKey,
+          bankName: dto.bank.bankName,
+          bankAccountNumber: encryptedAccount,
+          bankAccountName,
+          bankUpdatedAt: now,
+        },
+      }),
+      this.prisma.kycSubmission.update({
+        where: { id: latestKyc.id },
+        data: {
+          passbookObjectKey: dto.passbookObjectKey,
+          bankName: dto.bank.bankName,
+          bankAccountNumber: encryptedAccount,
+          bankAccountName,
+        },
+      }),
+    ]);
+
+    return {
+      bankName: dto.bank.bankName,
+      accountLast4: dto.bank.bankAccountNumber.slice(-4),
+      accountName: bankAccountName,
+      updatedAt: now.toISOString(),
+    };
+  }
+
+  private async requireTutorBySupabaseId(supabaseId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { supabaseId },
+      include: { tutorProfile: true },
+    });
+    if (!user) throw new BadRequestException("Unknown user");
+    if (!user.tutorProfile) {
+      throw new BadRequestException("Only tutors can manage bank info");
+    }
+    return user.tutorProfile;
   }
 }

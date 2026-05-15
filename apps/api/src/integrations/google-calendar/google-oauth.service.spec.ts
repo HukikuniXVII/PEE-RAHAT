@@ -70,7 +70,11 @@ describe("GoogleOAuthService (FR-TH-17 rev3)", () => {
         expect.objectContaining({
           access_type: "offline",
           prompt: "consent",
-          scope: ["https://www.googleapis.com/auth/calendar.events"],
+          scope: expect.arrayContaining([
+            "https://www.googleapis.com/auth/calendar.events",
+            "https://www.googleapis.com/auth/userinfo.email",
+            "openid",
+          ]),
         }),
       );
       // The state JWT carries the tutorId — we don't pin the exact value

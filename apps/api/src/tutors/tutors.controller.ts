@@ -30,11 +30,14 @@ class CreateUnavailabilityDto {
   @IsInt() @Min(1) @Max(1440) endMinute!: number;
   @IsOptional() @IsString() @MaxLength(120) reason?: string;
 }
-import type {
-  Subject,
-  Tutor,
-  TutorReview,
-  TutorSearchResult,
+import {
+  type MaskedBankInfo,
+  type Subject,
+  type Tutor,
+  type TutorReview,
+  type TutorSearchResult,
+  type UpdateBankDto,
+  updateBankSchema,
 } from "@peerahat/types";
 
 const SUBJECT_VALUES = [
@@ -191,6 +194,25 @@ export class TutorsController {
     @Param("id") id: string,
   ) {
     return this.tutors.deleteUnavailability(user.sub, id);
+  }
+
+  // FR-TH-02: bank-info read + edit for tutors after KYC approval.
+  @Get("me/bank")
+  @UseGuards(SupabaseAuthGuard)
+  getMyBank(
+    @CurrentUser() user: SupabaseJwtPayload,
+  ): Promise<MaskedBankInfo | null> {
+    return this.tutors.getMyBank(user.sub);
+  }
+
+  @Patch("me/bank")
+  @UseGuards(SupabaseAuthGuard)
+  updateMyBank(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Body() raw: unknown,
+  ): Promise<MaskedBankInfo> {
+    const dto: UpdateBankDto = updateBankSchema.parse(raw);
+    return this.tutors.updateMyBank(user.sub, dto);
   }
 
   @Post(":id/reviews")

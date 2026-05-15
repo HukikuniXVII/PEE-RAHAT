@@ -11,7 +11,15 @@ import { CryptoService } from "../../common/crypto.service";
 import { PrismaService } from "../../prisma/prisma.service";
 
 const STATE_TTL = "10m";
-const SCOPES = ["https://www.googleapis.com/auth/calendar.events"];
+// calendar.events is the only scope the runtime *uses*, but userinfo.email
+// (+ openid) is required so the callback can read the tutor's Google email
+// to persist alongside the refresh token. Without these the userinfo.get()
+// call in handleCallback throws "missing required authentication credential".
+const SCOPES = [
+  "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/userinfo.email",
+  "openid",
+];
 
 interface StatePayload {
   tutorId: string;

@@ -138,9 +138,21 @@ export class AdminService {
           "ผู้ใช้ยังไม่ได้กรอกข้อมูลพี่ติว — ขอให้ทำขั้นตอน Onboarding ก่อนจึงอนุมัติได้",
         );
       }
+      // FR-TH-02: mirror passbook + bank info from the KYC submission to
+      // TutorProfile so PayoutsService.queue can read it without joining
+      // KycSubmission, and so /tutors/me/bank surfaces the same state.
+      // bankAccountNumber stays encrypted (the value on the submission
+      // is already the ciphertext blob — passing through verbatim).
       await this.prisma.tutorProfile.update({
         where: { userId: sub.userId },
-        data: { isVerified: true },
+        data: {
+          isVerified: true,
+          passbookObjectKey: sub.passbookObjectKey,
+          bankName: sub.bankName,
+          bankAccountNumber: sub.bankAccountNumber,
+          bankAccountName: sub.bankAccountName,
+          bankUpdatedAt: new Date(),
+        },
       });
     }
     return this.prisma.kycSubmission.update({
