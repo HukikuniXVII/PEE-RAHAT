@@ -9,6 +9,7 @@ import type {
 } from "@peerahat/types";
 
 import { StorageService } from "../common/storage.service";
+import { ClassStartQueue } from "../integrations/google-meet/class-start.queue";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
@@ -16,6 +17,7 @@ export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly classStart: ClassStartQueue,
   ) {}
 
   async listReports({
@@ -208,10 +210,13 @@ export class AdminService {
     });
     if (intent.bookingId) {
       const reportWindowEndsAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-      await this.prisma.booking.update({
+      const booking = await this.prisma.booking.update({
         where: { id: intent.bookingId },
         data: { status: "paid", reportWindowEndsAt },
       });
+      // FR-TH-17: schedule Google Meet link generation. Idempotent on
+      // bookingId; safe if an admin re-approves after a transient error.
+      await this.classStart.enqueueForBooking(booking.id, booking.scheduledAt);
     }
     return updated;
   }

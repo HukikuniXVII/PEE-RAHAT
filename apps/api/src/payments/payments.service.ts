@@ -12,6 +12,7 @@ import type {
 } from "@peerahat/types";
 import { addHours } from "date-fns";
 
+import { ClassStartQueue } from "../integrations/google-meet/class-start.queue";
 import { PrismaService } from "../prisma/prisma.service";
 import { encodePromptPayPayload } from "./promptpay";
 import { SlipOkClient } from "./slip-ok.client";
@@ -21,6 +22,7 @@ export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly slipOk: SlipOkClient,
+    private readonly classStart: ClassStartQueue,
   ) {}
 
   async createIntent(
@@ -159,10 +161,13 @@ export class PaymentsService {
     });
 
     if (intent.bookingId) {
-      await this.prisma.booking.update({
+      const booking = await this.prisma.booking.update({
         where: { id: intent.bookingId },
         data: { status: "paid", reportWindowEndsAt: addHours(new Date(), 24) },
       });
+      // FR-TH-17: schedule the Google Meet link generation. Idempotent on
+      // bookingId — safe even if uploadSlip is retried.
+      await this.classStart.enqueueForBooking(booking.id, booking.scheduledAt);
     }
 
     return {
