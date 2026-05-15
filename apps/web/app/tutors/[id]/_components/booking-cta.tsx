@@ -3,7 +3,9 @@
 import type { Tutor } from "@peerahat/types";
 import { useQuery } from "@tanstack/react-query";
 import { CalendarPlus, Pencil } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { createApiClient } from "@/lib/api-client";
@@ -17,6 +19,7 @@ interface Props {
 }
 
 export function BookingCta({ tutor, variant }: Props) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
 
   // FR-TH-06: hide the CTA when viewer is the tutor themselves. Backend
@@ -29,6 +32,17 @@ export function BookingCta({ tutor, variant }: Props) {
     retry: false,
   });
   const isOwnProfile = meQuery.data?.tutorProfileId === tutor.id;
+  const isAuthed = !!meQuery.data;
+  const loginHref = `/login?next=${encodeURIComponent(`/tutors/${tutor.id}`)}` as Route;
+
+  const handleBookClick = () => {
+    if (meQuery.isPending) return;
+    if (!isAuthed) {
+      router.push(loginHref);
+      return;
+    }
+    setOpen(true);
+  };
 
   if (isOwnProfile) {
     if (variant === "mobile-bar") return null;
@@ -48,8 +62,9 @@ export function BookingCta({ tutor, variant }: Props) {
       {variant === "sidebar" ? (
         <button
           type="button"
-          onClick={() => setOpen(true)}
-          className="w-full px-6 py-4 bg-indigo-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
+          onClick={handleBookClick}
+          disabled={meQuery.isPending}
+          className="w-full px-6 py-4 bg-indigo-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <CalendarPlus size={18} />
           จองคลาส
@@ -57,14 +72,17 @@ export function BookingCta({ tutor, variant }: Props) {
       ) : (
         <button
           type="button"
-          onClick={() => setOpen(true)}
-          className="flex-1 px-6 py-3.5 bg-indigo-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
+          onClick={handleBookClick}
+          disabled={meQuery.isPending}
+          className="flex-1 px-6 py-3.5 bg-indigo-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <CalendarPlus size={16} />
           จองคลาส
         </button>
       )}
-      <BookingDialog tutor={tutor} open={open} onOpenChange={setOpen} />
+      {isAuthed && (
+        <BookingDialog tutor={tutor} open={open} onOpenChange={setOpen} />
+      )}
     </>
   );
 }
