@@ -35,7 +35,7 @@ export class PayoutsService {
     }
     const releasedIntents = await this.prisma.paymentIntent.findMany({
       where: {
-        status: "released",
+        status: "released_for_payout",
         itemType: "booking",
         releasedAt: { gte: periodStart, lt: periodEnd },
         bookingId: { not: null },
@@ -108,7 +108,11 @@ export class PayoutsService {
       withholdingTaxThb: r.withholdingTaxThb,
       netThb: r.netThb,
       scheduledAt: r.scheduledAt.toISOString(),
-      paidAt: r.paidAt ? r.paidAt.toISOString() : null,
+      status: r.status,
+      transferredAt: r.transferredAt ? r.transferredAt.toISOString() : null,
+      transferredBy: r.transferredBy,
+      transferSlipKey: r.transferSlipKey,
+      notes: r.notes,
     }));
   }
 

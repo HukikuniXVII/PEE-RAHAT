@@ -62,7 +62,13 @@ export class PaymentsService {
           payerId: existing.payerId,
           amountThb: existing.amountThb,
           promptPayQrPayload: existing.promptPayQrPayload,
-          status: existing.status,
+          // `verified` is a deprecated enum value retained for legacy rows;
+          // surface it as held_in_escrow which is what it meant before
+          // the manual-flow refactor collapsed those two states.
+          status:
+            existing.status === "verified"
+              ? "held_in_escrow"
+              : existing.status,
           expiresAt: existing.expiresAt.toISOString(),
           createdAt: existing.createdAt.toISOString(),
         };
@@ -96,7 +102,8 @@ export class PaymentsService {
       payerId: intent.payerId,
       amountThb: intent.amountThb,
       promptPayQrPayload: intent.promptPayQrPayload,
-      status: intent.status,
+      // see note above on the deprecated `verified` enum value.
+      status: intent.status === "verified" ? "held_in_escrow" : intent.status,
       expiresAt: intent.expiresAt.toISOString(),
       createdAt: intent.createdAt.toISOString(),
     };
@@ -132,7 +139,11 @@ export class PaymentsService {
 
     await this.prisma.paymentIntent.update({
       where: { id: intent.id },
-      data: { slipObjectKey: dto.slipObjectKey, status: "verifying" },
+      data: {
+        slipObjectKey: dto.slipObjectKey,
+        slipUploadedAt: new Date(),
+        status: "verifying",
+      },
     });
 
     const verdict = await this.slipOk.verify(dto.slipObjectKey, intent.amountThb);
@@ -156,7 +167,9 @@ export class PaymentsService {
       where: { id: intent.id },
       data: {
         status: "held_in_escrow",
-        slipOkRef: verdict.slipOkRef,
+        transactionId: verdict.slipOkRef,
+        verifiedAmountThb: verdict.amountThb,
+        zercleVerifiedAt: new Date(),
       },
     });
 
@@ -173,7 +186,7 @@ export class PaymentsService {
     return {
       paymentIntentId: updated.id,
       status: "held_in_escrow",
-      slipOkRef: verdict.slipOkRef,
+      transactionId: verdict.slipOkRef,
     };
   }
 
@@ -223,7 +236,7 @@ export class PaymentsService {
       await this.prisma.$transaction([
         this.prisma.paymentIntent.update({
           where: { id: booking.paymentIntent.id },
-          data: { status: "released", releasedAt: now },
+          data: { status: "released_for_payout", releasedAt: now },
         }),
         this.prisma.booking.update({
           where: { id: booking.id },

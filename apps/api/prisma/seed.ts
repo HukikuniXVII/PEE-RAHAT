@@ -316,7 +316,7 @@ async function seed() {
       id: "seed-pi-4",
       bookingId: "seed-booking-4",
       amountThb: 350,
-      status: "released" as const,
+      status: "released_for_payout" as const,
       releasedAt: addDays(now, -5),
       expiresAt: addDays(now, -8),
       payoutId: "seed-payout-1",

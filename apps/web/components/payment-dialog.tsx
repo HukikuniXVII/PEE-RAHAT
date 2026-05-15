@@ -69,7 +69,7 @@ export function PaymentDialog({
         paymentIntentId: intent.id,
         slipObjectKey,
       });
-      if (result.status === "verified" || result.status === "held_in_escrow") {
+      if (result.status === "held_in_escrow") {
         setFinalStatus("held_in_escrow");
         setStep(3);
       } else if (result.status === "slip_uploaded") {

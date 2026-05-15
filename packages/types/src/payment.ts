@@ -4,13 +4,18 @@ export type PaymentStatus =
   | "pending_transfer"
   | "slip_uploaded"
   | "verifying"
-  | "verified"
   | "held_in_escrow"
-  | "released"
+  | "released_for_payout"
+  | "paid_out"
   | "refunded"
   | "failed"
   | "disputed"
   | "partially_refunded";
+// `verified` is deprecated and intentionally excluded from this union —
+// the schema retains it because Postgres can't drop enum values, but no
+// code path should emit or branch on it.
+
+export type PayoutStatus = "pending" | "in_progress" | "completed" | "failed";
 
 export interface PaymentIntent {
   id: string;
@@ -37,7 +42,8 @@ export interface UploadSlipDto {
 export interface SlipVerificationResult {
   paymentIntentId: string;
   status: PaymentStatus;
-  slipOkRef?: string;
+  /** Bank transaction id from ZercleSlip — used for duplicate-slip dedupe. */
+  transactionId?: string;
   failureReason?: string;
 }
 
@@ -57,5 +63,24 @@ export interface Payout {
   withholdingTaxThb: number;
   netThb: number;
   scheduledAt: string;
-  paidAt?: string;
+  status: PayoutStatus;
+  transferredAt?: string;
+  transferredBy?: string;
+  transferSlipKey?: string;
+  notes?: string;
+}
+
+export interface GeneratePayoutBatchDto {
+  /** ISO date for the batch (typically the 15th or 30th). */
+  batchDate: string;
+}
+
+export interface MarkPayoutTransferredDto {
+  /** R2/S3 object key the admin uploaded as proof of the manual transfer. */
+  slipObjectKey: string;
+  notes?: string;
+}
+
+export interface FailPayoutDto {
+  reason: string;
 }

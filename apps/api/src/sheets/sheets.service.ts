@@ -142,7 +142,7 @@ export class SheetsService {
       where: {
         payerId: user.id,
         sheetId,
-        status: { in: ["verified", "held_in_escrow", "released"] },
+        status: { in: ["held_in_escrow", "released_for_payout", "paid_out"] },
       },
     });
     if (!purchased) throw new ForbiddenException("No purchase on record");

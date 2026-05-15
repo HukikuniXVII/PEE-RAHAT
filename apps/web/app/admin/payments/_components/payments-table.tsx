@@ -187,9 +187,9 @@ export function PaymentsTable({
                     >
                       {r.status}
                     </span>
-                    {r.slipOkRef && (
+                    {r.transactionId && (
                       <p className="text-[10px] text-slate-400 mt-1">
-                        SlipOK: {r.slipOkRef}
+                        Txn: {r.transactionId}
                       </p>
                     )}
                     {r.failureReason && (

@@ -186,14 +186,14 @@ export function PayoutsTable({ initialUnpaid, initialPaid }: Props) {
                   </td>
                   <td className="p-4 text-xs text-slate-500 whitespace-nowrap">
                     {formatDate(r.scheduledAt)}
-                    {r.paidAt && (
+                    {r.transferredAt && (
                       <p className="text-[10px] text-emerald-600">
-                        Paid {formatDate(r.paidAt)}
+                        Paid {formatDate(r.transferredAt)}
                       </p>
                     )}
                   </td>
                   <td className="p-4 text-right">
-                    {r.paidAt ? (
+                    {r.transferredAt ? (
                       <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600">
                         <CheckCircle2 size={12} />
                         Paid

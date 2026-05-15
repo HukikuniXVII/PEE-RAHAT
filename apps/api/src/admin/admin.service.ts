@@ -153,14 +153,14 @@ export class AdminService {
 
   // FR-PM-01: admin review surface for payment slips.
   //   pending  → mid-flight (slip_uploaded/verifying, present after API crash)
-  //   success  → confirmed (held_in_escrow + released)
-  //   failed   → SlipOK rejection; admin can override via approveSlip
+  //   success  → confirmed (held_in_escrow + released_for_payout + paid_out)
+  //   failed   → ZercleSlip rejection; admin can override via approveSlip
   async paymentsQueue(
     filter: "pending" | "success" | "failed" = "pending",
   ): Promise<AdminPaymentRow[]> {
     const statuses: PaymentStatus[] =
       filter === "success"
-        ? ["held_in_escrow", "released"]
+        ? ["held_in_escrow", "released_for_payout", "paid_out"]
         : filter === "failed"
           ? ["failed"]
           : ["slip_uploaded", "verifying"];
@@ -179,7 +179,7 @@ export class AdminService {
       amountThb: r.amountThb,
       status: r.status as PaymentStatus,
       slipObjectKey: r.slipObjectKey,
-      slipOkRef: r.slipOkRef,
+      transactionId: r.transactionId,
       failureReason: r.failureReason,
       createdAt: r.createdAt.toISOString(),
     }));

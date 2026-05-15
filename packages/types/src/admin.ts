@@ -1,5 +1,5 @@
 import type { ReportTargetType } from "./community";
-import type { PaymentItemType, PaymentStatus } from "./payment";
+import type { PayoutStatus, PaymentItemType, PaymentStatus } from "./payment";
 
 export interface AdminReport {
   id: string;
@@ -42,7 +42,8 @@ export interface AdminPaymentRow {
   amountThb: number;
   status: PaymentStatus;
   slipObjectKey: string | null;
-  slipOkRef: string | null;
+  /** Bank transaction id from ZercleSlip (was slipOkRef pre-refactor). */
+  transactionId: string | null;
   failureReason: string | null;
   createdAt: string;
 }
@@ -63,10 +64,27 @@ export interface AdminPayoutRow {
   withholdingTaxThb: number;
   netThb: number;
   scheduledAt: string;
-  paidAt: string | null;
+  status: PayoutStatus;
+  transferredAt: string | null;
+  transferredBy: string | null;
+  transferSlipKey: string | null;
+  notes: string | null;
 }
 
 export interface ComputePayoutsDto {
   periodStart: string;
   periodEnd: string;
+}
+
+// FR-PM-06: queue of released-for-payout intents awaiting batch generation.
+export interface AdminPayoutQueueGroup {
+  tutorId: string;
+  tutorDisplayName: string;
+  tutorPromptPay: string | null;
+  intentIds: string[];
+  classCount: number;
+  grossThb: number;
+  commissionThb: number;
+  withholdingTaxThb: number;
+  netThb: number;
 }

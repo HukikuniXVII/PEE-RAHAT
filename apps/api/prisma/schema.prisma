@@ -334,13 +334,24 @@ enum PaymentStatus {
   pending_transfer
   slip_uploaded
   verifying
+  // `verified` is deprecated — kept in the enum because Postgres cannot
+  // drop enum values. No code path emits it; treat occurrences as data
+  // that predates the manual-flow refactor.
   verified
   held_in_escrow
-  released
+  released_for_payout // class done + report window passed; queued for next batch
+  paid_out            // admin marked the manual PromptPay transfer to tutor done
   refunded
   failed
   disputed
   partially_refunded
+}
+
+enum PayoutStatus {
+  pending     // queued for next batch
+  in_progress // admin is processing
+  completed   // money sent to tutor
+  failed      // tutor account issue, etc.
 }
 
 model PaymentIntent {
@@ -353,10 +364,23 @@ model PaymentIntent {
   sheetId            String?
   sheet              StudySheet?     @relation(fields: [sheetId], references: [id])
   amountThb          Int
+  // FR-TH-11: pre-refund snapshot. Refunds shrink amountThb in place so
+  // the payout batch picks up the surviving tutor portion unchanged;
+  // originalAmountThb keeps the audit trail of what the student paid.
+  originalAmountThb  Int?
   promptPayQrPayload String
   status             PaymentStatus   @default(pending_transfer)
   slipObjectKey      String?
-  slipOkRef          String?
+  slipUploadedAt     DateTime?
+  // FR-PM-02: ZercleSlip verification audit trail.
+  // - transactionId is the bank transaction ref off the slip — used to
+  //   block duplicate-slip submissions (one slip ≠ two paid bookings).
+  // - zercleResponse is the full Zercle payload (sender, recipient,
+  //   transferDate, raw OCR) for admin review and PDPA-friendly audit.
+  transactionId      String?         @unique
+  zercleResponse     Json?
+  zercleVerifiedAt   DateTime?
+  verifiedAmountThb  Int?
   failureReason      String?
   expiresAt          DateTime
   releasedAt         DateTime?
@@ -379,6 +403,14 @@ model Payout {
   withholdingTaxThb Int
   netThb            Int
   scheduledAt       DateTime
+  // FR-PM-06: admin-confirmed manual transfer tracking.
+  status            PayoutStatus @default(pending)
+  transferredAt     DateTime?
+  transferredBy     String?      // admin User.id who confirmed the transfer
+  transferSlipKey   String?      // R2/S3 object key for admin's transfer-proof slip
+  notes             String?
+  // Retained for the data already on disk; new flow uses transferredAt.
+  // mark-transferred sets both for one release cycle of overlap.
   paidAt            DateTime?
 
   intents PaymentIntent[]

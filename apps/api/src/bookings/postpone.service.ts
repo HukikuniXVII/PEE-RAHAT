@@ -415,7 +415,7 @@ export class PostponeService implements OnModuleInit {
         split.tutorThb > 0
           ? {
               amountThb: split.tutorThb,
-              status: "released" as const,
+              status: "released_for_payout" as const,
               releasedAt: new Date(),
             }
           : {
