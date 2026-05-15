@@ -118,8 +118,14 @@ export class TutorsService {
   }
 
   async search(query: TutorSearchQuery): Promise<TutorSearchResult> {
+    // FR-TH-17 rev3: search hides tutors who haven't connected a Google
+    // account. Bookings have to mint a Meet link at payment-confirm, so a
+    // tutor without OAuth can't deliver a class — surfacing them in
+    // search would be a dead-end. The connection state is also the
+    // platform's "ready to take bookings" signal alongside isVerified.
     const where: Prisma.TutorProfileWhereInput = {
       isVerified: true,
+      googleRefreshToken: { not: null },
     };
     if (query.subject) {
       where.subjects = { has: query.subject };
@@ -375,6 +381,7 @@ export class TutorsService {
       isVerified: row.isVerified,
       introVideoUrl: row.introVideoUrl ?? undefined,
       avatarUrl: row.user.avatarUrl ?? "",
+      googleConnected: row.googleRefreshToken !== null,
     };
   }
 }

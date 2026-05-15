@@ -35,6 +35,8 @@ export interface Tutor {
   isVerified: boolean;
   introVideoUrl?: string;
   avatarUrl: string;
+  /** FR-TH-17: tutor has connected a Google account; required for search visibility. */
+  googleConnected: boolean;
 }
 
 export interface TutorReview {
