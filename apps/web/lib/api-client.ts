@@ -2,10 +2,14 @@ import {
   API_PATHS,
   type AdminKycQueueItem,
   type AdminPaymentRow,
+  type AdminPayoutQueueGroup,
   type AdminPayoutRow,
   type AdminReport,
   type AvatarUploadIntent,
   type ComputePayoutsDto,
+  type FailPayoutDto,
+  type GeneratePayoutBatchDto,
+  type MarkPayoutTransferredDto,
   type CreateUnavailabilityDto,
   type KycReviewDecision,
   type ApiError,
@@ -218,10 +222,28 @@ export function createApiClient(opts: ApiClientOptions = {}) {
           { method: "POST", body: JSON.stringify(dto) },
           token,
         ),
-      markPayoutPaid: (id: string) =>
+      payoutQueue: () =>
+        request<AdminPayoutQueueGroup[]>(
+          API_PATHS.adminPayoutQueue,
+          {},
+          token,
+        ),
+      generatePayoutBatch: (dto: GeneratePayoutBatchDto) =>
+        request<{ count: number }>(
+          API_PATHS.adminGeneratePayoutBatch,
+          { method: "POST", body: JSON.stringify(dto) },
+          token,
+        ),
+      markPayoutTransferred: (id: string, dto: MarkPayoutTransferredDto) =>
         request<AdminPayoutRow>(
-          API_PATHS.adminMarkPayoutPaid(id),
-          { method: "POST" },
+          API_PATHS.adminMarkPayoutTransferred(id),
+          { method: "POST", body: JSON.stringify(dto) },
+          token,
+        ),
+      failPayout: (id: string, dto: FailPayoutDto) =>
+        request<AdminPayoutRow>(
+          API_PATHS.adminFailPayout(id),
+          { method: "POST", body: JSON.stringify(dto) },
           token,
         ),
     },

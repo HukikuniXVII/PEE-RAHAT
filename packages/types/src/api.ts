@@ -27,7 +27,11 @@ export const API_PATHS = {
   adminRejectPayment: (id: string) => `/admin/payments/${id}/reject`,
   adminPayouts: "/admin/payouts",
   adminComputePayouts: "/admin/payouts/compute",
-  adminMarkPayoutPaid: (id: string) => `/admin/payouts/${id}/mark-paid`,
+  adminPayoutQueue: "/admin/payouts/queue",
+  adminGeneratePayoutBatch: "/admin/payouts/generate-batch",
+  adminMarkPayoutTransferred: (id: string) =>
+    `/admin/payouts/${id}/mark-transferred`,
+  adminFailPayout: (id: string) => `/admin/payouts/${id}/fail`,
   tutors: "/tutors",
   tutorOnboarding: "/tutors/onboarding",
   tutorMe: "/tutors/me",
