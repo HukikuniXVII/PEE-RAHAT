@@ -24,9 +24,12 @@ import { createApiClient } from "@/lib/api-client";
 
 import { ProfileStep } from "./profile-step";
 
-const FIELD_ORDER = ["idPhoto", "selfie", "transcript"] as const satisfies readonly KycField[];
+// Bank/passbook step is added in the wizard rewrite commit; for now the
+// existing 3-photo flow keeps shipping and the passbook field lives in
+// the KycField enum without a wizard slot.
+const FIELD_ORDER = ["idPhoto", "selfie", "transcript"] as const satisfies readonly Exclude<KycField, "passbook">[];
 
-const COPY: Record<KycField, { title: string; description: string }> = {
+const COPY: Record<Exclude<KycField, "passbook">, { title: string; description: string }> = {
   idPhoto: {
     title: "ขั้นตอนที่ 1: บัตรประชาชน",
     description:
@@ -44,14 +47,14 @@ const COPY: Record<KycField, { title: string; description: string }> = {
   },
 };
 
-const FIELD_KEY: Record<KycField, "idPhotoKey" | "selfieKey" | "transcriptKey"> =
+const FIELD_KEY: Record<Exclude<KycField, "passbook">, "idPhotoKey" | "selfieKey" | "transcriptKey"> =
   {
     idPhoto: "idPhotoKey",
     selfie: "selfieKey",
     transcript: "transcriptKey",
   };
 
-const FIELD_ICON: Record<KycField, typeof FileText> = {
+const FIELD_ICON: Record<Exclude<KycField, "passbook">, typeof FileText> = {
   idPhoto: FileText,
   selfie: Camera,
   transcript: Upload,
@@ -73,7 +76,7 @@ export function OnboardingFlow() {
     profileJustDone || meQuery.data?.role === "tutor" || meQuery.data?.role === "admin";
 
   const [stepIdx, setStepIdx] = useState(0);
-  const currentField: KycField | undefined = FIELD_ORDER[stepIdx];
+  const currentField: Exclude<KycField, "passbook"> | undefined = FIELD_ORDER[stepIdx];
 
   const form = useForm<KycSubmitDto>({
     resolver: zodResolver(kycSubmitSchema),
@@ -81,6 +84,13 @@ export function OnboardingFlow() {
       idPhotoKey: "",
       selfieKey: "",
       transcriptKey: "",
+      // Placeholders until the bank step lands (FR-TH-02 follow-up commit
+      // rewrites this wizard). They keep the existing flow shippable but
+      // the API will reject the submission because passbookObjectKey is
+      // empty — intentional, gates onboarding until the new step exists.
+      passbookObjectKey: "",
+      idName: "",
+      bank: { bankName: "Other" as const, bankAccountNumber: "0000000000", bankAccountName: "" },
       consentPdpaAccepted: false,
     },
     mode: "onChange",
@@ -89,7 +99,13 @@ export function OnboardingFlow() {
   const keys = form.watch();
 
   const upload = useMutation({
-    mutationFn: async ({ field, file }: { field: KycField; file: File }) => {
+    mutationFn: async ({
+      field,
+      file,
+    }: {
+      field: Exclude<KycField, "passbook">;
+      file: File;
+    }) => {
       const api = createApiClient();
       const intent = await api.kyc.requestUpload(field, file.type);
       const put = await fetch(intent.uploadUrl, {

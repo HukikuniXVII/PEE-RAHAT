@@ -85,6 +85,19 @@ model TutorProfile {
   googleEmail        String?
   googleConnectedAt  DateTime?
 
+  // FR-TH-02 / FR-PM-06: bank account for manual PromptPay payouts.
+  // Mirrored from the latest verified KycSubmission on admin approve so
+  // PayoutsService can read it without a KYC join. bankAccountNumber is
+  // AES-256-GCM encrypted; only last-4 digits appear in non-admin API
+  // responses. bankAccountNumber IS NOT NULL is a search-visibility gate
+  // alongside googleRefreshToken — tutors who can't be paid don't appear
+  // in search.
+  passbookObjectKey String?
+  bankName          String?
+  bankAccountNumber String?
+  bankAccountName   String?
+  bankUpdatedAt     DateTime?
+
   bookings       Booking[]
   reviews        TutorReview[]
   sheets         StudySheet[]
@@ -119,6 +132,20 @@ model KycSubmission {
   idPhotoKey      String
   selfieKey       String
   transcriptKey   String
+  // FR-TH-02: the legal name on the tutor's National ID. User types it
+  // during onboarding (admin verifies against the ID photo at review).
+  // bankAccountName must match this string (normalized) — payouts get
+  // bounced if the name on the slip differs from the name on the ID.
+  idName          String?
+  // FR-TH-02 / FR-PM-06: passbook + bank info captured during onboarding.
+  // Copied to TutorProfile on admin approval so payouts read without a
+  // KycSubmission join. bankAccountNumber is AES-256-GCM encrypted at
+  // rest via CryptoService — only the last 4 digits ever appear in
+  // API responses outside the admin reveal endpoint.
+  passbookObjectKey String?
+  bankName          String?
+  bankAccountNumber String?
+  bankAccountName   String?
   status          KycStatus @default(pending)
   rejectionReason String?
   submittedAt     DateTime  @default(now())
