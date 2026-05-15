@@ -9,7 +9,7 @@ import {
 } from "@peerahat/types";
 import { Button, cn } from "@peerahat/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Lock, Send, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Lock, Send, ShieldCheck, Video } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
@@ -32,6 +32,22 @@ function formatTime(iso: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+// FR-TH-17: pulls the first https URL out of a system message body so we
+// can render the meet-link system message with a join-class button. Plain
+// postpone breadcrumbs (no URL) fall through to the compact chip style.
+const URL_RE = /(https?:\/\/[^\s]+)/;
+function extractUrl(body: string): string | null {
+  const m = URL_RE.exec(body);
+  return m ? m[1] ?? null : null;
+}
+function stripUrlLine(body: string): string {
+  return body
+    .split("\n")
+    .filter((line) => !URL_RE.test(line))
+    .join("\n")
+    .trim();
 }
 
 function initialsOf(name: string): string {
@@ -162,6 +178,38 @@ export function ChatRoom({ thread, initialMessages }: Props) {
         ) : (
           messages.map((m) => {
             if (m.kind === "system") {
+              const url = extractUrl(m.body);
+              // System messages with a URL = class-start meet-link card.
+              // Plain text = compact amber breadcrumb (postpone resolutions).
+              if (url) {
+                return (
+                  <motion.div
+                    key={m.id}
+                    layout
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex justify-center"
+                  >
+                    <div className="w-full max-w-md bg-indigo-50 border border-indigo-100 rounded-2xl px-5 py-4 space-y-3">
+                      <p className="text-sm font-medium text-indigo-900 whitespace-pre-wrap leading-relaxed">
+                        {stripUrlLine(m.body)}
+                      </p>
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="inline-flex w-full items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-colors"
+                      >
+                        <Video size={16} />
+                        เข้าห้องเรียน
+                      </a>
+                      <p className="text-[10px] text-indigo-500 text-center font-medium">
+                        {formatTime(m.createdAt)}
+                      </p>
+                    </div>
+                  </motion.div>
+                );
+              }
               return (
                 <motion.div
                   key={m.id}
