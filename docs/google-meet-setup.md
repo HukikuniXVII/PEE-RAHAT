@@ -1,10 +1,15 @@
 # Google Meet auto-link setup (FR-TH-17)
 
-The class-start worker mints a Google Meet link for every paid booking
-~5 minutes before `scheduledAt`. It does this by creating a Google
-Calendar event under a single dedicated platform mailbox; attaching a
-`conferenceData.createRequest` to that event is the only API path Google
-exposes for programmatic Meet generation.
+The platform mints a Google Meet link for every booking the moment its
+payment is approved (slip-verify or admin approval). It does this by
+creating a Google Calendar event under a single dedicated platform
+mailbox; attaching a `conferenceData.createRequest` to that event is
+the only API path Google exposes for programmatic Meet generation.
+
+Meet generation runs inline inside the payment-confirm transaction path
+but is wrapped in try/catch — a Calendar outage logs and admin retries
+via `POST /admin/bookings/:id/regenerate-meet`; the payment itself
+never fails because Meet was unreachable.
 
 These steps are operations work — run once per environment, then the
 runtime needs only the env vars in §5.
@@ -70,12 +75,11 @@ Add to your runtime secrets (e.g. AWS Secrets Manager, Doppler):
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | the service account's address, e.g. `peerahat-meet-bot@peerahat-prod.iam.gserviceaccount.com` |
 | `GOOGLE_SERVICE_ACCOUNT_KEY_BASE64` | base64 from step 4 |
 | `GOOGLE_CALENDAR_OWNER_EMAIL` | the Workspace mailbox the worker impersonates, e.g. `classes@peerahat.co` |
-| `GOOGLE_MEET_LEAD_MINUTES` | optional; defaults to `5` |
 
 `GOOGLE_MEET_ENABLED=false` keeps the booking flow shippable before
-Workspace is provisioned — the worker logs the booking and posts a Thai
-fallback chat message ("ติดต่อพี่ติวเพื่อขอลิงก์ห้องเรียน") instead of
-calling the API.
+Workspace is provisioned — payment-confirm logs the booking and posts a
+Thai fallback chat message ("ลิงก์ห้องเรียนจะส่งให้ก่อนเวลาเรียน — สอบถาม
+พี่ติวได้") instead of calling the API.
 
 ## 6. Smoke test
 
