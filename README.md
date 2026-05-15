@@ -14,7 +14,7 @@ See [`requirements.md`](./requirements.md) for the full product spec.
 | Auth | Supabase Auth (JWT validated by NestJS) |
 | Storage | S3-compatible (AWS S3 in prod, MinIO in dev) for KYC + sheets |
 | Cache / Queues | Redis + BullMQ |
-| Payments | Manual PromptPay + SlipOK (Phase 1) → Opn Payments (Phase 2) |
+| Payments | Manual PromptPay + ZercleSlip verification API; admin-confirmed payouts (auto-gateway integration is off the roadmap — see requirements.md §4.5) |
 
 ## Repo layout
 
@@ -70,7 +70,8 @@ The defaults in `.env.example` are production-ready. Notable knobs:
 
 - `BOOKING_DAY_START_HOUR` / `END_HOUR` (default `9` / `21`) — slot picker bounds. Mirrored on the web with `NEXT_PUBLIC_*` so the picker stays in sync without a build flag.
 - `POSTPONE_TUTOR_CUT_SHORT_NOTICE` / `POSTPONE_PLATFORM_FEE_SHORT_NOTICE` (default `50` / `10`) — split percentages applied when a student-initiated postpone is rejected inside the 12 h short-notice window (FR-TH-11). Validated at module init — tutor + platform must sum to ≤ 100.
-- `PAYMENTS_MANUAL_REVIEW=1` — skip the SlipOK call entirely; slips land in the admin "รออนุมัติ" queue for human approval (FR-PM-01).
+- `ZERCLE_SLIP_ENABLED=false` — skip the ZercleSlip API call entirely; slips land in the admin "รออนุมัติ" queue for human approval (FR-PM-01/FR-PM-02).
+- `PLATFORM_COMMISSION_PCT=10` / `WITHHOLDING_TAX_PCT=3` — payout math knobs (flat commission, Thai withholding tax). Validated at startup.
 - `JOBS_ENABLED=false` — skip BullMQ registration (used by `openapi:export` or any run without Redis).
 
 ## Implemented features (Phase 1)
@@ -107,9 +108,10 @@ The defaults in `.env.example` are production-ready. Notable knobs:
 ### Other Phase 1 work shipped
 - Tutor intro video supports YouTube / Vimeo / direct file URLs (auto-rewrite to embed where needed)
 - Real R2/S3 SDK in `StorageService` (NFR-03)
-- Real SlipOK call in `SlipOkClient` (FR-PM-01) + EMVCo PromptPay payload generator
-- BullMQ payout batch job, 15th / 30th (FR-PM-06) with 3 % withholding (FR-PM-07)
-- Cron jobs: escrow release after 24 h report window (FR-PM-05); KYC cold-archive within 24 h (NFR-03)
+- ZercleSlip verification wrapper (FR-PM-02) + EMVCo PromptPay payload generator
+- Admin-confirmed payouts, 15th / 30th (FR-PM-06): `release-for-payout` daily cron flips eligible intents into the queue; admin generates the batch and uploads transfer proof per tutor
+- Flat 10 % platform commission (FR-PM-04) + 3 % Thai withholding (FR-PM-07), both env-driven
+- Cron jobs: release-for-payout daily after 24 h report window (FR-PM-05); KYC cold-archive within 24 h (NFR-03)
 - Tutor profile detail, booking stepper, chat, sheet upload, OAuth callback (Google), PWA service worker, shadcn-style UI primitives
 
 ## Testing

@@ -103,19 +103,27 @@ Pee Rahat is a Thai EdTech marketplace platform connecting high school students 
 | FR-CM-04 | Sub-rooms (Discord-style) per faculty/university for peer study | Could | 2 |
 | FR-CM-05 | Report inappropriate post button (PDPA + Computer Crime Act compliance) | Must | 1 |
 
-### 4.5 Payment & Escrow
+### 4.5 Payment & Escrow (Manual-Only)
+
+> **Roadmap decision (2026-05-15):** auto-payment gateway integration
+> (Stripe Connect / Opn Payments) is **removed from the roadmap**. The
+> platform stays manual indefinitely: student → PromptPay → ZercleSlip
+> verification → admin-confirmed payouts on the 15th / 30th. Phase 2
+> work in this area focuses on scaling the manual flow (admin tooling,
+> batch processing, slip-retry automation), not on auto-money-movement.
 
 | ID | Requirement | Priority | Phase |
 |---|---|---|---|
-| FR-PM-01 | **Phase 1 (Manual):** student transfers via PromptPay QR to platform bank account; uploads slip; Slip Verification API (SlipOK) checks authenticity; admin approves | Must | 1 |
-| FR-PM-02 | **Phase 2 (Automated):** Stripe Connect / Opn Payments integration with auto-split (commission to platform, payout to tutor) | Must | 2 |
-| FR-PM-03 | Escrow holding: funds held until class completion or sheet download confirmed | Must | 1 |
-| FR-PM-04 | Tiered commission: 20% (0–20 hrs) → 17% (21–100) → 15% (101–300) → 12% (300+) | Should | 2 |
+| FR-PM-01 | Student transfers via PromptPay QR to platform bank account; uploads slip in app | Must | 1 |
+| FR-PM-02 | ZercleSlip API verifies slip authenticity, amount match, recipient, and `transactionId` uniqueness; admin manual-review path remains for ambiguous cases | Must | 1 |
+| FR-PM-03 | Escrow holding: funds held in platform account until class completion + 24h report window passes (FR-PM-05) | Must | 1 |
+| FR-PM-04 | Flat 10% platform commission (no tiers). Env-driven via `PLATFORM_COMMISSION_PCT` so ops can tune without a deploy | Must | 1 |
 | FR-PM-05 | Report-issue button active 24h after class; triggers admin freeze and review | Must | 1 |
-| FR-PM-06 | Payout schedule: 15th and 30th of each month (batched) | Must | 1 |
-| FR-PM-07 | Withholding tax 3% deducted from tutor payout per Thai tax law | Must | 1 |
+| FR-PM-06 | Payout schedule: 15th and 30th of each month, **manual PromptPay transfer by admin**. `release-for-payout` daily cron moves eligible intents into the batch queue; admin generates the batch and marks each transfer complete with proof slip | Must | 1 |
+| FR-PM-07 | Withholding tax 3% deducted from tutor payout per Thai tax law (`WITHHOLDING_TAX_PCT` env, default 3) | Must | 1 |
 | FR-PM-08 | Anti-bypass chat filter: regex block for "Line", "ไอจี", "เบอร์โทร", 10-digit numbers | Must | 1 |
-| FR-PM-09 | Study-to-Earn loyalty points for in-platform payments | Could | 2 |
+| FR-PM-09 | Auto-payment gateway integration (Stripe Connect / Opn Payments / Omise / 2C2P) — **REMOVED FROM ROADMAP** | — | — |
+| FR-PM-10 | Study-to-Earn loyalty points for in-platform payments | Could | 2 |
 
 ---
 
@@ -145,7 +153,7 @@ Pee Rahat is a Thai EdTech marketplace platform connecting high school students 
 |---|---|---|---|---|
 | R-01 | Tutor-student bypass to LINE | High | High | Chat regex filter + reward asymmetry (rating loss, badge revocation) |
 | R-02 | Platform classified as "tutoring school" under MoE law | Medium | High | Brand exclusively as "Matching Platform / Technology Company"; never use words "โรงเรียนกวดวิชา" / "สถาบัน" |
-| R-03 | BoT classifies platform as money custodian (escrow) | Medium | High | Phase 2 onward, push escrow responsibility to Stripe Connect / Opn Payments |
+| R-03 | BoT classifies platform as money custodian (escrow) | Medium | High | Keep average held balance low via twice-monthly admin payouts; track funds in a dedicated platform PromptPay account separated from operating cash; consult legal counsel on BoT registration threshold before scaling beyond 500k THB / month held |
 | R-04 | Fake KYC documents | Medium | Medium | Manual admin review in Phase 1; ID verification API in Phase 2 |
 | R-05 | Copyright violations in uploaded sheets | Medium | Medium | Notice & Takedown system; T&C indemnification clause |
 | R-06 | Low tutor supply at launch | High | High | Recruit 30–50 tutors manually before public launch (cold outreach to top universities) |
@@ -188,16 +196,20 @@ Pee Rahat is a Thai EdTech marketplace platform connecting high school students 
 - DBD e-commerce registration
 - Compliance features: log retention, report buttons, secure DB for KYC
 
-### Phase 2 — Scaling & Automation (~Months 5–10)
+### Phase 2 — Scaling & Manual-Flow Automation (~Months 5–10)
 
-- Automated payment via Stripe Connect or Opn Payments (auto-split, escrow, tutor payout)
+> Payments stay manual permanently (see §4.5). Phase 2 scales the
+> manual flow rather than replacing it.
+
+- Admin payout dashboard improvements: bulk slip OCR, batch CSV export, side-by-side slip review queue
+- Auto-retry policy for failed ZercleSlip verifications (timeouts, transient errors); duplicate-slip review queue
 - ETDA Digital Platform registration
 - SCB direct-marketing registration
 - VAT registration trigger preparation; e-Tax Invoice integration
 - Calendar sync, in-app video classroom with recording, watermarked PDF delivery
 - TCAS Plan B suggestions, deadline tracker
 - Tagged community questions, sub-rooms
-- Tiered commission system, referral bonus, Study-to-Earn points
+- Referral bonus, Study-to-Earn points
 
 ### Phase 3 — Growth (~Month 10+)
 
@@ -274,8 +286,7 @@ Pee Rahat is a Thai EdTech marketplace platform connecting high school students 
 | **Search** | Postgres full-text in Phase 1; Meilisearch or Typesense in Phase 2 | Avoid Elasticsearch ops cost early |
 | **File Storage** | Cloudflare R2 or AWS S3 with KMS encryption | Cheap egress (R2), separate bucket for KYC with private ACL |
 | **Auth** | Clerk or Supabase Auth | Email + LINE Login + Google; saves weeks of dev time |
-| **Payments — Phase 1** | Manual + SlipOK API | No PCI scope, fastest to ship |
-| **Payments — Phase 2** | Opn Payments (preferred for Thailand) or Stripe Connect | PromptPay native, marketplace split-payout |
+| **Payments** | Manual PromptPay + ZercleSlip verification API; admin-confirmed payouts | No PCI scope, no BoT money-custodian risk above payout cycle, no gateway lock-in. Auto-gateway integration is explicitly off the roadmap (§4.5) |
 | **Realtime Chat** | Supabase Realtime, or Pusher, or Ably | Hosted; avoids running your own WebSocket cluster |
 | **Video Classroom (Phase 2)** | LiveKit (self-host or cloud) or Daily.co | Recording built-in, lower latency in APAC than Zoom SDK |
 | **Email & Notifications** | Resend (transactional) + OneSignal (push) | Resend has strong Next.js integration; OneSignal supports web push + future native |
