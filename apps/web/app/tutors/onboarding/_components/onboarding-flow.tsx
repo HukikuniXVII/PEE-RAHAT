@@ -22,6 +22,7 @@ import { useForm } from "react-hook-form";
 
 import { createApiClient } from "@/lib/api-client";
 
+import { BankStep } from "./bank-step";
 import { ProfileStep } from "./profile-step";
 
 // Bank/passbook step is added in the wizard rewrite commit; for now the
@@ -84,17 +85,18 @@ export function OnboardingFlow() {
       idPhotoKey: "",
       selfieKey: "",
       transcriptKey: "",
-      // Placeholders until the bank step lands (FR-TH-02 follow-up commit
-      // rewrites this wizard). They keep the existing flow shippable but
-      // the API will reject the submission because passbookObjectKey is
-      // empty — intentional, gates onboarding until the new step exists.
       passbookObjectKey: "",
       idName: "",
-      bank: { bankName: "Other" as const, bankAccountNumber: "0000000000", bankAccountName: "" },
+      bank: {
+        bankName: "SCB",
+        bankAccountNumber: "",
+        bankAccountName: "",
+      },
       consentPdpaAccepted: false,
     },
     mode: "onChange",
   });
+  const [bankStepConfirmed, setBankStepConfirmed] = useState(false);
 
   const keys = form.watch();
 
@@ -182,6 +184,16 @@ export function OnboardingFlow() {
   if (!currentField) return null;
 
   const allUploaded = !!(keys.idPhotoKey && keys.selfieKey && keys.transcriptKey);
+  // FR-TH-02: bank step sits between photos and final review. We track an
+  // explicit "confirmed" flag rather than deriving from field completeness
+  // so the wizard doesn't auto-advance the moment the last field is typed.
+  const bankReady =
+    bankStepConfirmed &&
+    !!keys.idName &&
+    !!keys.bank?.bankName &&
+    /^\d{10,15}$/.test(keys.bank?.bankAccountNumber ?? "") &&
+    !!keys.bank?.bankAccountName &&
+    !!keys.passbookObjectKey;
   const FieldIcon = FIELD_ICON[currentField];
   const busy = upload.isPending || submit.isPending;
 
@@ -217,6 +229,19 @@ export function OnboardingFlow() {
               </div>
             );
           })}
+          {/* FR-TH-02: 4th step indicator for the bank/passbook stage. */}
+          <div
+            className={cn(
+              "w-12 h-12 rounded-full flex items-center justify-center font-bold transition-all",
+              bankReady
+                ? "bg-emerald-500 text-white"
+                : allUploaded
+                  ? "bg-indigo-600 text-white scale-110 shadow-lg shadow-indigo-200"
+                  : "bg-slate-100 text-slate-400",
+            )}
+          >
+            {bankReady ? <CheckCircle2 size={24} /> : 4}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
@@ -269,7 +294,16 @@ export function OnboardingFlow() {
           </label>
         </div>
 
-        {allUploaded && (
+        {allUploaded && !bankReady && (
+          <div className="border-t border-slate-100 pt-8">
+            <BankStep
+              form={form}
+              onCompleted={() => setBankStepConfirmed(true)}
+            />
+          </div>
+        )}
+
+        {allUploaded && bankReady && (
           <div className="border-t border-slate-100 pt-8 space-y-4">
             <label className="flex items-start gap-3 text-sm text-slate-600">
               <input
