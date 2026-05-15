@@ -2,7 +2,7 @@
 
 import type { Booking } from "@peerahat/types";
 import { cn } from "@peerahat/ui";
-import { Clock } from "lucide-react";
+import { Clock, Video } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 
@@ -30,6 +30,13 @@ export function ScheduleEvent({ booking, layout = "horizontal" }: Props) {
     ? (`/chat/thread/${booking.chatThreadId}` as Route)
     : ("/bookings" as Route);
 
+  // FR-TH-17: surface a small Meet icon when the Meet link is present.
+  // The icon is decorative on the schedule grid — clicks still navigate
+  // to the booking thread, where the join button is the primary action.
+  // (Stopping propagation from the icon would be confusing on a small
+  // schedule cell; the join flow lives in the chat thread + booking row.)
+  const hasMeet = !!booking.meetingUrl;
+
   if (layout === "compact") {
     return (
       <Link
@@ -47,10 +54,25 @@ export function ScheduleEvent({ booking, layout = "horizontal" }: Props) {
         <p className="text-xs font-bold text-slate-800 truncate">
           {counterpartyLabel}
         </p>
-        <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
-          <Clock size={10} />
-          {booking.durationMinutes} นาที
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+            <Clock size={10} />
+            {booking.durationMinutes} นาที
+          </p>
+          {hasMeet && (
+            <a
+              href={booking.meetingUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              onClick={(e) => e.stopPropagation()}
+              title="เข้าห้องเรียนออนไลน์"
+              className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 hover:text-emerald-700"
+            >
+              <Video size={10} />
+              Meet
+            </a>
+          )}
+        </div>
         <span
           className={cn(
             "inline-flex text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border",
@@ -68,7 +90,7 @@ export function ScheduleEvent({ booking, layout = "horizontal" }: Props) {
     <Link
       href={href}
       className={cn(
-        "group block h-full w-full rounded-lg shadow-sm border-l-[3px] px-2 py-1.5 flex flex-col justify-center overflow-hidden leading-tight hover:shadow-md hover:-translate-y-px transition-all",
+        "group block h-full w-full rounded-lg shadow-sm border-l-[3px] px-2 py-1.5 flex flex-col justify-center overflow-hidden leading-tight hover:shadow-md hover:-translate-y-px transition-all relative",
         PANEL_CLASSES[status.tone],
       )}
     >
@@ -78,6 +100,13 @@ export function ScheduleEvent({ booking, layout = "horizontal" }: Props) {
       <p className="text-[10px] font-medium opacity-75 truncate max-w-full">
         {counterpartyLabel} · {booking.durationMinutes} นาที
       </p>
+      {hasMeet && (
+        <Video
+          size={10}
+          aria-label="มีลิงก์ Google Meet"
+          className="absolute top-1.5 right-1.5 opacity-60"
+        />
+      )}
     </Link>
   );
 }

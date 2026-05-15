@@ -69,17 +69,18 @@ export function BookingRow({ booking }: Props) {
     new Date(booking.scheduledAt).getTime() > Date.now();
   const negotiating =
     booking.status === "postpone_pending" && !!booking.chatThreadId;
-  // FR-TH-17: show "join class" + "ready to start" affordances around the
-  // scheduled time. The button needs the Meet link to exist (the worker
-  // generates it ~5 min ahead). The ready-chip uses a separate ±5 min
-  // window so the badge changes even when the link is still null.
+  // FR-TH-17 rev2: the Meet link is generated at payment-confirm, so it's
+  // present on the booking from the moment escrow opens. The button is
+  // disabled while scheduledAt is more than 24h away — keeps students from
+  // clicking too early and finding an empty room — then becomes active for
+  // the ≤24h window and stays clickable through to a few hours past start.
   const minutesFromStart =
     (new Date(booking.scheduledAt).getTime() - Date.now()) / 60_000;
-  const inJoinWindow =
+  const within24hWindow =
     booking.status === "paid" &&
-    minutesFromStart <= 120 &&
-    minutesFromStart >= -120;
-  const showJoinButton = inJoinWindow && !!booking.meetingUrl;
+    minutesFromStart <= 24 * 60 &&
+    minutesFromStart >= -180; // 3h past start so latecomers can still join
+  const hasMeetingUrl = !!booking.meetingUrl;
   const readyToStart =
     booking.status === "paid" &&
     minutesFromStart <= 5 &&
@@ -144,16 +145,26 @@ export function BookingRow({ booking }: Props) {
         </span>
 
         <div className="flex items-center gap-2">
-          {showJoinButton && (
-            <a
-              href={booking.meetingUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="px-4 py-2.5 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 transition-all flex items-center gap-2"
-            >
-              <Video size={14} />
-              เข้าห้องเรียน
-            </a>
+          {hasMeetingUrl && booking.status === "paid" && (
+            within24hWindow ? (
+              <a
+                href={booking.meetingUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="px-4 py-2.5 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 transition-all flex items-center gap-2"
+              >
+                <Video size={14} />
+                เข้าห้องเรียนออนไลน์
+              </a>
+            ) : (
+              <span
+                title="ลิงก์จะใช้งานได้เมื่อใกล้ถึงเวลาเรียน (ภายใน 24 ชม.)"
+                className="px-4 py-2.5 bg-slate-100 text-slate-400 rounded-xl font-bold text-sm cursor-not-allowed flex items-center gap-2"
+              >
+                <Video size={14} />
+                เข้าห้องเรียนออนไลน์
+              </span>
+            )
           )}
           {acceptable && (
             <Button
