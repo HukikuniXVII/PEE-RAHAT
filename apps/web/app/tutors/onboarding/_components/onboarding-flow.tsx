@@ -9,6 +9,7 @@ import {
 import { Button, cn } from "@peerahat/ui";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
+  ArrowLeft,
   Camera,
   CheckCircle2,
   FileText,
@@ -244,67 +245,91 @@ export function OnboardingFlow() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+        {/* Each render branch is exclusive — only one step at a time. The
+            photo upload, bank form, and PDPA review never appear stacked. */}
+        {!allUploaded ? (
           <div className="space-y-6">
-            <h3 className="text-2xl font-bold text-slate-800">
-              {COPY[currentField].title}
-            </h3>
-            <p className="text-slate-500 text-sm leading-relaxed">
-              {COPY[currentField].description}
-            </p>
-            <div className="flex items-start gap-3 p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
-              <ShieldCheck className="text-indigo-600 mt-1" size={18} />
-              <p className="text-xs text-indigo-700 leading-relaxed">
-                <span className="font-bold">นโยบายความสะอาด:</span>
-                <br />
-                Pee Rahat เข้ารหัสข้อมูล KYC ทุกไฟล์ และจะย้ายไฟล์ไปยัง Cold Storage
-                ภายใน 24 ชม. หลังจากตรวจสอบเสร็จ
-              </p>
-            </div>
-          </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+              <div className="space-y-6">
+                <h3 className="text-2xl font-bold text-slate-800">
+                  {COPY[currentField].title}
+                </h3>
+                <p className="text-slate-500 text-sm leading-relaxed">
+                  {COPY[currentField].description}
+                </p>
+                <div className="flex items-start gap-3 p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
+                  <ShieldCheck className="text-indigo-600 mt-1" size={18} />
+                  <p className="text-xs text-indigo-700 leading-relaxed">
+                    <span className="font-bold">นโยบายความสะอาด:</span>
+                    <br />
+                    Pee Rahat เข้ารหัสข้อมูล KYC ทุกไฟล์ และจะย้ายไฟล์ไปยัง Cold Storage
+                    ภายใน 24 ชม. หลังจากตรวจสอบเสร็จ
+                  </p>
+                </div>
+              </div>
 
-          <label
-            className={cn(
-              "aspect-square bg-slate-50 rounded-[40px] border-2 border-dashed border-slate-200 hover:border-indigo-600 transition-all flex flex-col items-center justify-center gap-4 p-8",
-              busy ? "cursor-not-allowed opacity-60" : "cursor-pointer",
+              <label
+                className={cn(
+                  "aspect-square bg-slate-50 rounded-[40px] border-2 border-dashed border-slate-200 hover:border-indigo-600 transition-all flex flex-col items-center justify-center gap-4 p-8",
+                  busy ? "cursor-not-allowed opacity-60" : "cursor-pointer",
+                )}
+              >
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  className="sr-only"
+                  disabled={busy}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) upload.mutate({ field: currentField, file: f });
+                  }}
+                />
+                <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center text-slate-400">
+                  <FieldIcon size={32} />
+                </div>
+                <p className="font-bold text-slate-800 text-center">
+                  คลิกเพื่ออัปโหลด
+                </p>
+                <p className="text-xs text-slate-400 text-center">
+                  JPG, PNG, PDF (ไม่เกิน 5MB)
+                </p>
+                <span className="mt-2 px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">
+                  {upload.isPending ? "Uploading..." : "เลือกไฟล์"}
+                </span>
+              </label>
+            </div>
+            {/* Back button on photo steps — only visible after the first step,
+                lets the tutor re-upload an earlier doc if they spot a mistake. */}
+            {stepIdx > 0 && (
+              <button
+                type="button"
+                onClick={() => setStepIdx(stepIdx - 1)}
+                className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-800"
+              >
+                <ArrowLeft size={14} />
+                ย้อนกลับ
+              </button>
             )}
-          >
-            <input
-              type="file"
-              accept="image/*,application/pdf"
-              className="sr-only"
-              disabled={busy}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) upload.mutate({ field: currentField, file: f });
-              }}
-            />
-            <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center text-slate-400">
-              <FieldIcon size={32} />
-            </div>
-            <p className="font-bold text-slate-800 text-center">
-              คลิกเพื่ออัปโหลด
-            </p>
-            <p className="text-xs text-slate-400 text-center">
-              JPG, PNG, PDF (ไม่เกิน 5MB)
-            </p>
-            <span className="mt-2 px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">
-              {upload.isPending ? "Uploading..." : "เลือกไฟล์"}
-            </span>
-          </label>
-        </div>
-
-        {allUploaded && !bankReady && (
-          <div className="border-t border-slate-100 pt-8">
+          </div>
+        ) : !bankReady ? (
+          <div className="space-y-6">
             <BankStep
               form={form}
               onCompleted={() => setBankStepConfirmed(true)}
             />
+            {/* Step 3 → Step 4 hop — lets the tutor go back to the transcript
+                upload if they realize they uploaded the wrong file. */}
+            <button
+              type="button"
+              onClick={() => setStepIdx(FIELD_ORDER.length - 1)}
+              className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-800"
+            >
+              <ArrowLeft size={14} />
+              ย้อนกลับไปแก้ Transcript
+            </button>
           </div>
-        )}
-
-        {allUploaded && bankReady && (
-          <div className="border-t border-slate-100 pt-8 space-y-4">
+        ) : (
+          <div className="space-y-4">
             <label className="flex items-start gap-3 text-sm text-slate-600">
               <input
                 type="checkbox"
@@ -325,6 +350,16 @@ export function OnboardingFlow() {
             >
               ส่งเอกสารเพื่อตรวจสอบ
             </Button>
+            {/* PDPA → Step 4 hop — back to bank info if the tutor wants to
+                change account before signing PDPA. */}
+            <button
+              type="button"
+              onClick={() => setBankStepConfirmed(false)}
+              className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-800"
+            >
+              <ArrowLeft size={14} />
+              ย้อนกลับไปแก้ข้อมูลบัญชี
+            </button>
           </div>
         )}
 
