@@ -16,6 +16,7 @@ import { useForm } from "react-hook-form";
 
 import { createApiClient } from "@/lib/api-client";
 import { sanitizeNextPath } from "@/lib/auth-utils";
+import { supabaseAuthErrorMessage } from "@/lib/error-message";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type Mode = "signIn" | "signUp";
@@ -28,7 +29,7 @@ export function LoginForm() {
   const [mode, setMode] = useState<Mode>("signIn");
   const [error, setError] = useState<string | null>(() => {
     const raw = searchParams.get("error");
-    return raw ? decodeURIComponent(raw) : null;
+    return raw ? supabaseAuthErrorMessage(decodeURIComponent(raw)) : null;
   });
   const [emailSent, setEmailSent] = useState(false);
 
@@ -63,12 +64,12 @@ export function LoginForm() {
       password: values.password,
     });
     if (e) {
-      setError(e.message);
+      setError(supabaseAuthErrorMessage(e));
       return;
     }
     const token = data.session?.access_token;
     if (!token) {
-      setError("Sign-in succeeded but no session returned. Try again.");
+      setError("เข้าสู่ระบบสำเร็จแต่ไม่ได้รับ session กรุณาลองอีกครั้ง");
       return;
     }
     await completeAfterAuth(token);
@@ -85,7 +86,7 @@ export function LoginForm() {
       },
     });
     if (e) {
-      setError(e.message);
+      setError(supabaseAuthErrorMessage(e));
       return;
     }
     const token = data.session?.access_token;
@@ -106,7 +107,7 @@ export function LoginForm() {
       options: { redirectTo: callback },
     });
     if (e) {
-      setError(e.message);
+      setError(supabaseAuthErrorMessage(e));
     }
   };
 
