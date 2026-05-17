@@ -6,6 +6,8 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import type {
+  CreateReviewDto,
+  CreateUnavailabilityDto,
   MaskedBankInfo,
   Subject,
   Tutor,
@@ -14,11 +16,10 @@ import type {
   TutorReview,
   TutorSearchQuery,
   TutorSearchResult,
+  TutorUnavailability,
   UpdateBankDto,
 } from "@peerahat/types";
 import type { Prisma } from "@prisma/client";
-
-import type { TutorUnavailability } from "@peerahat/types";
 
 import { BookingsService, type BusySlot } from "../bookings/bookings.service";
 import { CryptoService } from "../common/crypto.service";
@@ -70,13 +71,11 @@ export class TutorsService {
 
   async createUnavailability(
     supabaseId: string,
-    dto: {
-      weekday: number;
-      startMinute: number;
-      endMinute: number;
-      reason?: string;
-    },
+    dto: CreateUnavailabilityDto,
   ): Promise<TutorUnavailability> {
+    // Schema-level refinement already catches this at the controller —
+    // keeping the runtime check as defense-in-depth for any future
+    // non-HTTP callers (jobs, scripts) that might bypass the schema.
     if (dto.endMinute <= dto.startMinute) {
       throw new BadRequestException("endMinute must be greater than startMinute");
     }
@@ -313,7 +312,7 @@ export class TutorsService {
   async createReview(
     supabaseId: string,
     tutorId: string,
-    dto: { bookingId: string; rating: number; text: string },
+    dto: CreateReviewDto,
   ): Promise<TutorReview> {
     const user = await this.prisma.user.findUnique({ where: { supabaseId } });
     if (!user) throw new BadRequestException();

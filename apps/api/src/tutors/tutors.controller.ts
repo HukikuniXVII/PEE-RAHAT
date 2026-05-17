@@ -10,81 +10,28 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import {
-  ArrayMinSize,
-  IsArray,
-  IsIn,
-  IsInt,
-  IsOptional,
-  IsString,
-  IsUrl,
-  Max,
-  MaxLength,
-  Min,
-  MinLength,
-} from "class-validator";
-
-class CreateUnavailabilityDto {
-  @IsInt() @Min(0) @Max(6) weekday!: number;
-  @IsInt() @Min(0) @Max(1440) startMinute!: number;
-  @IsInt() @Min(1) @Max(1440) endMinute!: number;
-  @IsOptional() @IsString() @MaxLength(120) reason?: string;
-}
-import {
+  type CreateReviewDto,
+  type CreateUnavailabilityDto,
+  createReviewSchema,
+  createUnavailabilitySchema,
   type MaskedBankInfo,
   type Subject,
   type Tutor,
+  type TutorOnboardingDto,
+  type TutorProfileUpdateDto,
   type TutorReview,
   type TutorSearchResult,
+  tutorOnboardingSchema,
+  tutorProfileUpdateSchema,
   type UpdateBankDto,
   updateBankSchema,
 } from "@peerahat/types";
-
-const SUBJECT_VALUES = [
-  "Math",
-  "Physics",
-  "Chemistry",
-  "Biology",
-  "English",
-  "Social",
-  "Thai",
-] as const satisfies readonly Subject[];
 
 import { CurrentUser } from "../auth/current-user.decorator";
 import { SupabaseAuthGuard } from "../auth/auth.guard";
 import type { SupabaseJwtPayload } from "../auth/supabase-jwt.strategy";
 import { parseAvailabilityWindow } from "../common/availability-window";
 import { TutorsService } from "./tutors.service";
-
-class CreateReviewDto {
-  @IsString() bookingId!: string;
-  @IsInt() @Min(1) @Max(5) rating!: number;
-  @IsString() text!: string;
-}
-
-class TutorOnboardingDto {
-  @IsString() @MinLength(20) @MaxLength(2000) bio!: string;
-  @IsString() @MinLength(1) @MaxLength(120) university!: string;
-  @IsString() @MinLength(1) @MaxLength(120) faculty!: string;
-  @IsInt() @Min(0) @Max(20000) hourlyRate!: number;
-  @IsArray()
-  @ArrayMinSize(1)
-  @IsIn(SUBJECT_VALUES, { each: true })
-  subjects!: Subject[];
-  @IsOptional() @IsUrl() introVideoUrl?: string;
-}
-
-class TutorProfileUpdateDto {
-  @IsOptional() @IsString() @MinLength(20) @MaxLength(2000) bio?: string;
-  @IsOptional() @IsString() @MinLength(1) @MaxLength(120) university?: string;
-  @IsOptional() @IsString() @MinLength(1) @MaxLength(120) faculty?: string;
-  @IsOptional() @IsInt() @Min(0) @Max(20000) hourlyRate?: number;
-  @IsOptional()
-  @IsArray()
-  @ArrayMinSize(1)
-  @IsIn(SUBJECT_VALUES, { each: true })
-  subjects?: Subject[];
-  @IsOptional() @IsUrl() introVideoUrl?: string;
-}
 
 @Controller("tutors")
 export class TutorsController {
@@ -115,21 +62,29 @@ export class TutorsController {
     });
   }
 
+  // FR-TH-03: tutor profile onboarding. Validation comes from
+  // @peerahat/types' tutorOnboardingSchema (same schema the web form uses)
+  // so there's one source of truth for the field rules. AllExceptionsFilter
+  // turns a ZodError into 400 + VALIDATION_ERROR + details.issues.
   @Post("onboarding")
   @UseGuards(SupabaseAuthGuard)
   onboard(
     @CurrentUser() user: SupabaseJwtPayload,
-    @Body() dto: TutorOnboardingDto,
+    @Body() raw: unknown,
   ): Promise<Tutor> {
+    const dto: TutorOnboardingDto = tutorOnboardingSchema.parse(raw);
     return this.tutors.onboard(user.sub, dto);
   }
 
+  // FR-TH-03: same field rules as onboarding but every field is optional
+  // (tutorProfileUpdateSchema = tutorOnboardingSchema.partial()).
   @Patch("me")
   @UseGuards(SupabaseAuthGuard)
   updateMe(
     @CurrentUser() user: SupabaseJwtPayload,
-    @Body() dto: TutorProfileUpdateDto,
+    @Body() raw: unknown,
   ): Promise<Tutor> {
+    const dto: TutorProfileUpdateDto = tutorProfileUpdateSchema.parse(raw);
     return this.tutors.updateMyProfile(user.sub, dto);
   }
 
@@ -178,8 +133,9 @@ export class TutorsController {
   @UseGuards(SupabaseAuthGuard)
   createMyUnavailability(
     @CurrentUser() user: SupabaseJwtPayload,
-    @Body() dto: CreateUnavailabilityDto,
+    @Body() raw: unknown,
   ) {
+    const dto: CreateUnavailabilityDto = createUnavailabilitySchema.parse(raw);
     return this.tutors.createUnavailability(user.sub, dto);
   }
 
@@ -221,8 +177,9 @@ export class TutorsController {
   createReview(
     @CurrentUser() user: SupabaseJwtPayload,
     @Param("id") tutorId: string,
-    @Body() dto: CreateReviewDto,
+    @Body() raw: unknown,
   ): Promise<TutorReview> {
+    const dto: CreateReviewDto = createReviewSchema.parse(raw);
     return this.tutors.createReview(user.sub, tutorId, dto);
   }
 }
