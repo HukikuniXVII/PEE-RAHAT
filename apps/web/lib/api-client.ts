@@ -107,6 +107,25 @@ async function getBrowserAccessToken(): Promise<string | undefined> {
   }
 }
 
+/**
+ * Force-refresh the Supabase session and return the new access token.
+ * Called from request() on a 401 to recover from the rare case where the
+ * SDK's implicit refresh missed an expiry (clock skew, suspended tab, JWKS
+ * rotation). Returns undefined when refresh fails so the caller falls
+ * through to the original 401 — which the route's auth gate handles.
+ */
+async function refreshBrowserAccessToken(): Promise<string | undefined> {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const { createSupabaseBrowserClient } = await import("./supabase/client");
+    const supabase = createSupabaseBrowserClient();
+    const { data } = await supabase.auth.refreshSession();
+    return data.session?.access_token;
+  } catch {
+    return undefined;
+  }
+}
+
 async function request<T>(
   path: string,
   init: RequestInit = {},
@@ -116,14 +135,31 @@ async function request<T>(
   if (init.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  const tokenToUse = accessToken ?? (await getBrowserAccessToken());
+  const explicitToken = accessToken;
+  const tokenToUse = explicitToken ?? (await getBrowserAccessToken());
   if (tokenToUse) headers.set("Authorization", `Bearer ${tokenToUse}`);
 
-  const res = await fetch(`${baseUrl}${path}`, {
+  const url = `${baseUrl}${path}`;
+  const fetchInit: RequestInit = {
     ...init,
     headers,
     cache: init.cache ?? "no-store",
-  });
+  };
+  let res = await fetch(url, fetchInit);
+
+  // Browser-side transparent 401 refresh: when the token came from the
+  // Supabase session (no explicit accessToken arg) and the API rejected
+  // it, force-refresh once and retry. Server callers pass a snapshotted
+  // token via createApiClient({ accessToken }) and can't be refreshed
+  // mid-request — let the 401 bubble so requireAuth bounces to /login.
+  if (res.status === 401 && explicitToken === undefined && typeof window !== "undefined") {
+    const refreshed = await refreshBrowserAccessToken();
+    if (refreshed) {
+      const retryHeaders = new Headers(headers);
+      retryHeaders.set("Authorization", `Bearer ${refreshed}`);
+      res = await fetch(url, { ...fetchInit, headers: retryHeaders });
+    }
+  }
 
   if (!res.ok) {
     const err = (await res.json().catch(() => ({}))) as Partial<ApiError>;
