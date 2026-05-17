@@ -2,7 +2,6 @@
 
 import {
   type Booking,
-  type BookingOverlapError,
   type BusySlot,
   type CreateBookingDto,
   type Subject,
@@ -28,6 +27,7 @@ import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { createApiClient } from "@/lib/api-client";
+import { getErrorMessage } from "@/lib/error-message";
 import { SlotPicker, combineDateAndMinute } from "@/components/slot-picker";
 
 interface Props {
@@ -149,10 +149,7 @@ export function BookingForm({ tutor, onClose }: Props) {
       setRequestedStep(4);
     },
     onError: (err) => {
-      const e = err as unknown as Partial<BookingOverlapError>;
-      if (e?.code === "BOOKING_OVERLAP") {
-        toast.error("ช่วงเวลานี้ถูกจองแล้ว");
-      }
+      toast.error(getErrorMessage(err));
     },
   });
 
@@ -245,7 +242,7 @@ export function BookingForm({ tutor, onClose }: Props) {
                 amount={estimatedAmount}
                 consent={consent}
                 onConsent={setConsent}
-                error={create.error?.message ?? null}
+                error={create.error ? getErrorMessage(create.error) : null}
               />
               <StepFooter
                 onBack={() => goTo(2)}
