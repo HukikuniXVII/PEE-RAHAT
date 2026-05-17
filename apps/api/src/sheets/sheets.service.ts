@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import type { Page, StudySheet, Subject } from "@peerahat/types";
+import type { CreateSheetDto, Page, StudySheet, Subject } from "@peerahat/types";
 
 import { StorageService } from "../common/storage.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -97,15 +97,7 @@ export class SheetsService {
    */
   async create(
     supabaseId: string,
-    dto: {
-      title: string;
-      description: string;
-      subject: string;
-      priceThb: number;
-      pdfObjectKey: string;
-      previewImageObjectKeys: string[];
-      introVideoUrl?: string;
-    },
+    dto: CreateSheetDto,
   ): Promise<StudySheet> {
     const user = await this.prisma.user.findUnique({
       where: { supabaseId },
