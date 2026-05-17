@@ -201,6 +201,11 @@ export class TutorsController {
     return this.tutors.getMyBank(user.sub);
   }
 
+  // FR-TH-02: validation lives in @peerahat/types' updateBankSchema (the
+  // same schema the web bank-edit form uses) so there's one source of truth
+  // for the bank-info shape. AllExceptionsFilter turns a ZodError from
+  // malformed input into a 400 + VALIDATION_ERROR + details.issues, matching
+  // the envelope explicit safeParse callsites emit.
   @Patch("me/bank")
   @UseGuards(SupabaseAuthGuard)
   updateMyBank(
