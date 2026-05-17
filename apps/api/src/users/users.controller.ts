@@ -7,11 +7,14 @@ import {
   Post,
   UseGuards,
 } from "@nestjs/common";
-import { IsOptional, IsString, IsUrl, MaxLength, MinLength } from "class-validator";
-import type {
-  AvatarUploadIntent,
-  User,
-  UserRole,
+import {
+  type AvatarIntentDto,
+  avatarIntentSchema,
+  type AvatarUploadIntent,
+  type User,
+  type UserProfileUpdateDto,
+  userProfileUpdateSchema,
+  type UserRole,
 } from "@peerahat/types";
 
 import { CurrentUser } from "../auth/current-user.decorator";
@@ -19,17 +22,6 @@ import { SupabaseAuthGuard } from "../auth/auth.guard";
 import type { SupabaseJwtPayload } from "../auth/supabase-jwt.strategy";
 import { StorageService } from "../common/storage.service";
 import { UsersService } from "./users.service";
-
-class UserProfileUpdateDto {
-  @IsOptional() @IsString() @MinLength(2) @MaxLength(60) displayName?: string;
-  // require_tld: false allows http://localhost:9000/... in dev. Production
-  // avatars go through the configured S3/CDN domain which still passes.
-  @IsOptional() @IsUrl({ require_tld: false }) avatarUrl?: string;
-}
-
-class AvatarIntentDto {
-  @IsString() contentType!: string;
-}
 
 @Controller("users")
 @UseGuards(SupabaseAuthGuard)
@@ -71,8 +63,9 @@ export class UsersController {
   @Patch("me")
   async updateMe(
     @CurrentUser() user: SupabaseJwtPayload,
-    @Body() dto: UserProfileUpdateDto,
+    @Body() raw: unknown,
   ): Promise<User> {
+    const dto: UserProfileUpdateDto = userProfileUpdateSchema.parse(raw);
     const row = await this.users.updateProfile(user.sub, dto);
     return {
       id: row.id,
@@ -85,14 +78,14 @@ export class UsersController {
     };
   }
 
+  // image/* gate moved into avatarIntentSchema's refinement; the controller
+  // is now a thin pass-through to the storage signer.
   @Post("me/avatar-intent")
   async avatarIntent(
     @CurrentUser() user: SupabaseJwtPayload,
-    @Body() dto: AvatarIntentDto,
+    @Body() raw: unknown,
   ): Promise<AvatarUploadIntent> {
-    if (!dto.contentType.startsWith("image/")) {
-      throw new BadRequestException("avatar contentType must be image/*");
-    }
+    const dto: AvatarIntentDto = avatarIntentSchema.parse(raw);
     const row = await this.users.findBySupabaseId(user.sub);
     if (!row) throw new BadRequestException("Unknown user");
     return this.storage.signAvatarUpload(row.id, dto.contentType);

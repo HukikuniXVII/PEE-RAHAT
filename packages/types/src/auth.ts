@@ -52,3 +52,17 @@ export interface AvatarUploadIntent {
   publicUrl: string;
   expiresAt: string;
 }
+
+/** Body for POST /users/me/avatar-intent. Only image MIME types are
+ *  allowed — the storage signer wires the contentType straight into the
+ *  presigned PUT, so non-images would otherwise reach R2/S3. */
+export const avatarIntentSchema = z.object({
+  contentType: z
+    .string()
+    .min(1)
+    .refine((v) => v.startsWith("image/"), {
+      message: "avatar contentType must be image/*",
+    }),
+});
+
+export type AvatarIntentDto = z.infer<typeof avatarIntentSchema>;
