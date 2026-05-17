@@ -15,6 +15,7 @@ import { createBookingSchema, type CreateBookingDto } from "@peerahat/types";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { SupabaseAuthGuard } from "../auth/auth.guard";
 import type { SupabaseJwtPayload } from "../auth/supabase-jwt.strategy";
+import { parseAvailabilityWindow } from "../common/availability-window";
 import { UserThrottlerGuard } from "../common/user-throttler.guard";
 import { BookingsService } from "./bookings.service";
 import { PostponeService } from "./postpone.service";
@@ -58,11 +59,7 @@ export class BookingsController {
     @Query("from") from: string,
     @Query("to") to: string,
   ) {
-    const fromDate = new Date(from);
-    const toDate = new Date(to);
-    if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
-      throw new BadRequestException("from and to must be ISO datetimes");
-    }
+    const { fromDate, toDate } = parseAvailabilityWindow(from, to);
     return this.bookings
       .listBusyForUser(user.sub, fromDate, toDate)
       .then((busy) => ({ busy }));

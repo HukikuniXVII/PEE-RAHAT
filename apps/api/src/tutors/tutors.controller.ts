@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -53,6 +52,7 @@ const SUBJECT_VALUES = [
 import { CurrentUser } from "../auth/current-user.decorator";
 import { SupabaseAuthGuard } from "../auth/auth.guard";
 import type { SupabaseJwtPayload } from "../auth/supabase-jwt.strategy";
+import { parseAvailabilityWindow } from "../common/availability-window";
 import { TutorsService } from "./tutors.service";
 
 class CreateReviewDto {
@@ -162,11 +162,7 @@ export class TutorsController {
     @Query("from") from: string,
     @Query("to") to: string,
   ) {
-    const fromDate = new Date(from);
-    const toDate = new Date(to);
-    if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
-      throw new BadRequestException("from and to must be ISO datetimes");
-    }
+    const { fromDate, toDate } = parseAvailabilityWindow(from, to);
     const busy = await this.tutors.listBusyForTutor(id, fromDate, toDate);
     return { busy };
   }
