@@ -7,29 +7,22 @@ import {
   Query,
   UseGuards,
 } from "@nestjs/common";
-import { IsBoolean, IsString } from "class-validator";
+import {
+  type CreatePostDto,
+  createPostSchema,
+  createReplySchema,
+  type ReportDto,
+  reportSchema,
+} from "@peerahat/types";
 
 import { CurrentUser } from "../auth/current-user.decorator";
 import { SupabaseAuthGuard } from "../auth/auth.guard";
 import type { SupabaseJwtPayload } from "../auth/supabase-jwt.strategy";
 import { CommunityService } from "./community.service";
 
-class CreatePostDto {
-  @IsString() title!: string;
-  @IsString() content!: string;
-  @IsBoolean() consentPdpaAccepted!: boolean;
-}
-
-class CreateReplyDto {
-  @IsString() content!: string;
-}
-
-class ReportDto {
-  @IsString() targetType!: "post" | "reply" | "sheet" | "tutor" | "message";
-  @IsString() targetId!: string;
-  @IsString() reason!: string;
-  @IsString() details!: string;
-}
+/** Wire payload for POST /community/posts/:id/replies — postId is the URL
+ *  param, body is just content. Picked from the shared createReplySchema. */
+const createReplyBodySchema = createReplySchema.pick({ content: true });
 
 @Controller()
 export class CommunityController {
@@ -42,7 +35,8 @@ export class CommunityController {
 
   @Post("community/posts")
   @UseGuards(SupabaseAuthGuard)
-  create(@CurrentUser() user: SupabaseJwtPayload, @Body() dto: CreatePostDto) {
+  create(@CurrentUser() user: SupabaseJwtPayload, @Body() raw: unknown) {
+    const dto: CreatePostDto = createPostSchema.parse(raw);
     return this.community.create(user.sub, dto);
   }
 
@@ -70,14 +64,16 @@ export class CommunityController {
   reply(
     @CurrentUser() user: SupabaseJwtPayload,
     @Param("id") postId: string,
-    @Body() dto: CreateReplyDto,
+    @Body() raw: unknown,
   ) {
+    const dto = createReplyBodySchema.parse(raw);
     return this.community.reply(user.sub, postId, dto.content);
   }
 
   @Post("reports")
   @UseGuards(SupabaseAuthGuard)
-  report(@CurrentUser() user: SupabaseJwtPayload, @Body() dto: ReportDto) {
+  report(@CurrentUser() user: SupabaseJwtPayload, @Body() raw: unknown) {
+    const dto: ReportDto = reportSchema.parse(raw);
     return this.community.report(user.sub, dto);
   }
 }

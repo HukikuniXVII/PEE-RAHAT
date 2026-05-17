@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import type {
   CommunityPost,
   CommunityReply,
+  CreatePostDto,
   Page,
   ReportDto,
 } from "@peerahat/types";
@@ -36,7 +37,7 @@ export class CommunityService {
     };
   }
 
-  async create(supabaseId: string, dto: { title: string; content: string; consentPdpaAccepted: boolean }) {
+  async create(supabaseId: string, dto: CreatePostDto) {
     if (!dto.consentPdpaAccepted) throw new BadRequestException("PDPA consent required");
     const user = await this.prisma.user.findUnique({ where: { supabaseId } });
     if (!user) throw new BadRequestException();
