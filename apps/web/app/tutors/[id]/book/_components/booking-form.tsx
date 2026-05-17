@@ -104,6 +104,11 @@ export function BookingForm({ tutor, onClose }: Props) {
       toIso: to.toISOString(),
     };
   }, []);
+  // 60s staleTime is set explicitly here (matches the provider default) so
+  // future changes to the global don't silently change freshness for the
+  // picker. Cells can grey-out up to 60s after another tab confirms a
+  // booking — the server-side overlap check is the authoritative safety
+  // net when the user actually submits.
   const tutorBusyQuery = useQuery({
     queryKey: ["tutors", "availability", tutor.id, busyWindow.fromIso],
     queryFn: () =>
@@ -112,11 +117,13 @@ export function BookingForm({ tutor, onClose }: Props) {
         busyWindow.fromIso,
         busyWindow.toIso,
       ),
+    staleTime: 60_000,
   });
   const mineBusyQuery = useQuery({
     queryKey: ["bookings", "mineBusy", busyWindow.fromIso],
     queryFn: () =>
       createApiClient().bookings.mineBusy(busyWindow.fromIso, busyWindow.toIso),
+    staleTime: 60_000,
   });
   const busy: BusySlot[] = useMemo(
     () => [
