@@ -12,6 +12,7 @@ import { ValidationPipe, type INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { SwaggerModule } from "@nestjs/swagger";
 
+import { AllExceptionsFilter } from "./common/all-exceptions.filter";
 import { AppModule } from "./app.module";
 import { buildOpenApiConfig } from "./openapi.config";
 
@@ -19,6 +20,7 @@ async function bootstrap() {
   const app: INestApplication = await NestFactory.create(AppModule);
 
   app.setGlobalPrefix("api");
+  app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
