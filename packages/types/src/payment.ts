@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-export type PaymentItemType = "booking" | "sheet";
+export const paymentItemTypeSchema = z.enum(["booking", "sheet"]);
+export type PaymentItemType = z.infer<typeof paymentItemTypeSchema>;
 
 /** Loose ISO date parser used by payout DTOs that the controller hands
  *  to `new Date(...)`. Matches the dateStringSchema in admin.ts. */
@@ -40,15 +41,17 @@ export interface PaymentIntent {
   createdAt: string;
 }
 
-export interface CreatePaymentIntentDto {
-  itemType: PaymentItemType;
-  itemId: string;
-}
+export const createPaymentIntentSchema = z.object({
+  itemType: paymentItemTypeSchema,
+  itemId: z.string().min(1),
+});
+export type CreatePaymentIntentDto = z.infer<typeof createPaymentIntentSchema>;
 
-export interface UploadSlipDto {
-  paymentIntentId: string;
-  slipObjectKey: string;
-}
+export const uploadSlipSchema = z.object({
+  paymentIntentId: z.string().min(1),
+  slipObjectKey: z.string().min(1),
+});
+export type UploadSlipDto = z.infer<typeof uploadSlipSchema>;
 
 export interface SlipVerificationResult {
   paymentIntentId: string;
