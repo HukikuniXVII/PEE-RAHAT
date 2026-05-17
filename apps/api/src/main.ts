@@ -8,7 +8,7 @@ try {
   /* .env optional in production where vars come from the platform */
 }
 
-import { ValidationPipe, type INestApplication } from "@nestjs/common";
+import { Logger, ValidationPipe, type INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { SwaggerModule } from "@nestjs/swagger";
 
@@ -39,8 +39,9 @@ async function bootstrap() {
 
   const port = Number(process.env.PORT ?? 3001);
   await app.listen(port, "0.0.0.0");
-  // eslint-disable-next-line no-console
-  console.log(`Pee Rahat API listening on http://0.0.0.0:${port}/api`);
+  new Logger("Bootstrap").log(
+    `Pee Rahat API listening on http://0.0.0.0:${port}/api`,
+  );
 }
 
 void bootstrap();

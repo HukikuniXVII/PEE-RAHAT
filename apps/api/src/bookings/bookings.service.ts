@@ -225,6 +225,18 @@ export class BookingsService {
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
+      this.logger.log(
+        JSON.stringify({
+          event: "booking_created",
+          bookingId: created.id,
+          tutorId: created.tutorId,
+          studentId: created.studentId,
+          subject: created.subject,
+          scheduledAt: created.scheduledAt.toISOString(),
+          durationMinutes: created.durationMinutes,
+          amountThb: created.amountThb,
+        }),
+      );
       return { ...created, hasReview: false, viewerSide: "student" as const };
     } catch (err) {
       if (
@@ -232,7 +244,14 @@ export class BookingsService {
         SERIALIZATION_FAILURE_CODES.has(err.code)
       ) {
         this.logger.warn(
-          `Serialization failure on booking create for tutor=${input.tutorId} slot=${input.scheduledAt}; mapping to BOOKING_OVERLAP`,
+          JSON.stringify({
+            event: "booking_overlap_rejected",
+            source: "serialization_failure",
+            tutorId: input.tutorId,
+            studentId: user.id,
+            scheduledAt: input.scheduledAt,
+            durationMinutes: input.durationMinutes,
+          }),
         );
         throw new ConflictException({ code: "BOOKING_OVERLAP" });
       }
@@ -282,6 +301,17 @@ export class BookingsService {
     );
     if (bookingHits.length > 0) {
       const hit = bookingHits[0]!;
+      this.logger.warn(
+        JSON.stringify({
+          event: "booking_overlap_rejected",
+          source: "existing_booking",
+          userId,
+          conflictingBookingId: hit.id,
+          conflictingScheduledAt: hit.scheduledAt.toISOString(),
+          requestedScheduledAt: newStart.toISOString(),
+          requestedDurationMinutes: durationMinutes,
+        }),
+      );
       throw new ConflictException({
         code: "BOOKING_OVERLAP",
         conflictingBookingId: hit.id,
@@ -309,6 +339,17 @@ export class BookingsService {
     );
     if (proposalHits.length > 0) {
       const hit = proposalHits[0]!;
+      this.logger.warn(
+        JSON.stringify({
+          event: "booking_overlap_rejected",
+          source: "postpone_proposal",
+          userId,
+          conflictingBookingId: hit.id,
+          conflictingScheduledAt: hit.scheduledAt.toISOString(),
+          requestedScheduledAt: newStart.toISOString(),
+          requestedDurationMinutes: durationMinutes,
+        }),
+      );
       throw new ConflictException({
         code: "BOOKING_OVERLAP",
         conflictingBookingId: hit.id,
@@ -332,6 +373,17 @@ export class BookingsService {
           const blockStart = new Date(interval.start);
           const blockEnd = new Date(interval.end);
           if (intervalsOverlap(newStart, newEnd, blockStart, blockEnd)) {
+            this.logger.warn(
+              JSON.stringify({
+                event: "booking_overlap_rejected",
+                source: "tutor_unavailability",
+                userId,
+                tutorProfileId: tutorProfile.id,
+                conflictingScheduledAt: blockStart.toISOString(),
+                requestedScheduledAt: newStart.toISOString(),
+                requestedDurationMinutes: durationMinutes,
+              }),
+            );
             throw new ConflictException({
               code: "BOOKING_OVERLAP",
               conflictingBookingId: tutorProfile.id,
@@ -435,6 +487,15 @@ export class BookingsService {
       where: { id: bookingId },
       data: { status: "accepted" },
     });
+    this.logger.log(
+      JSON.stringify({
+        event: "booking_accepted",
+        bookingId: updated.id,
+        tutorId: updated.tutorId,
+        studentId: updated.studentId,
+        tutorUserId: user.id,
+      }),
+    );
     return { ...updated, hasReview: false, viewerSide: "tutor" as const };
   }
 
