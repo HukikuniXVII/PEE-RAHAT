@@ -7,6 +7,7 @@ import {
   Logger,
 } from "@nestjs/common";
 import type { Request, Response } from "express";
+import { ZodError } from "zod";
 
 import type { ApiError } from "@peerahat/types";
 
@@ -69,6 +70,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
           details = { ...(details ?? {}), ...extras };
         }
       }
+    } else if (exception instanceof ZodError) {
+      // Controllers that call schema.parse(raw) — e.g. updateMyBank — throw
+      // ZodError on malformed input. Without this branch the filter would
+      // log+swallow them as unhandled 500s. Mirror the BadRequestException
+      // shape that explicit safeParse callsites use so frontends discriminate
+      // identically: { code: "VALIDATION_ERROR", details.issues: [...] }.
+      statusCode = HttpStatus.BAD_REQUEST;
+      message = "Validation failed";
+      code = "VALIDATION_ERROR";
+      details = { issues: exception.issues };
     } else if (exception instanceof Error) {
       this.logger.error(
         `Unhandled exception on ${request.method} ${request.originalUrl}: ${exception.message}`,

@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -78,20 +77,13 @@ export class BookingsController {
   // Validation goes through @peerahat/types' createBookingSchema (single
   // source of truth, also used by the web client) instead of a duplicate
   // class-validator DTO. Catches Subject-enum violations the old @IsString
-  // DTO would have let through to Prisma as a 500.
+  // DTO would have let through to Prisma as a 500. AllExceptionsFilter
+  // turns the ZodError into a 400 + VALIDATION_ERROR + details.issues.
   @Post()
   @UseGuards(UserThrottlerGuard)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   create(@CurrentUser() user: SupabaseJwtPayload, @Body() raw: unknown) {
-    const parsed = createBookingSchema.safeParse(raw);
-    if (!parsed.success) {
-      throw new BadRequestException({
-        code: "VALIDATION_ERROR",
-        message: "Invalid booking request",
-        issues: parsed.error.issues,
-      });
-    }
-    const dto: CreateBookingDto = parsed.data;
+    const dto: CreateBookingDto = createBookingSchema.parse(raw);
     return this.bookings.create(user.sub, dto);
   }
 
