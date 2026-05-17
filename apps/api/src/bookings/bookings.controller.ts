@@ -8,8 +8,16 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
-import { IsIn, IsInt, IsString, MaxLength, MinLength } from "class-validator";
-import { createBookingSchema, type CreateBookingDto } from "@peerahat/types";
+import {
+  type BookingReportDto,
+  bookingReportSchema,
+  createBookingSchema,
+  type CreateBookingDto,
+  type PostponeRequestDto,
+  postponeRequestSchema,
+  type ProposeSlotDto,
+  proposeSlotSchema,
+} from "@peerahat/types";
 
 import { CurrentUser } from "../auth/current-user.decorator";
 import { SupabaseAuthGuard } from "../auth/auth.guard";
@@ -18,26 +26,6 @@ import { parseAvailabilityWindow } from "../common/availability-window";
 import { UserThrottlerGuard } from "../common/user-throttler.guard";
 import { BookingsService } from "./bookings.service";
 import { PostponeService } from "./postpone.service";
-
-// Postpone proposals keep 30-min granularity for the chat negotiation flow.
-// New-booking durations live in @peerahat/types' createBookingSchema.
-const PROPOSE_DURATIONS = [30, 60, 90, 120] as const;
-
-class ReportDto {
-  @IsString() reason!: string;
-  @IsString() details!: string;
-}
-
-class PostponeDto {
-  @IsString() @MinLength(5) @MaxLength(500) reason!: string;
-}
-
-class ProposeSlotDto {
-  @IsString() scheduledAt!: string;
-  @IsInt()
-  @IsIn(PROPOSE_DURATIONS)
-  durationMinutes!: number;
-}
 
 @Controller("bookings")
 @UseGuards(SupabaseAuthGuard)
@@ -92,30 +80,41 @@ export class BookingsController {
     return this.bookings.accept(user.sub, id);
   }
 
+  // FR-PM-05: student-reported booking inside the 24h report window.
+  // Validation via @peerahat/types' bookingReportSchema (shared with the
+  // web report dialog). AllExceptionsFilter normalizes ZodError → 400.
   @Post(":id/report")
   report(
     @CurrentUser() user: SupabaseJwtPayload,
     @Param("id") id: string,
-    @Body() dto: ReportDto,
+    @Body() raw: unknown,
   ) {
+    const dto: BookingReportDto = bookingReportSchema.parse(raw);
     return this.bookings.report(user.sub, id, dto);
   }
 
+  // FR-TH-10..12: open a 2h postpone negotiation. postponeRequestSchema
+  // enforces reason 5-500 chars at the boundary; the service keeps the
+  // same range check as defense-in-depth for non-HTTP callers.
   @Post(":id/postpone")
   postponeInitiate(
     @CurrentUser() user: SupabaseJwtPayload,
     @Param("id") id: string,
-    @Body() dto: PostponeDto,
+    @Body() raw: unknown,
   ) {
+    const dto: PostponeRequestDto = postponeRequestSchema.parse(raw);
     return this.postpone.initiate(user.sub, id, dto);
   }
 
+  // FR-TH-10..12: propose a concrete new slot inside the negotiation.
+  // proposeSlotSchema enforces ISO 8601 and duration ∈ {30,60,90,120}.
   @Post(":id/postpone/propose")
   postponePropose(
     @CurrentUser() user: SupabaseJwtPayload,
     @Param("id") id: string,
-    @Body() dto: ProposeSlotDto,
+    @Body() raw: unknown,
   ) {
+    const dto: ProposeSlotDto = proposeSlotSchema.parse(raw);
     return this.postpone.propose(user.sub, id, dto);
   }
 

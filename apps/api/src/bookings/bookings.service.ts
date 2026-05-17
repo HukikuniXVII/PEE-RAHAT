@@ -6,7 +6,7 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import type { CreateBookingDto } from "@peerahat/types";
+import type { BookingReportDto, CreateBookingDto } from "@peerahat/types";
 import { Prisma } from "@prisma/client";
 import { addHours } from "date-fns";
 
@@ -507,7 +507,7 @@ export class BookingsService {
   async report(
     supabaseId: string,
     bookingId: string,
-    dto: { reason: string; details: string },
+    dto: BookingReportDto,
   ) {
     const user = await this.prisma.user.findUnique({ where: { supabaseId } });
     if (!user) throw new BadRequestException();

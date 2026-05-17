@@ -11,6 +11,7 @@ import type {
   PostponeOutcome,
   PostponeRequest,
 } from "@prisma/client";
+import type { PostponeRequestDto, ProposeSlotDto } from "@peerahat/types";
 import { addHours, differenceInMilliseconds } from "date-fns";
 
 import { ChatService } from "../chat/chat.service";
@@ -24,15 +25,6 @@ const CHAT_WINDOW_HOURS = 2;
 const SHORT_NOTICE_HOURS = 12;
 const MIN_NEW_SLOT_HOURS = 24;
 const ALLOWED_DURATIONS = new Set([30, 60, 90, 120]);
-
-interface InitiateInput {
-  reason: string;
-}
-
-interface ProposeInput {
-  scheduledAt: string;
-  durationMinutes: number;
-}
 
 @Injectable()
 export class PostponeService implements OnModuleInit {
@@ -52,7 +44,10 @@ export class PostponeService implements OnModuleInit {
   }
 
   // ── initiate ───────────────────────────────────────────────────────────
-  async initiate(supabaseId: string, bookingId: string, input: InitiateInput) {
+  async initiate(supabaseId: string, bookingId: string, input: PostponeRequestDto) {
+    // Defense-in-depth: postponeRequestSchema already enforces 5-500 at the
+    // controller, but keep the runtime check so future non-HTTP callers
+    // (jobs/scripts) can't bypass it.
     if (!input.reason || input.reason.length < 5 || input.reason.length > 500) {
       throw new BadRequestException("Reason must be 5–500 characters");
     }
@@ -124,7 +119,9 @@ export class PostponeService implements OnModuleInit {
   }
 
   // ── propose ────────────────────────────────────────────────────────────
-  async propose(supabaseId: string, bookingId: string, input: ProposeInput) {
+  async propose(supabaseId: string, bookingId: string, input: ProposeSlotDto) {
+    // Defense-in-depth: proposeSlotSchema's literal union already enforces
+    // the duration at the controller; this keeps non-HTTP callers honest.
     if (!ALLOWED_DURATIONS.has(input.durationMinutes)) {
       throw new BadRequestException("durationMinutes must be 60, 90, or 120");
     }
