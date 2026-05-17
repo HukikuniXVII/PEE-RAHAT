@@ -8,6 +8,19 @@ import { BookingsService } from "./bookings.service";
 import { PostponeQueue } from "./postpone.queue";
 import { PostponeService } from "./postpone.service";
 
+/**
+ * Module graph (downstream-only; verified acyclic):
+ *
+ *   BookingsModule
+ *   ├── ChatModule         → PostponeService.chat (system messages)
+ *   ├── PaymentsModule     → PostponeService.payments (refund handling)
+ *   └── GoogleCalendarModule → PostponeService.googleCalendar (Meet cleanup)
+ *
+ * Reverse imports: only AppModule (root) and TutorsModule. Nothing in
+ * Payments/Chat/GoogleCalendar points back to BookingsModule, so no
+ * forwardRef is needed. If a future change introduces a cycle, prefer
+ * extracting the shared piece into its own module over forwardRef.
+ */
 @Module({
   imports: [ChatModule, PaymentsModule, GoogleCalendarModule],
   controllers: [BookingsController],
