@@ -8,11 +8,13 @@ import {
   Query,
   UseGuards,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { IsIn, IsInt, IsString, MaxLength, MinLength } from "class-validator";
 
 import { CurrentUser } from "../auth/current-user.decorator";
 import { SupabaseAuthGuard } from "../auth/auth.guard";
 import type { SupabaseJwtPayload } from "../auth/supabase-jwt.strategy";
+import { UserThrottlerGuard } from "../common/user-throttler.guard";
 import { BookingsService } from "./bookings.service";
 import { PostponeService } from "./postpone.service";
 
@@ -80,7 +82,13 @@ export class BookingsController {
     return this.bookings.findById(user.sub, id);
   }
 
+  // FR-TH-06: cap booking-create at 10/min per Supabase user. The class-level
+  // SupabaseAuthGuard populates req.user before UserThrottlerGuard runs, so
+  // the throttle bucket is per-user rather than per-IP (which would
+  // rate-limit shared-IP students against each other).
   @Post()
+  @UseGuards(UserThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   create(@CurrentUser() user: SupabaseJwtPayload, @Body() dto: CreateBookingDto) {
     return this.bookings.create(user.sub, dto);
   }

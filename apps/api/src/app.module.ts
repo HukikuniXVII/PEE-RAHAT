@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { ThrottlerModule } from "@nestjs/throttler";
 
 import { AdminModule } from "./admin/admin.module";
 import { AuthModule } from "./auth/auth.module";
@@ -22,6 +23,10 @@ import { UsersModule } from "./users/users.module";
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    // Default throttler tier — individual routes apply UserThrottlerGuard +
+    // @Throttle() to opt in. No global guard, so unscoped routes are
+    // untouched until they explicitly need rate limiting.
+    ThrottlerModule.forRoot([{ name: "default", ttl: 60_000, limit: 60 }]),
     CommonModule,
     PrismaModule,
     AuthModule,

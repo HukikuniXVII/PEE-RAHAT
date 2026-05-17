@@ -17,11 +17,20 @@
     "clean": "rimraf dist"
   },
   "jest": {
-    "moduleFileExtensions": ["js", "json", "ts"],
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.(t|j)s$": ["ts-jest", { "tsconfig": "<rootDir>/../tsconfig.json" }]
+      "^.+\\.(t|j)s$": [
+        "ts-jest",
+        {
+          "tsconfig": "<rootDir>/../tsconfig.json"
+        }
+      ]
     },
     "testEnvironment": "node"
   },
@@ -35,6 +44,7 @@
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.4.7",
     "@nestjs/swagger": "^7.4.2",
+    "@nestjs/throttler": "^6.4.0",
     "@peerahat/types": "workspace:*",
     "@prisma/client": "^5.21.1",
     "@supabase/supabase-js": "^2.45.4",
