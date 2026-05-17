@@ -3,12 +3,18 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { addHours } from "date-fns";
 
 import { PrismaService } from "../prisma/prisma.service";
+
+/** Prisma errors raised when a Serializable transaction is aborted because a
+ *  concurrent transaction modified the same predicate (Postgres 40001).
+ *  Translated to BOOKING_OVERLAP so the client sees a stable code. */
+const SERIALIZATION_FAILURE_CODES = new Set(["P2034"]);
 
 /** Statuses that consume a calendar slot for overlap purposes (FR-TH-15). */
 const ACTIVE_OVERLAP_STATUSES = [
@@ -84,6 +90,8 @@ interface RawOverlapRow {
 
 @Injectable()
 export class BookingsService {
+  private readonly logger = new Logger(BookingsService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async listForUser(supabaseId: string) {
@@ -175,35 +183,61 @@ export class BookingsService {
       throw new ForbiddenException("ไม่สามารถจองคลาสของตัวเองได้");
     }
 
-    // Block double-booking on either side (FR-TH-15).
-    await this.assertNoOverlap(
-      user.id,
-      input.scheduledAt,
-      input.durationMinutes,
-    );
-    await this.assertNoOverlap(
-      tutor.userId,
-      input.scheduledAt,
-      input.durationMinutes,
-    );
-
     const amountThb = Math.round(
       tutor.hourlyRate * (input.durationMinutes / 60),
     );
 
-    const created = await this.prisma.booking.create({
-      data: {
-        studentId: user.id,
-        tutorId: input.tutorId,
-        subject: input.subject,
-        scheduledAt: new Date(input.scheduledAt),
-        durationMinutes: input.durationMinutes,
-        amountThb,
-        acceptDeadlineAt: addHours(new Date(), 24),
-        status: "requested",
-      },
-    });
-    return { ...created, hasReview: false, viewerSide: "student" as const };
+    // FR-TH-15: the overlap SELECTs and the INSERT must share one transaction
+    // with Serializable isolation. Without it, two concurrent POSTs for the
+    // same slot can both see "no overlap" and both insert. Postgres aborts
+    // the second tx with 40001 when its read predicate is invalidated by
+    // the first commit; we map that to the same BOOKING_OVERLAP code so the
+    // client sees a stable error envelope either way.
+    try {
+      const created = await this.prisma.$transaction(
+        async (tx) => {
+          await this.assertNoOverlap(
+            user.id,
+            input.scheduledAt,
+            input.durationMinutes,
+            undefined,
+            tx,
+          );
+          await this.assertNoOverlap(
+            tutor.userId,
+            input.scheduledAt,
+            input.durationMinutes,
+            undefined,
+            tx,
+          );
+          return tx.booking.create({
+            data: {
+              studentId: user.id,
+              tutorId: input.tutorId,
+              subject: input.subject,
+              scheduledAt: new Date(input.scheduledAt),
+              durationMinutes: input.durationMinutes,
+              amountThb,
+              acceptDeadlineAt: addHours(new Date(), 24),
+              status: "requested",
+            },
+          });
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+      return { ...created, hasReview: false, viewerSide: "student" as const };
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        SERIALIZATION_FAILURE_CODES.has(err.code)
+      ) {
+        this.logger.warn(
+          `Serialization failure on booking create for tutor=${input.tutorId} slot=${input.scheduledAt}; mapping to BOOKING_OVERLAP`,
+        );
+        throw new ConflictException({ code: "BOOKING_OVERLAP" });
+      }
+      throw err;
+    }
   }
 
   /**
@@ -222,7 +256,9 @@ export class BookingsService {
     scheduledAt: string | Date,
     durationMinutes: number,
     excludeBookingId?: string,
+    tx?: Prisma.TransactionClient,
   ): Promise<void> {
+    const db = tx ?? this.prisma;
     const newStart = new Date(scheduledAt);
     const newEnd = new Date(newStart.getTime() + durationMinutes * 60_000);
     const statuses = Prisma.join(ACTIVE_OVERLAP_STATUSES);
@@ -231,7 +267,7 @@ export class BookingsService {
       : Prisma.empty;
 
     // 1) overlap with another booking's own scheduledAt window.
-    const bookingHits = await this.prisma.$queryRaw<RawOverlapRow[]>(
+    const bookingHits = await db.$queryRaw<RawOverlapRow[]>(
       Prisma.sql`
         SELECT b.id, b."scheduledAt"
         FROM "Booking" b
@@ -255,7 +291,7 @@ export class BookingsService {
 
     // 2) overlap with an active postpone proposal (postpone_pending bookings
     //    reserve BOTH their original slot AND the proposed new slot).
-    const proposalHits = await this.prisma.$queryRaw<RawOverlapRow[]>(
+    const proposalHits = await db.$queryRaw<RawOverlapRow[]>(
       Prisma.sql`
         SELECT b.id, pr."proposedAt" AS "scheduledAt"
         FROM "Booking" b
@@ -283,12 +319,12 @@ export class BookingsService {
     // 3) FR-TH-16: if the User is a tutor, also reject overlaps with their
     //    own recurring unavailability windows. Same BOOKING_OVERLAP code —
     //    the student-facing toast doesn't need to distinguish the cause.
-    const tutorProfile = await this.prisma.tutorProfile.findUnique({
+    const tutorProfile = await db.tutorProfile.findUnique({
       where: { userId },
       select: { id: true },
     });
     if (tutorProfile) {
-      const rules = await this.prisma.tutorUnavailability.findMany({
+      const rules = await db.tutorUnavailability.findMany({
         where: { tutorId: tutorProfile.id },
       });
       if (rules.length > 0) {
