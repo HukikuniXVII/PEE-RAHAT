@@ -1,22 +1,52 @@
 # Deploy guide — Pee Rahat (Phase 1)
 
-End-to-end walkthrough for the PaaS-split shape. ~30–60 min if you don't
-get stuck.
+End-to-end walkthrough. ~30–60 min if you don't get stuck.
 
-## Target
+## Target — 100% free
 
 | Piece | Host | Plan | URL shape |
 |---|---|---|---|
 | Web (Next.js 14) | **Vercel** | Free / Hobby | `https://<project>.vercel.app` |
-| API (NestJS + workers) | **Railway** | $5 trial credit then ~$5/mo | `https://<service>.up.railway.app` |
+| API (NestJS + workers) | **Render** Web Service | Free (sleeps after 15 min) | `https://<service>.onrender.com` |
 | Postgres | **Supabase Postgres** (your existing project) | Free (500 MB) | (internal) |
 | Redis | **Upstash** | Free (10k cmds/day) | `rediss://...` |
-| Storage (KYC + sheets) | **Cloudflare R2** | ~free at low traffic | S3-compatible |
+| Storage (KYC + sheets) | **Cloudflare R2** | Free (10 GB egress, 10 GB-mo storage) | S3-compatible |
 | Auth | **Supabase Auth** (already wired) | Free | `<ref>.supabase.co` |
 
-Expected monthly cost at launch: **~$5–10**. Mostly Railway for the
-long-running API process; everything else stays in free tiers until
-traffic grows.
+Expected monthly cost: **$0**. Total.
+
+### ⚠️ The free trade-off — read before continuing
+
+Render Free **sleeps the API after 15 minutes of inactivity** and
+takes ~30–60 s to wake on the next request. That has three knock-on
+effects you should accept up-front:
+
+1. **First page load after idle is slow** (~30 s) while Render spins
+   the container back up. Subsequent loads are fine.
+2. **BullMQ workers don't run while sleeping**, so the
+   `postpone-timeout` queue may fire late. A booking with a postpone
+   chat-window expiring at 14:00 won't auto-resolve until the API is
+   next pinged.
+3. **Cron jobs don't fire while sleeping** — `release-for-payout`
+   (daily) and `kyc-cold-archive` (daily) miss their slots unless the
+   API happens to be awake. Workaround below.
+
+For a demo / closed beta with a few testers this is fine. When you
+need cron reliability, jump to **["Upgrade path: pay $5/mo for
+reliability"](#upgrade-path-pay-5mo-for-reliability)** below — same
+config, swap Render Free for Railway.
+
+**Two free workarounds for the sleep problem**:
+
+- **Free uptime monitor** (e.g. https://uptimerobot.com — free for 50
+  monitors) pinging `https://<service>.onrender.com/api/tcas/deadlines`
+  every 5 min keeps Render awake 24/7. Workers + cron then fire on
+  schedule.
+- **Render Cron Job** (free) — separate service type that fires HTTP
+  requests on a cron schedule. Set it to ping the same URL every 14 min.
+  Same effect.
+
+Either keeps you on the free tier with reliable workers.
 
 ## Prereqs
 
@@ -106,19 +136,24 @@ S3_BUCKET_KYC_ARCHIVE=peerahat-kyc-archive
 
 ---
 
-## Step 4 — Deploy API to Railway
+## Step 4 — Deploy API to Render (Free)
 
-1. Railway dashboard → **New Project** → **Deploy from GitHub repo** →
-   pick `HukikuniXVII/PEE-RAHAT`.
-2. Railway scans the repo. It'll see the pnpm-workspace + turbo setup.
-   Configure the service:
-   - **Root Directory**: leave empty (workspace root).
-   - **Build command**: `pnpm install --frozen-lockfile && pnpm --filter @peerahat/types build && pnpm --filter @peerahat/api build`
-   - **Start command**: `node apps/api/dist/main.js`
-   - **Watch paths**: `apps/api/**`, `packages/types/**`, `packages/config/**`
-3. **Variables** tab — paste in every env var. Group them so you don't
-   miss any. Use the values from Steps 1–3 plus your existing Google
-   OAuth + Supabase keys + payment knobs:
+1. https://dashboard.render.com → **New +** → **Web Service** → connect
+   GitHub and pick `HukikuniXVII/PEE-RAHAT`.
+2. Configure the service:
+   - **Name**: `peerahat-api`
+   - **Region**: **Singapore** (closest to TH users + same region as your
+     Supabase/Upstash)
+   - **Branch**: `main`
+   - **Root Directory**: leave empty (workspace root — Render handles
+     the monorepo from there)
+   - **Runtime**: Node
+   - **Build Command**:
+     `corepack enable && pnpm install --frozen-lockfile && pnpm --filter @peerahat/types build && pnpm --filter @peerahat/api build`
+   - **Start Command**: `node apps/api/dist/main.js`
+   - **Instance Type**: **Free** (0.1 CPU, 512 MB)
+3. **Environment** tab — paste every var. Use values from Steps 1–3
+   plus your existing Google OAuth keys + payment knobs:
 
 ```
 PORT=3001
@@ -149,27 +184,48 @@ WITHHOLDING_TAX_PCT=3
 POSTPONE_TUTOR_CUT_SHORT_NOTICE=50
 POSTPONE_PLATFORM_FEE_SHORT_NOTICE=10
 
-# Workers — must be true so cron + BullMQ run
+# Workers — true so cron + BullMQ try to run. Note: while Render Free is
+# sleeping (no traffic for 15+ min) they pause too. See the trade-off
+# section at the top of this doc.
 JOBS_ENABLED=true
 
 # Google OAuth (per-tutor Meet, FR-TH-17)
 GOOGLE_OAUTH_CLIENT_ID=<from your existing client>
 GOOGLE_OAUTH_CLIENT_SECRET=<from your existing client>
-GOOGLE_OAUTH_REDIRECT_URI=https://<railway-service>.up.railway.app/api/auth/google/callback
+GOOGLE_OAUTH_REDIRECT_URI=https://<render-service>.onrender.com/api/auth/google/callback
 GOOGLE_TOKEN_ENCRYPTION_KEY=<base64 32-byte — generate fresh, see docs/google-oauth-setup.md>
 GOOGLE_OAUTH_STATE_JWT_SECRET=<base64 48-byte — generate fresh>
 ```
 
-4. **Deploy**. First build takes ~3–5 min. Watch logs for
+4. **Create Web Service**. First build takes ~5–8 min on the Free tier
+   (slower CPU). Watch logs for
    `Pee Rahat API listening on http://0.0.0.0:3001/api`.
-5. **Networking** tab → **Generate Domain**. Copy the
-   `<service>.up.railway.app` URL. This is your API base.
-6. Update `GOOGLE_OAUTH_REDIRECT_URI` env var to use the real Railway URL
-   you just got (it was a placeholder). Redeploy.
+5. Top of the service page shows the URL — `https://<service>.onrender.com`.
+   Copy it. This is your API base.
+6. Update `GOOGLE_OAUTH_REDIRECT_URI` env var to use the real
+   `onrender.com` URL you just got (it was a placeholder). Save —
+   Render auto-redeploys.
 
 > The build command runs `pnpm --filter @peerahat/types build` first
 > because `@peerahat/api` imports compiled output from it. Without that
-> prebuild, Railway's container won't find the `dist/index.js`.
+> prebuild, the container won't find `dist/index.js`.
+
+### Step 4b (optional but recommended) — keep the API awake
+
+If you want workers + cron to fire reliably without paying:
+
+- **Option A: UptimeRobot** (free, 5-min ping interval). Add a new
+  monitor of type **HTTP(s)** pointing at
+  `https://<service>.onrender.com/api/tcas/deadlines`. UptimeRobot's
+  ping every 5 min keeps Render from sleeping.
+- **Option B: Render Cron Job** (free). Add another Render service of
+  type **Cron Job** with schedule `*/14 * * * *` and command
+  `curl -fsS https://<service>.onrender.com/api/tcas/deadlines || true`.
+  Same effect, all inside Render.
+
+Either pushes monthly hours over the Free Web Service's 750 hr cap.
+Render docs are clear that a single always-on free service stays inside
+the cap; if you go over it pauses until the next month rolls over.
 
 ---
 
@@ -284,7 +340,7 @@ End-to-end smoke test against the deployed URLs.
    Redis), and the daily `release-for-payout` cron registers itself.
 8. Run `pnpm --filter @peerahat/api openapi:export` locally to confirm
    no regressions in the API surface; the doc is at
-   `https://<service>.up.railway.app/api/docs`.
+   `https://<service>.onrender.com/api/docs`.
 
 ---
 
@@ -292,14 +348,50 @@ End-to-end smoke test against the deployed URLs.
 
 | Task | Command / location |
 |---|---|
-| Push new code | `git push` — both Vercel and Railway redeploy on `main` push automatically |
+| Push new code | `git push` — both Vercel and Render redeploy on `main` push automatically |
 | Run a new migration in prod | `prisma migrate deploy` from your laptop with the prod direct-connect URL |
-| Tail API logs | Railway dashboard → service → **Deploy logs** / **Service logs** |
+| Tail API logs | Render dashboard → service → **Logs** tab |
 | Tail web logs | Vercel dashboard → project → **Logs** |
-| Roll back a bad API deploy | Railway → deploy history → click an older one → **Redeploy** |
+| Roll back a bad API deploy | Render → service → **Events** → find a previous deploy → **Rollback** |
 | Roll back web | Vercel → Deployments → **Promote to Production** on an earlier one |
-| Bring API down (e.g. for maintenance) | Railway → service → **Settings** → **Deactivate** |
-| Reset prod DB password | Supabase → Settings → Database → Reset password → update Railway `DATABASE_URL` |
+| Bring API down (e.g. for maintenance) | Render → service → **Settings** → **Suspend Web Service** |
+| Reset prod DB password | Supabase → Settings → Database → Reset password → update Render `DATABASE_URL` |
+| Wake the API on demand | `curl https://<service>.onrender.com/api/tcas/deadlines` (first hit takes ~30 s) |
+
+---
+
+## Upgrade path: pay $5/mo for reliability
+
+When the "sleeps after 15 min" trade-off becomes a problem (real users,
+postpone-timeouts you can't afford to miss, customer support
+complaining about slow first loads), swap **Render Free → Railway**
+without touching anything else. Everything in this doc — Supabase
+Postgres, Upstash Redis, Cloudflare R2, Vercel web, all env vars —
+stays identical.
+
+### Railway swap (replaces Step 4 only)
+
+1. Railway dashboard → **New Project** → **Deploy from GitHub repo** →
+   pick `HukikuniXVII/PEE-RAHAT`.
+2. Configure the service the same way as Render's Step 4:
+   - **Root Directory**: leave empty.
+   - **Build command**:
+     `pnpm install --frozen-lockfile && pnpm --filter @peerahat/types build && pnpm --filter @peerahat/api build`
+   - **Start command**: `node apps/api/dist/main.js`
+   - **Watch paths**: `apps/api/**`, `packages/types/**`, `packages/config/**`
+3. **Variables** — paste the same env vars from Step 4, but replace
+   `GOOGLE_OAUTH_REDIRECT_URI` with the Railway URL once you have it.
+4. **Networking** → **Generate Domain**. Copy `<service>.up.railway.app`.
+5. Update **Vercel's** `NEXT_PUBLIC_API_BASE_URL` to point at the new
+   Railway URL, **Supabase URL Configuration** to include the new
+   Railway callback (if any tutor connected Google Calendar via the
+   Render URL, add the Railway equivalent), and **Google Cloud OAuth**
+   Authorized redirect URIs to add the Railway Meet-callback path.
+6. Suspend the Render service when Railway is verified working.
+
+Railway doesn't sleep, so the uptime-monitor workaround from Step 4b is
+no longer needed. ~$5/mo for the container; you can also move Redis
+from Upstash to a Railway add-on if you'd rather have one bill.
 
 ---
 
@@ -309,7 +401,7 @@ End-to-end smoke test against the deployed URLs.
   8 GB + daily backups. Or move to Neon ($0 to start, branch databases).
 - **Upstash > 10k cmds/day**: Pay-as-you-go ~$0.20 / 100k cmds. Or run
   Redis on Railway as a separate service.
-- **Want a custom domain**: Vercel and Railway both have one-click
+- **Want a custom domain**: Vercel + Render + Railway all have one-click
   custom-domain setup once you buy one (Cloudflare Registrar ~$10/yr is
   the cheapest path). Update `WEB_ORIGIN`, Supabase URL config, and
   Google OAuth redirect URIs after switching.
