@@ -35,7 +35,9 @@ export function BookingCta({ tutor, variant, hasInitialSession }: Props) {
     queryFn: () => createApiClient().users.me(),
     enabled: hasInitialSession,
     staleTime: 60_000,
-    retry: false,
+    // retry once so a transient API blip doesn't leave the Book button
+    // stuck in its disabled/login fallback for a full minute.
+    retry: 1,
   });
   const isOwnProfile = meQuery.data?.tutorProfileId === tutor.id;
   const isAuthed = hasInitialSession && !!meQuery.data;

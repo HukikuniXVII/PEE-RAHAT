@@ -22,7 +22,9 @@ export function ChatCta({ tutor, hasInitialSession }: Props) {
     queryFn: () => createApiClient().users.me(),
     enabled: hasInitialSession,
     staleTime: 60_000,
-    retry: false,
+    // retry once so the chat CTA isn't suppressed for the rest of the
+    // session if the first /users/me call hits a transient blip.
+    retry: 1,
   });
   if (meQuery.data?.tutorProfileId === tutor.id) return null;
 
