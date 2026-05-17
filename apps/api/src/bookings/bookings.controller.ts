@@ -10,6 +10,7 @@ import {
 } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import { IsIn, IsInt, IsString, MaxLength, MinLength } from "class-validator";
+import { createBookingSchema, type CreateBookingDto } from "@peerahat/types";
 
 import { CurrentUser } from "../auth/current-user.decorator";
 import { SupabaseAuthGuard } from "../auth/auth.guard";
@@ -18,19 +19,9 @@ import { UserThrottlerGuard } from "../common/user-throttler.guard";
 import { BookingsService } from "./bookings.service";
 import { PostponeService } from "./postpone.service";
 
-// New-booking durations stay at 60/90/120. Postpone proposals keep 30
-// because the chat negotiation flow needs the half-hour granularity.
-const CREATE_DURATIONS = [60, 90, 120] as const;
+// Postpone proposals keep 30-min granularity for the chat negotiation flow.
+// New-booking durations live in @peerahat/types' createBookingSchema.
 const PROPOSE_DURATIONS = [30, 60, 90, 120] as const;
-
-class CreateBookingDto {
-  @IsString() tutorId!: string;
-  @IsString() subject!: string;
-  @IsString() scheduledAt!: string;
-  @IsInt()
-  @IsIn(CREATE_DURATIONS)
-  durationMinutes!: number;
-}
 
 class ReportDto {
   @IsString() reason!: string;
@@ -86,10 +77,24 @@ export class BookingsController {
   // SupabaseAuthGuard populates req.user before UserThrottlerGuard runs, so
   // the throttle bucket is per-user rather than per-IP (which would
   // rate-limit shared-IP students against each other).
+  //
+  // Validation goes through @peerahat/types' createBookingSchema (single
+  // source of truth, also used by the web client) instead of a duplicate
+  // class-validator DTO. Catches Subject-enum violations the old @IsString
+  // DTO would have let through to Prisma as a 500.
   @Post()
   @UseGuards(UserThrottlerGuard)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  create(@CurrentUser() user: SupabaseJwtPayload, @Body() dto: CreateBookingDto) {
+  create(@CurrentUser() user: SupabaseJwtPayload, @Body() raw: unknown) {
+    const parsed = createBookingSchema.safeParse(raw);
+    if (!parsed.success) {
+      throw new BadRequestException({
+        code: "VALIDATION_ERROR",
+        message: "Invalid booking request",
+        issues: parsed.error.issues,
+      });
+    }
+    const dto: CreateBookingDto = parsed.data;
     return this.bookings.create(user.sub, dto);
   }
 

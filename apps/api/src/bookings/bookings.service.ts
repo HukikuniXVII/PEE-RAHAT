@@ -6,6 +6,7 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
+import type { CreateBookingDto } from "@peerahat/types";
 import { Prisma } from "@prisma/client";
 import { addHours } from "date-fns";
 
@@ -69,13 +70,6 @@ export function expandWeeklyRules(
     cursor.setDate(cursor.getDate() + 1);
   }
   return out;
-}
-
-interface CreateBookingInput {
-  tutorId: string;
-  subject: string;
-  scheduledAt: string;
-  durationMinutes: number;
 }
 
 export interface BusySlot {
@@ -172,7 +166,7 @@ export class BookingsService {
     };
   }
 
-  async create(supabaseId: string, input: CreateBookingInput) {
+  async create(supabaseId: string, input: CreateBookingDto) {
     const user = await this.prisma.user.findUnique({ where: { supabaseId } });
     if (!user) throw new BadRequestException();
     const tutor = await this.prisma.tutorProfile.findUnique({
