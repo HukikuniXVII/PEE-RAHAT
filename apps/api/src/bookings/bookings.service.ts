@@ -26,6 +26,10 @@ const ACTIVE_OVERLAP_STATUSES = [
   "postponed",
 ] as const;
 
+/** FR-TH-06: Manual-Accept model — tutors have 24h to accept a booking
+ *  request before it expires. Named so the FR linkage stays explicit. */
+const MANUAL_ACCEPT_DEADLINE_HOURS = 24;
+
 /**
  * Half-open interval overlap: [aStart, aEnd) intersects [bStart, bEnd).
  * Touching edges (aEnd === bStart) is NOT an overlap. This is the JS twin
@@ -212,7 +216,7 @@ export class BookingsService {
               scheduledAt: new Date(input.scheduledAt),
               durationMinutes: input.durationMinutes,
               amountThb,
-              acceptDeadlineAt: addHours(new Date(), 24),
+              acceptDeadlineAt: addHours(new Date(), MANUAL_ACCEPT_DEADLINE_HOURS),
               status: "requested",
             },
           });
