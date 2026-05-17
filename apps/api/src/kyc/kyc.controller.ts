@@ -4,21 +4,17 @@ import {
   Post,
   UseGuards,
 } from "@nestjs/common";
-import { kycSubmitSchema, type KycSubmitDto } from "@peerahat/types";
-import { IsIn, IsString } from "class-validator";
+import {
+  type KycRequestUploadDto,
+  kycRequestUploadSchema,
+  kycSubmitSchema,
+  type KycSubmitDto,
+} from "@peerahat/types";
 
 import { CurrentUser } from "../auth/current-user.decorator";
 import { SupabaseAuthGuard } from "../auth/auth.guard";
 import type { SupabaseJwtPayload } from "../auth/supabase-jwt.strategy";
 import { KycService } from "./kyc.service";
-
-class RequestUploadDto {
-  @IsIn(["idPhoto", "selfie", "transcript", "passbook"])
-  field!: "idPhoto" | "selfie" | "transcript" | "passbook";
-
-  @IsString()
-  contentType!: string;
-}
 
 @Controller("kyc")
 @UseGuards(SupabaseAuthGuard)
@@ -28,8 +24,9 @@ export class KycController {
   @Post("upload-intents")
   requestUpload(
     @CurrentUser() user: SupabaseJwtPayload,
-    @Body() dto: RequestUploadDto,
+    @Body() raw: unknown,
   ) {
+    const dto: KycRequestUploadDto = kycRequestUploadSchema.parse(raw);
     return this.kyc.requestUpload(user.sub, dto.field, dto.contentType);
   }
 
