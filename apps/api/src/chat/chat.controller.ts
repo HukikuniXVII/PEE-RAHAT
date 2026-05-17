@@ -6,16 +6,17 @@ import {
   Post,
   UseGuards,
 } from "@nestjs/common";
-import { IsString } from "class-validator";
+import { sendMessageSchema } from "@peerahat/types";
 
 import { CurrentUser } from "../auth/current-user.decorator";
 import { SupabaseAuthGuard } from "../auth/auth.guard";
 import type { SupabaseJwtPayload } from "../auth/supabase-jwt.strategy";
 import { ChatService } from "./chat.service";
 
-class SendMessageDto {
-  @IsString() body!: string;
-}
+/** Wire payload for POST /chat/threads/:threadId/messages — threadId is the
+ *  URL param, so the body is just the message text. Picked from the shared
+ *  sendMessageSchema to reuse the trim().min(1).max(2000) rule. */
+const sendMessageBodySchema = sendMessageSchema.pick({ body: true });
 
 @Controller("chat")
 @UseGuards(SupabaseAuthGuard)
@@ -63,8 +64,9 @@ export class ChatController {
   send(
     @CurrentUser() user: SupabaseJwtPayload,
     @Param("threadId") threadId: string,
-    @Body() dto: SendMessageDto,
+    @Body() raw: unknown,
   ) {
+    const dto = sendMessageBodySchema.parse(raw);
     return this.chat.send(user.sub, threadId, dto.body);
   }
 }
