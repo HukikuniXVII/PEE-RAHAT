@@ -19,9 +19,11 @@ import type { ApiError } from "@peerahat/types";
  * discriminates on.
  *
  * - HttpException with string body → message is the string.
- * - HttpException with object body → preserves `code`, folds a
- *   class-validator string[] message into details.errors, and merges any
- *   extra structured keys (e.g. conflictingBookingId) into details.
+ * - HttpException with object body → preserves `code` and merges any
+ *   extra structured keys (e.g. conflictingBookingId) into details. A
+ *   string[] `message` (the legacy class-validator shape) collapses into
+ *   details.errors so any code path that re-emits it stays compatible.
+ * - ZodError → 400 + code: "VALIDATION_ERROR" + details.issues.
  * - Anything else → logged as unhandled and returned as a generic 500 so
  *   internals never leak to clients.
  */
@@ -50,7 +52,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
         if (typeof rawMessage === "string") {
           message = rawMessage;
         } else if (Array.isArray(rawMessage)) {
-          // class-validator emits string[] of field errors.
+          // Legacy field-error array shape — kept compatible in case any
+          // code path re-emits it. Today all field-level validation goes
+          // through ZodError below.
           message = rawMessage.join(", ");
           details = { errors: rawMessage };
         } else {

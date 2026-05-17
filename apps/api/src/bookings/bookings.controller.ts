@@ -62,11 +62,9 @@ export class BookingsController {
   // the throttle bucket is per-user rather than per-IP (which would
   // rate-limit shared-IP students against each other).
   //
-  // Validation goes through @peerahat/types' createBookingSchema (single
-  // source of truth, also used by the web client) instead of a duplicate
-  // class-validator DTO. Catches Subject-enum violations the old @IsString
-  // DTO would have let through to Prisma as a 500. AllExceptionsFilter
-  // turns the ZodError into a 400 + VALIDATION_ERROR + details.issues.
+  // Validation goes through @peerahat/types' createBookingSchema — the
+  // same schema the web client uses. AllExceptionsFilter turns the
+  // ZodError into 400 + VALIDATION_ERROR + details.issues.
   @Post()
   @UseGuards(UserThrottlerGuard)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })

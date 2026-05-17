@@ -8,7 +8,7 @@ try {
   /* .env optional in production where vars come from the platform */
 }
 
-import { Logger, ValidationPipe, type INestApplication } from "@nestjs/common";
+import { Logger, type INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { SwaggerModule } from "@nestjs/swagger";
 
@@ -21,13 +21,9 @@ async function bootstrap() {
 
   app.setGlobalPrefix("api");
   app.useGlobalFilters(new AllExceptionsFilter());
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
+  // Every controller now validates via Zod schemas from @peerahat/types and
+  // ZodError flows through AllExceptionsFilter — Nest's ValidationPipe is
+  // not needed and class-validator / class-transformer are no longer deps.
   app.enableCors({
     origin: process.env.WEB_ORIGIN ?? "http://localhost:3000",
     credentials: true,
