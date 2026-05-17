@@ -16,27 +16,33 @@ interface Props {
   tutor: Tutor;
   /** "sidebar": large desktop sidebar CTA. "mobile-bar": fixed bottom bar. */
   variant: "sidebar" | "mobile-bar";
+  /** Server-resolved auth state. When false, the /users/me query is
+   *  disabled (no need to round-trip — viewer can't be the tutor and
+   *  the Book button just routes to /login). */
+  hasInitialSession: boolean;
 }
 
-export function BookingCta({ tutor, variant }: Props) {
+export function BookingCta({ tutor, variant, hasInitialSession }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
   // FR-TH-06: hide the CTA when viewer is the tutor themselves. Backend
   // also rejects self-booking with 403, but surfacing it client-side keeps
-  // the affordance honest.
+  // the affordance honest. The parent page prefetches this query into the
+  // HydrationBoundary so authed viewers read warm data on first paint.
   const meQuery = useQuery({
     queryKey: ["users", "me"],
     queryFn: () => createApiClient().users.me(),
+    enabled: hasInitialSession,
     staleTime: 60_000,
     retry: false,
   });
   const isOwnProfile = meQuery.data?.tutorProfileId === tutor.id;
-  const isAuthed = !!meQuery.data;
+  const isAuthed = hasInitialSession && !!meQuery.data;
   const loginHref = `/login?next=${encodeURIComponent(`/tutors/${tutor.id}`)}` as Route;
 
   const handleBookClick = () => {
-    if (meQuery.isPending) return;
+    if (meQuery.isLoading) return;
     if (!isAuthed) {
       router.push(loginHref);
       return;
@@ -63,7 +69,7 @@ export function BookingCta({ tutor, variant }: Props) {
         <button
           type="button"
           onClick={handleBookClick}
-          disabled={meQuery.isPending}
+          disabled={meQuery.isLoading}
           className="w-full px-6 py-4 bg-indigo-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <CalendarPlus size={18} />
@@ -73,7 +79,7 @@ export function BookingCta({ tutor, variant }: Props) {
         <button
           type="button"
           onClick={handleBookClick}
-          disabled={meQuery.isPending}
+          disabled={meQuery.isLoading}
           className="flex-1 px-6 py-3.5 bg-indigo-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <CalendarPlus size={16} />

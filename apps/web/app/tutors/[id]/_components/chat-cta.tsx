@@ -10,12 +10,17 @@ import { createApiClient } from "@/lib/api-client";
 
 interface Props {
   tutor: Tutor;
+  /** Server-resolved auth state. When false the /users/me query stays
+   *  disabled — unauthed visitors still see the chat link (clicking it
+   *  routes through the chat page's own auth gate). */
+  hasInitialSession: boolean;
 }
 
-export function ChatCta({ tutor }: Props) {
+export function ChatCta({ tutor, hasInitialSession }: Props) {
   const meQuery = useQuery({
     queryKey: ["users", "me"],
     queryFn: () => createApiClient().users.me(),
+    enabled: hasInitialSession,
     staleTime: 60_000,
     retry: false,
   });

@@ -1,4 +1,9 @@
 import type { Subject } from "@peerahat/types";
+import {
+  HydrationBoundary,
+  QueryClient,
+  dehydrate,
+} from "@tanstack/react-query";
 import { GraduationCap, ShieldCheck, Star } from "lucide-react";
 
 import { asNotFound, createApiClient } from "@/lib/api-client";
@@ -27,13 +32,29 @@ const SUBJECT_LABEL: Record<Subject, string> = {
 export default async function TutorProfilePage({ params }: Props) {
   const token = await getServerAccessToken();
   const api = createApiClient({ accessToken: token });
+
+  // Seed React Query with /users/me when the viewer is authed so the
+  // sidebar Book button and the chat CTA render with the correct affordance
+  // on first paint instead of flashing through a disabled state. Site-nav
+  // shares the same ["users", "me"] query key and benefits transparently.
+  const queryClient = new QueryClient();
+  const hasInitialSession = !!token;
+  const prefetchMe = hasInitialSession
+    ? queryClient.prefetchQuery({
+        queryKey: ["users", "me"],
+        queryFn: () => api.users.me(),
+      })
+    : Promise.resolve();
+
   const [tutor, reviews] = await Promise.all([
     asNotFound(api.tutors.byId(params.id)),
     api.tutors.reviews(params.id, { page: 1, pageSize: 10 }),
+    prefetchMe,
   ]);
 
   return (
     // pb-28 on mobile reserves space for the fixed booking bar.
+    <HydrationBoundary state={dehydrate(queryClient)}>
     <div className="max-w-6xl mx-auto pb-28 lg:pb-0">
       <div className="grid lg:grid-cols-3 gap-8">
         <main className="lg:col-span-2 space-y-8">
@@ -144,9 +165,13 @@ export default async function TutorProfilePage({ params }: Props) {
                 </p>
               </div>
 
-              <BookingCta tutor={tutor} variant="sidebar" />
+              <BookingCta
+                tutor={tutor}
+                variant="sidebar"
+                hasInitialSession={hasInitialSession}
+              />
 
-              <ChatCta tutor={tutor} />
+              <ChatCta tutor={tutor} hasInitialSession={hasInitialSession} />
 
               <div className="pt-4 border-t border-slate-100 flex items-start gap-3 text-[11px] text-slate-500 leading-relaxed">
                 <ShieldCheck
@@ -175,9 +200,14 @@ export default async function TutorProfilePage({ params }: Props) {
               <span className="text-xs font-medium text-slate-400">/ชม.</span>
             </p>
           </div>
-          <BookingCta tutor={tutor} variant="mobile-bar" />
+          <BookingCta
+            tutor={tutor}
+            variant="mobile-bar"
+            hasInitialSession={hasInitialSession}
+          />
         </div>
       </div>
     </div>
+    </HydrationBoundary>
   );
 }
