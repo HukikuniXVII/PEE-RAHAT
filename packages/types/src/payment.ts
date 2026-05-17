@@ -1,4 +1,15 @@
+import { z } from "zod";
+
 export type PaymentItemType = "booking" | "sheet";
+
+/** Loose ISO date parser used by payout DTOs that the controller hands
+ *  to `new Date(...)`. Matches the dateStringSchema in admin.ts. */
+const dateStringSchema = z
+  .string()
+  .min(1)
+  .refine((v) => !Number.isNaN(Date.parse(v)), {
+    message: "Invalid date",
+  });
 
 export type PaymentStatus =
   | "pending_transfer"
@@ -70,17 +81,20 @@ export interface Payout {
   notes?: string;
 }
 
-export interface GeneratePayoutBatchDto {
+export const generatePayoutBatchSchema = z.object({
   /** ISO date for the batch (typically the 15th or 30th). */
-  batchDate: string;
-}
+  batchDate: dateStringSchema,
+});
+export type GeneratePayoutBatchDto = z.infer<typeof generatePayoutBatchSchema>;
 
-export interface MarkPayoutTransferredDto {
+export const markPayoutTransferredSchema = z.object({
   /** R2/S3 object key the admin uploaded as proof of the manual transfer. */
-  slipObjectKey: string;
-  notes?: string;
-}
+  slipObjectKey: z.string().min(1),
+  notes: z.string().trim().max(2000).optional(),
+});
+export type MarkPayoutTransferredDto = z.infer<typeof markPayoutTransferredSchema>;
 
-export interface FailPayoutDto {
-  reason: string;
-}
+export const failPayoutSchema = z.object({
+  reason: z.string().trim().min(1).max(500),
+});
+export type FailPayoutDto = z.infer<typeof failPayoutSchema>;

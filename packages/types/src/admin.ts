@@ -1,6 +1,18 @@
+import { z } from "zod";
+
 import type { ReportTargetType } from "./community";
 import type { BankName, KycStatus } from "./kyc";
 import type { PayoutStatus, PaymentItemType, PaymentStatus } from "./payment";
+
+/** Loose ISO date/datetime parser used by admin DTOs that the controller
+ *  pipes into `new Date(...)`. Same shape used by createBookingSchema so
+ *  the validation surface is consistent. */
+const dateStringSchema = z
+  .string()
+  .min(1)
+  .refine((v) => !Number.isNaN(Date.parse(v)), {
+    message: "Invalid date",
+  });
 
 export interface AdminReport {
   id: string;
@@ -14,7 +26,8 @@ export interface AdminReport {
   createdAt: string;
 }
 
-export type KycReviewDecision = "approve" | "reject";
+export const kycReviewDecisionSchema = z.enum(["approve", "reject"]);
+export type KycReviewDecision = z.infer<typeof kycReviewDecisionSchema>;
 
 export interface AdminKycQueueItem {
   id: string;
@@ -27,10 +40,11 @@ export interface AdminKycQueueItem {
   submittedAt: string;
 }
 
-export interface ReviewKycDto {
-  decision: KycReviewDecision;
-  reason?: string;
-}
+export const reviewKycSchema = z.object({
+  decision: kycReviewDecisionSchema,
+  reason: z.string().trim().min(1).max(500).optional(),
+});
+export type ReviewKycDto = z.infer<typeof reviewKycSchema>;
 
 // FR-PM-01: payments awaiting manual review in /admin/payments.
 export interface AdminPaymentRow {
@@ -49,9 +63,10 @@ export interface AdminPaymentRow {
   createdAt: string;
 }
 
-export interface RejectSlipDto {
-  reason: string;
-}
+export const rejectSlipSchema = z.object({
+  reason: z.string().trim().min(1).max(500),
+});
+export type RejectSlipDto = z.infer<typeof rejectSlipSchema>;
 
 // FR-PM-06 / FR-PM-07: payout batches in /admin/payouts.
 export interface AdminPayoutRow {
@@ -72,10 +87,16 @@ export interface AdminPayoutRow {
   notes: string | null;
 }
 
-export interface ComputePayoutsDto {
-  periodStart: string;
-  periodEnd: string;
-}
+export const computePayoutsSchema = z
+  .object({
+    periodStart: dateStringSchema,
+    periodEnd: dateStringSchema,
+  })
+  .refine((v) => Date.parse(v.periodStart) < Date.parse(v.periodEnd), {
+    message: "periodStart must be earlier than periodEnd",
+    path: ["periodEnd"],
+  });
+export type ComputePayoutsDto = z.infer<typeof computePayoutsSchema>;
 
 // FR-PM-06: queue of released-for-payout intents awaiting batch generation.
 export interface AdminPayoutQueueGroup {

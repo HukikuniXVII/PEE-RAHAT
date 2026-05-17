@@ -9,7 +9,20 @@ import {
   Query,
   UseGuards,
 } from "@nestjs/common";
-import { IsIn, IsOptional, IsString } from "class-validator";
+import {
+  type ComputePayoutsDto,
+  computePayoutsSchema,
+  type FailPayoutDto,
+  failPayoutSchema,
+  type GeneratePayoutBatchDto,
+  generatePayoutBatchSchema,
+  type MarkPayoutTransferredDto,
+  markPayoutTransferredSchema,
+  type RejectSlipDto,
+  rejectSlipSchema,
+  type ReviewKycDto,
+  reviewKycSchema,
+} from "@peerahat/types";
 
 import { CurrentUser } from "../auth/current-user.decorator";
 import { SupabaseAuthGuard } from "../auth/auth.guard";
@@ -17,37 +30,6 @@ import type { SupabaseJwtPayload } from "../auth/supabase-jwt.strategy";
 import { PayoutsService } from "../payments/payouts.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { AdminService } from "./admin.service";
-
-class ReviewKycDto {
-  @IsIn(["approve", "reject"]) decision!: "approve" | "reject";
-  @IsOptional()
-  @IsString()
-  reason?: string;
-}
-
-class RejectSlipDto {
-  @IsString() reason!: string;
-}
-
-class ComputePayoutsDto {
-  @IsString() periodStart!: string;
-  @IsString() periodEnd!: string;
-}
-
-class GeneratePayoutBatchDto {
-  @IsString() batchDate!: string;
-}
-
-class MarkPayoutTransferredDto {
-  @IsString() slipObjectKey!: string;
-  @IsOptional()
-  @IsString()
-  notes?: string;
-}
-
-class FailPayoutDto {
-  @IsString() reason!: string;
-}
 
 @Controller("admin")
 @UseGuards(SupabaseAuthGuard)
@@ -80,9 +62,10 @@ export class AdminController {
   async reviewKyc(
     @CurrentUser() user: SupabaseJwtPayload,
     @Param("id") id: string,
-    @Body() dto: ReviewKycDto,
+    @Body() raw: unknown,
   ) {
     await this.assertAdmin(user.sub);
+    const dto: ReviewKycDto = reviewKycSchema.parse(raw);
     return this.admin.reviewKyc(id, dto.decision, dto.reason);
   }
 
@@ -110,9 +93,10 @@ export class AdminController {
   async rejectSlip(
     @CurrentUser() user: SupabaseJwtPayload,
     @Param("id") id: string,
-    @Body() dto: RejectSlipDto,
+    @Body() raw: unknown,
   ) {
     await this.assertAdmin(user.sub);
+    const dto: RejectSlipDto = rejectSlipSchema.parse(raw);
     return this.admin.rejectSlip(id, dto.reason);
   }
 
@@ -219,9 +203,10 @@ export class AdminController {
   @Post("payouts/compute")
   async computePayouts(
     @CurrentUser() user: SupabaseJwtPayload,
-    @Body() dto: ComputePayoutsDto,
+    @Body() raw: unknown,
   ) {
     await this.assertAdmin(user.sub);
+    const dto: ComputePayoutsDto = computePayoutsSchema.parse(raw);
     return this.payouts.computeForPeriod(
       new Date(dto.periodStart),
       new Date(dto.periodEnd),
@@ -266,9 +251,10 @@ export class AdminController {
   @Post("payouts/generate-batch")
   async generatePayoutBatch(
     @CurrentUser() user: SupabaseJwtPayload,
-    @Body() dto: GeneratePayoutBatchDto,
+    @Body() raw: unknown,
   ) {
     await this.assertAdmin(user.sub);
+    const dto: GeneratePayoutBatchDto = generatePayoutBatchSchema.parse(raw);
     return this.payouts.generateBatch(new Date(dto.batchDate));
   }
 
@@ -281,9 +267,10 @@ export class AdminController {
   async markPayoutTransferred(
     @CurrentUser() user: SupabaseJwtPayload,
     @Param("id") id: string,
-    @Body() dto: MarkPayoutTransferredDto,
+    @Body() raw: unknown,
   ) {
     const admin = await this.assertAdmin(user.sub);
+    const dto: MarkPayoutTransferredDto = markPayoutTransferredSchema.parse(raw);
     return this.payouts.markTransferred(id, {
       adminUserId: admin.id,
       slipObjectKey: dto.slipObjectKey,
@@ -300,9 +287,10 @@ export class AdminController {
   async failPayout(
     @CurrentUser() user: SupabaseJwtPayload,
     @Param("id") id: string,
-    @Body() dto: FailPayoutDto,
+    @Body() raw: unknown,
   ) {
     await this.assertAdmin(user.sub);
+    const dto: FailPayoutDto = failPayoutSchema.parse(raw);
     return this.payouts.markFailed(id, dto.reason);
   }
 
