@@ -21,6 +21,14 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type Mode = "signIn" | "signUp";
 
+// FR-TH-01: hide the Google sign-in button when the Supabase project's
+// Google provider is still off. Default-true so existing deploys without
+// the env var keep current behavior; explicit "false" is the only way
+// to suppress. Inlined by Next at build/dev start — restart pnpm dev
+// after toggling.
+const googleSignInEnabled =
+  process.env.NEXT_PUBLIC_SUPABASE_GOOGLE_ENABLED !== "false";
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -183,40 +191,44 @@ export function LoginForm() {
         ))}
       </div>
 
-      <Button
-        variant="outline"
-        onClick={onGoogleSignIn}
-        disabled={busy}
-        className="w-full gap-3"
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-          <path
-            fill="#EA4335"
-            d="M12 5c1.617 0 3.077.557 4.221 1.648l3.155-3.155C17.452 1.621 14.97.5 12 .5 7.31.5 3.255 3.193 1.28 7.115l3.671 2.846C5.922 7.054 8.722 5 12 5z"
-          />
-          <path
-            fill="#4285F4"
-            d="M23.49 12.275c0-.78-.07-1.53-.198-2.275H12v4.51h6.46c-.28 1.5-1.124 2.77-2.396 3.625l3.713 2.88c2.166-2.005 3.713-4.96 3.713-8.74z"
-          />
-          <path
-            fill="#FBBC05"
-            d="M4.95 14.96A6.94 6.94 0 0 1 4.5 12c0-1.04.18-2.04.45-2.96L1.28 6.195A11.49 11.49 0 0 0 .5 12c0 1.86.43 3.62 1.19 5.18l3.26-2.22z"
-          />
-          <path
-            fill="#34A853"
-            d="M12 23.5c3.24 0 5.96-1.07 7.94-2.91l-3.713-2.88c-1.024.7-2.353 1.105-4.227 1.105-3.252 0-6.014-2.196-7-5.158L1.28 16.385C3.25 20.323 7.31 23.5 12 23.5z"
-          />
-        </svg>
-        เข้าสู่ระบบด้วย Google
-      </Button>
+      {googleSignInEnabled && (
+        <>
+          <Button
+            variant="outline"
+            onClick={onGoogleSignIn}
+            disabled={busy}
+            className="w-full gap-3"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="#EA4335"
+                d="M12 5c1.617 0 3.077.557 4.221 1.648l3.155-3.155C17.452 1.621 14.97.5 12 .5 7.31.5 3.255 3.193 1.28 7.115l3.671 2.846C5.922 7.054 8.722 5 12 5z"
+              />
+              <path
+                fill="#4285F4"
+                d="M23.49 12.275c0-.78-.07-1.53-.198-2.275H12v4.51h6.46c-.28 1.5-1.124 2.77-2.396 3.625l3.713 2.88c2.166-2.005 3.713-4.96 3.713-8.74z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M4.95 14.96A6.94 6.94 0 0 1 4.5 12c0-1.04.18-2.04.45-2.96L1.28 6.195A11.49 11.49 0 0 0 .5 12c0 1.86.43 3.62 1.19 5.18l3.26-2.22z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23.5c3.24 0 5.96-1.07 7.94-2.91l-3.713-2.88c-1.024.7-2.353 1.105-4.227 1.105-3.252 0-6.014-2.196-7-5.158L1.28 16.385C3.25 20.323 7.31 23.5 12 23.5z"
+              />
+            </svg>
+            เข้าสู่ระบบด้วย Google
+          </Button>
 
-      <div className="flex items-center gap-3">
-        <span className="h-px flex-1 bg-slate-100" />
-        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
-          หรือ
-        </span>
-        <span className="h-px flex-1 bg-slate-100" />
-      </div>
+          <div className="flex items-center gap-3">
+            <span className="h-px flex-1 bg-slate-100" />
+            <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+              หรือ
+            </span>
+            <span className="h-px flex-1 bg-slate-100" />
+          </div>
+        </>
+      )}
 
       {mode === "signIn" ? (
         <form onSubmit={onSignIn} className="space-y-4">
