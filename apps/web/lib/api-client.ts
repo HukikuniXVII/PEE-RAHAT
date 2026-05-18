@@ -54,6 +54,7 @@ import {
   type TcasExamCatalogueEntry,
   type TcasImportAuditEntry,
   type TcasProgram,
+  type TcasRound,
   type TcasWhatIfRequest,
   type TcasWhatIfResult,
   type Tutor,
@@ -191,6 +192,29 @@ async function requestMultipart<T>(
   body: FormData,
   accessToken?: string,
 ): Promise<T> {
+  const res = await sendMultipart(path, body, accessToken);
+  const text = await res.text();
+  if (!text) return undefined as T;
+  return JSON.parse(text) as T;
+}
+
+// Multipart upload that returns a raw Blob — used when the server sends back
+// a file (e.g. PDF → CSV assist returns text/csv). The browser triggers a
+// download via createObjectURL on the caller side.
+async function requestMultipartBlob(
+  path: string,
+  body: FormData,
+  accessToken?: string,
+): Promise<Blob> {
+  const res = await sendMultipart(path, body, accessToken);
+  return res.blob();
+}
+
+async function sendMultipart(
+  path: string,
+  body: FormData,
+  accessToken?: string,
+): Promise<Response> {
   const headers = new Headers();
   const explicitToken = accessToken;
   const tokenToUse = explicitToken ?? (await getBrowserAccessToken());
@@ -216,9 +240,7 @@ async function requestMultipart<T>(
       { statusCode: res.status, code: err.code, details: err.details },
     );
   }
-  const text = await res.text();
-  if (!text) return undefined as T;
-  return JSON.parse(text) as T;
+  return res;
 }
 
 function qs(params: object): string {
@@ -365,6 +387,30 @@ export function createApiClient(opts: ApiClientOptions = {}) {
             { method: "POST", body: JSON.stringify({ uploadId }) },
             token,
           ),
+        // Returns a Blob (text/csv). Caller is expected to trigger a browser
+        // download via createObjectURL — the parser is preview-only, no DB
+        // writes here.
+        parseCriteriaPdf: (
+          file: File,
+          meta: {
+            university: string;
+            round: TcasRound;
+            admissionYear: number;
+            sourceUrl?: string;
+          },
+        ) => {
+          const fd = new FormData();
+          fd.append("file", file, file.name);
+          fd.append("university", meta.university);
+          fd.append("round", meta.round);
+          fd.append("admissionYear", String(meta.admissionYear));
+          if (meta.sourceUrl) fd.append("sourceUrl", meta.sourceUrl);
+          return requestMultipartBlob(
+            API_PATHS.adminTcasCriteriaParsePdf,
+            fd,
+            token,
+          );
+        },
         listImports: () =>
           request<TcasImportAuditEntry[]>(
             API_PATHS.adminTcasImports,

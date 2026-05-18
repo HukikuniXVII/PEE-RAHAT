@@ -5,6 +5,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 
 import { CriteriaImportClient } from "./_components/criteria-import-client";
+import { PdfToCsvHelper } from "./_components/pdf-to-csv-helper";
 
 export default async function AdminTcasCriteriaImportPage() {
   const token = await requireAdmin("/admin/tcas/import/criteria");
@@ -45,6 +46,7 @@ export default async function AdminTcasCriteriaImportPage() {
         </a>
       </div>
 
+      <PdfToCsvHelper accessToken={token} />
       <CriteriaImportClient accessToken={token} />
     </div>
   );
