@@ -3,6 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 import { ThrottlerModule } from "@nestjs/throttler";
 
 import { AdminModule } from "./admin/admin.module";
+import { TcasImportModule } from "./admin/tcas-import/tcas-import.module";
 import { AuthModule } from "./auth/auth.module";
 import { BookingsModule } from "./bookings/bookings.module";
 import { ChatModule } from "./chat/chat.module";
@@ -42,6 +43,7 @@ import { UsersModule } from "./users/users.module";
     ChatModule,
     PaymentsModule,
     AdminModule,
+    TcasImportModule,
     JobsModule,
     GoogleCalendarModule,
   ],
