@@ -1,0 +1,10 @@
+#  TCAS criteria template (FR-TC-02). Columns:
+#    university,campus,faculty,major,subTrack,programType,courseCode,round,admissionYear,quotaSeats,gpaxMin,totalMinScore,sourceUrl,components
+#  `round` must be one of: r1_portfolio | r2_quota_kku_netsat | r3_admission | r4_direct
+#  `admissionYear` is Buddhist Era (2569 for TCAS 2026).
+#  `components` syntax: semicolon-separated `key=weight` or `key=weight/min` items.
+#    Examples: tgat=20;tpat:30=30;aLevel:61=20;aLevel:64=20;aLevel:65=10
+#              tpat:30=20;netsat:103=30/20;netsat:204=20/20
+#  Weight sum must equal 100 (±0.5 tolerance for rounding).
+#  Unknown keys fail — see /admin/tcas/exam-catalogue for the canonical list.
+university,campus,faculty,major,subTrack,programType,courseCode,round,admissionYear,quotaSeats,gpaxMin,totalMinScore,sourceUrl,components

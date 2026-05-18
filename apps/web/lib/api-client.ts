@@ -48,8 +48,14 @@ import {
   type SlipVerificationResult,
   type StudySheet,
   type Subject,
+  type TcasCommitResult,
+  type TcasCriteriaPreviewResponse,
   type TcasDeadline,
+  type TcasExamCatalogueEntry,
+  type TcasImportAuditEntry,
   type TcasProgram,
+  type TcasRound,
+  type TcasStatsPreviewResponse,
   type TcasWhatIfRequest,
   type TcasWhatIfResult,
   type Tutor,
@@ -175,6 +181,43 @@ async function request<T>(
   // "Unexpected end of JSON input". Read as text, then JSON.parse if the
   // body is non-empty; otherwise return undefined so consumers can treat
   // it as "no data".
+  const text = await res.text();
+  if (!text) return undefined as T;
+  return JSON.parse(text) as T;
+}
+
+// Multipart upload — same auth pipeline (explicit token, browser refresh on
+// 401) but lets the browser set Content-Type with the multipart boundary.
+async function requestMultipart<T>(
+  path: string,
+  body: FormData,
+  accessToken?: string,
+): Promise<T> {
+  const headers = new Headers();
+  const explicitToken = accessToken;
+  const tokenToUse = explicitToken ?? (await getBrowserAccessToken());
+  if (tokenToUse) headers.set("Authorization", `Bearer ${tokenToUse}`);
+
+  const url = `${baseUrl}${path}`;
+  let res = await fetch(url, { method: "POST", body, headers });
+  if (
+    res.status === 401 &&
+    explicitToken === undefined &&
+    typeof window !== "undefined"
+  ) {
+    const refreshed = await refreshBrowserAccessToken();
+    if (refreshed) {
+      headers.set("Authorization", `Bearer ${refreshed}`);
+      res = await fetch(url, { method: "POST", body, headers });
+    }
+  }
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as Partial<ApiError>;
+    throw Object.assign(
+      new Error(err.message ?? `Upload failed: ${res.status}`),
+      { statusCode: res.status, code: err.code, details: err.details },
+    );
+  }
   const text = await res.text();
   if (!text) return undefined as T;
   return JSON.parse(text) as T;
@@ -307,6 +350,56 @@ export function createApiClient(opts: ApiClientOptions = {}) {
           { method: "POST", body: JSON.stringify(dto) },
           token,
         ),
+      // FR-TC-02: admin editorial seeding via CSV/xlsx (manual upload only).
+      tcas: {
+        previewCriteria: (file: File) => {
+          const fd = new FormData();
+          fd.append("file", file, file.name);
+          return requestMultipart<TcasCriteriaPreviewResponse>(
+            API_PATHS.adminTcasCriteriaPreview,
+            fd,
+            token,
+          );
+        },
+        commitCriteria: (uploadId: string) =>
+          request<TcasCommitResult>(
+            API_PATHS.adminTcasCriteriaCommit,
+            { method: "POST", body: JSON.stringify({ uploadId }) },
+            token,
+          ),
+        previewStats: (
+          file: File,
+          meta: { year: number; round: TcasRound },
+        ) => {
+          const fd = new FormData();
+          fd.append("file", file, file.name);
+          fd.append("year", String(meta.year));
+          fd.append("round", meta.round);
+          return requestMultipart<TcasStatsPreviewResponse>(
+            API_PATHS.adminTcasStatsPreview,
+            fd,
+            token,
+          );
+        },
+        commitStats: (uploadId: string) =>
+          request<TcasCommitResult>(
+            API_PATHS.adminTcasStatsCommit,
+            { method: "POST", body: JSON.stringify({ uploadId }) },
+            token,
+          ),
+        listImports: () =>
+          request<TcasImportAuditEntry[]>(
+            API_PATHS.adminTcasImports,
+            {},
+            token,
+          ),
+        examCatalogue: () =>
+          request<TcasExamCatalogueEntry[]>(
+            API_PATHS.adminTcasExamCatalogue,
+            {},
+            token,
+          ),
+      },
     },
     tutors: {
       search: (q: TutorSearchQuery) =>
