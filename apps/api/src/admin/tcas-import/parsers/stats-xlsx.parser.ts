@@ -9,27 +9,39 @@ import {
   makeResult,
 } from "./types";
 
-// Header mapping for the CUPT xlsx layout. Keys are the source Thai header,
-// values are the canonical name our row-validator expects.
+// Header → canonical-field map. Two CUPT layouts coexist:
+//   • TCAS68 r3_1 (single-pass): 13 cols, one "ผ่าน" + one max/min pair.
+//   • TCAS67 (two-pass):         16 cols, ผ่าน(รอบ1) + ผ่าน(รอบ2) and two
+//                                pairs of min/max — the round-2 ones suffixed
+//                                with "หลังประมวลผลรอบ 2".
+// We keep one big map covering all observed names and detect the layout
+// after we see which keys are present.
 const THAI_HEADER_MAP: Record<string, string> = {
-  รหัสหลักสูตร: "courseCode",
+  // Identity columns — present in both layouts.
   สถาบัน: "university",
+  วิทยาเขต: "campus",
+  รหัสหลักสูตร: "courseCode",
   คณะ: "faculty",
   หลักสูตร: "_program",
   รายละเอียด: "_detail",
+  "สาขา/วิชาเอก": "subTrack",
+  รหัสรับร่วม: "jointCode",
   รับ: "quotaSeats",
   สมัคร: "applicants",
-  "ผ่าน ประมวลผลครั้งที่ 1": "passedRound1",
-  "ผ่าน ประมวลผลครั้งที่ 2": "passedRound2",
-  "คะแนนสูงสุด ประมวลผลครั้งที่ 1": "maxScoreR1",
-  "คะแนนต่ำสุด ประมวลผลครั้งที่ 1": "minScoreR1",
-  "คะแนนสูงสุด ประมวลผลครั้งที่ 2": "maxScoreR2",
-  "คะแนนต่ำสุด ประมวลผลครั้งที่ 2": "minScoreR2",
+
+  // Single-pass (TCAS68 r3_1) — these land in the R1 fields. R2 stays null.
+  ผ่าน: "passedRound1",
+  คะแนนสูงสุด: "maxScoreR1",
+  คะแนนต่ำสุด: "minScoreR1",
+
+  // Two-pass (TCAS67 and older) — "(รอบ1)" / "(รอบ2)" with no space.
+  "ผ่าน(รอบ1)": "passedRound1",
+  "ผ่าน(รอบ2)": "passedRound2",
+  "คะแนนต่ำสุด หลังประมวลผลรอบ 2": "minScoreR2",
+  "คะแนนสูงสุด หลังประมวลผลรอบ 2": "maxScoreR2",
 };
 
 function normalizeHeader(h: string): string {
-  // Collapse internal whitespace and trim. CUPT exports sometimes have
-  // double-spaces or trailing newlines in headers.
   return h.replace(/\s+/g, " ").trim();
 }
 
@@ -50,8 +62,9 @@ export function parseStatsXlsx(
       { rowIndex: 0, ok: false, error: "ไฟล์ Excel sheet แรกว่าง" },
     ]);
   }
-  // defval: "" so missing cells come through as empty strings, matching the
-  // CSV parser's contract.
+  // raw:false keeps numeric cells as their formatted strings (which is what
+  // CUPT exports use — "1,417" with the thousands separator). The stats-csv
+  // parser strips the commas before parsing.
   const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
     defval: "",
     raw: false,
@@ -73,7 +86,7 @@ export function parseStatsXlsx(
     if (mapped) headerMap.set(h, mapped);
   }
 
-  const have = new Set(headerMap.values());
+  const haveCanonical = new Set(headerMap.values());
   for (const required of [
     "courseCode",
     "university",
@@ -82,7 +95,7 @@ export function parseStatsXlsx(
     "quotaSeats",
     "applicants",
   ]) {
-    if (!have.has(required)) {
+    if (!haveCanonical.has(required)) {
       return makeResult([
         {
           rowIndex: 0,
@@ -92,10 +105,20 @@ export function parseStatsXlsx(
       ]);
     }
   }
+  // Either layout must be detectable — at minimum we need one "passed" column.
+  if (!haveCanonical.has("passedRound1")) {
+    return makeResult([
+      {
+        rowIndex: 0,
+        ok: false,
+        error:
+          'ไฟล์ Excel ไม่มีคอลัมน์ "ผ่าน" หรือ "ผ่าน(รอบ1)" — ไม่ทราบ layout',
+      },
+    ]);
+  }
 
   raw.forEach((src, idx) => {
     const rowIndex = idx + 2;
-    // Translate Thai-header row into our canonical shape.
     const translated: Record<string, unknown> = {
       year: meta.year,
       round: meta.round,
@@ -104,8 +127,9 @@ export function parseStatsXlsx(
       const canonical = headerMap.get(thaiHeader);
       if (canonical) translated[canonical] = value;
     }
-    // `major` is the join of หลักสูตร + รายละเอียด, separated by " " — matches
-    // how CUPT displays them in their public PDFs.
+    // `major` is the CUPT "หลักสูตร" + (optional) "รายละเอียด", joined.
+    // The "สาขา/วิชาเอก" column gets its own subTrack field — DON'T fold it
+    // into major, since the calculator uses subTrack to disambiguate rows.
     const programName = String(translated["_program"] ?? "").trim();
     const detail = String(translated["_detail"] ?? "").trim();
     translated.major = [programName, detail].filter(Boolean).join(" ");

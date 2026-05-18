@@ -595,7 +595,8 @@ function PastStatsPanel({
             </span>
           </p>
           <p className="text-[10px] text-slate-400">
-            สมัคร {latest.applicants.toLocaleString()} • รับ {latest.quotaSeats}
+            สมัคร {latest.applicants?.toLocaleString() ?? "—"} • รับ{" "}
+            {latest.quotaSeats ?? "—"}
           </p>
         </div>
         {chronological.length >= 2 && (

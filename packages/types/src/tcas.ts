@@ -85,8 +85,8 @@ export interface TcasProgram {
 export interface TcasProgramPastYear {
   year: number;
   round: TcasRound;
-  applicants: number;
-  quotaSeats: number;
+  applicants: number | null;
+  quotaSeats: number | null;
   minScore: number | null;
   maxScore: number | null;
 }
@@ -96,14 +96,20 @@ export interface TcasProgramStat {
   programId: string | null;
   courseCode: string;
   university: string;
+  campus: string | null;
   faculty: string;
   major: string;
+  subTrack: string | null;
+  jointCode: string | null;
   year: number;
   round: TcasRound;
-  quotaSeats: number;
-  applicants: number;
-  passedRound1: number;
-  passedRound2: number;
+  // CUPT publishes "summary" rows where quotaSeats/applicants are blank.
+  quotaSeats: number | null;
+  applicants: number | null;
+  // Null when the source layout (e.g. CUPT TCAS68 r3_1) only published a
+  // single "ผ่าน" column. Single-pass values land in passedRound1.
+  passedRound1: number | null;
+  passedRound2: number | null;
   maxScoreR1: number | null;
   minScoreR1: number | null;
   maxScoreR2: number | null;

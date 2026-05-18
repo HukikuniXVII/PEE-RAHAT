@@ -297,15 +297,24 @@ model TcasProgramStat {
 
   courseCode    String
   university    String
+  campus        String?              // วิทยาเขต — main vs satellite
   faculty       String
   major         String
+  subTrack      String?              // สาขา/วิชาเอก — specialization within a program
+  jointCode     String?              // รหัสรับร่วม — CUPT joint-admission group key
   year          Int
   round         TcasRoundKey
 
-  quotaSeats    Int
-  applicants    Int
-  passedRound1  Int      @default(0)
-  passedRound2  Int      @default(0)
+  // CUPT sometimes publishes rows with no quota (aggregated description rows
+  // or programs without a published cap). Treat both as nullable so the
+  // importer doesn't reject them — admin can filter at preview time.
+  quotaSeats    Int?                 // รับ
+  applicants    Int?                 // สมัคร
+  // Pass counts are nullable because the TCAS68 r3_1 layout publishes only
+  // one "ผ่าน" column (no round-1/round-2 split). For that layout we store
+  // the value in passedRound1 and leave passedRound2 null.
+  passedRound1  Int?
+  passedRound2  Int?
 
   maxScoreR1    Float?
   minScoreR1    Float?

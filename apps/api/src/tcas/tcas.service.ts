@@ -188,8 +188,8 @@ export class TcasService {
     pastStats: Array<{
       year: number;
       round: string;
-      applicants: number;
-      quotaSeats: number;
+      applicants: number | null;
+      quotaSeats: number | null;
       minScoreR2: number | null;
       maxScoreR2: number | null;
       minScoreR1: number | null;

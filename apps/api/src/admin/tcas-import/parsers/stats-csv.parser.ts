@@ -8,6 +8,8 @@ import {
   makeResult,
 } from "./types";
 
+// Required for both CSV and XLSX paths. passedRound1/2 are NOT required —
+// CUPT's TCAS68 r3_1 layout publishes only a single "ผ่าน" column.
 const REQUIRED = [
   "courseCode",
   "university",
@@ -17,8 +19,6 @@ const REQUIRED = [
   "round",
   "quotaSeats",
   "applicants",
-  "passedRound1",
-  "passedRound2",
 ] as const;
 
 function cell(row: Record<string, unknown>, key: string): string {
@@ -27,19 +27,37 @@ function cell(row: Record<string, unknown>, key: string): string {
   return String(v).trim();
 }
 
-function intOrZero(s: string): number | null {
-  if (s === "") return 0;
-  const n = Number(s);
-  if (!Number.isFinite(n) || !Number.isInteger(n)) return null;
+// CUPT exports numbers as comma-separated strings ("1,417"). Strip them
+// before Number() to avoid NaN on otherwise-valid input.
+function stripCommas(s: string): string {
+  return s.replace(/,/g, "");
+}
+
+function intOrNull(s: string): number | null | typeof BAD {
+  const clean = stripCommas(s);
+  if (clean === "") return null;
+  const n = Number(clean);
+  if (!Number.isFinite(n) || !Number.isInteger(n)) return BAD;
   return n;
 }
 
-function floatOrNull(s: string): number | null {
-  if (s === "") return null;
-  const n = Number(s);
-  if (!Number.isFinite(n)) return NaN;
+function requiredInt(s: string): number | typeof BAD {
+  const clean = stripCommas(s);
+  if (clean === "") return BAD;
+  const n = Number(clean);
+  if (!Number.isFinite(n) || !Number.isInteger(n)) return BAD;
   return n;
 }
+
+function floatOrNull(s: string): number | null | typeof BAD {
+  const clean = stripCommas(s);
+  if (clean === "") return null;
+  const n = Number(clean);
+  if (!Number.isFinite(n)) return BAD;
+  return n;
+}
+
+const BAD = Symbol("BAD");
 
 export function parseStatsCsv(csv: string): ParseResult<ParsedStatsRow> {
   const stripped = csv.replace(/^﻿/, "");
@@ -103,8 +121,8 @@ function parseRow(
     };
   }
 
-  const year = Number(cell(row, "year"));
-  if (!Number.isInteger(year) || year < 2500 || year > 2600) {
+  const year = requiredInt(cell(row, "year"));
+  if (year === BAD || year < 2500 || year > 2600) {
     return {
       rowIndex,
       ok: false,
@@ -123,33 +141,37 @@ function parseRow(
   }
   const round: TcasRound = roundParse.data;
 
-  const quotaSeats = intOrZero(cell(row, "quotaSeats"));
-  const applicants = intOrZero(cell(row, "applicants"));
-  const passedRound1 = intOrZero(cell(row, "passedRound1"));
-  const passedRound2 = intOrZero(cell(row, "passedRound2"));
-  if (
-    quotaSeats === null ||
-    applicants === null ||
-    passedRound1 === null ||
-    passedRound2 === null
-  ) {
+  // CUPT sometimes ships rows where รับ/สมัคร are blank — accept them as
+  // null and let the operator decide at preview time.
+  const quotaSeats = intOrNull(cell(row, "quotaSeats"));
+  const applicants = intOrNull(cell(row, "applicants"));
+  if (quotaSeats === BAD || applicants === BAD) {
     return {
       rowIndex,
       ok: false,
-      error: "quotaSeats / applicants / passedRound* ต้องเป็นจำนวนเต็ม",
+      error: "quotaSeats / applicants ต้องเป็นจำนวนเต็มหรือเว้นว่าง",
+    };
+  }
+  const passedRound1 = intOrNull(cell(row, "passedRound1"));
+  const passedRound2 = intOrNull(cell(row, "passedRound2"));
+  if (passedRound1 === BAD || passedRound2 === BAD) {
+    return {
+      rowIndex,
+      ok: false,
+      error: "passedRound1 / passedRound2 ต้องเป็นจำนวนเต็มหรือเว้นว่าง",
     };
   }
 
-  const scoreFields = {
-    maxScoreR1: floatOrNull(cell(row, "maxScoreR1")),
-    minScoreR1: floatOrNull(cell(row, "minScoreR1")),
-    maxScoreR2: floatOrNull(cell(row, "maxScoreR2")),
-    minScoreR2: floatOrNull(cell(row, "minScoreR2")),
-  };
-  for (const [k, v] of Object.entries(scoreFields)) {
-    if (Number.isNaN(v as number)) {
-      return { rowIndex, ok: false, error: `${k} ต้องเป็นตัวเลขหรือเว้นว่าง` };
-    }
+  const max1 = floatOrNull(cell(row, "maxScoreR1"));
+  const min1 = floatOrNull(cell(row, "minScoreR1"));
+  const max2 = floatOrNull(cell(row, "maxScoreR2"));
+  const min2 = floatOrNull(cell(row, "minScoreR2"));
+  if (max1 === BAD || min1 === BAD || max2 === BAD || min2 === BAD) {
+    return {
+      rowIndex,
+      ok: false,
+      error: "max/minScoreR* ต้องเป็นตัวเลขหรือเว้นว่าง",
+    };
   }
 
   return {
@@ -158,15 +180,21 @@ function parseRow(
     data: {
       courseCode,
       university,
+      campus: cell(row, "campus") || null,
       faculty,
       major,
+      subTrack: cell(row, "subTrack") || null,
+      jointCode: cell(row, "jointCode") || null,
       year,
       round,
       quotaSeats,
       applicants,
       passedRound1,
       passedRound2,
-      ...scoreFields,
+      maxScoreR1: max1,
+      minScoreR1: min1,
+      maxScoreR2: max2,
+      minScoreR2: min2,
     },
   };
 }

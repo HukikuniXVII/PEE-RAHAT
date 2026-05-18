@@ -212,20 +212,25 @@ function RowDetail({ row }: { row: AnyPreviewRow }) {
 
   const d = (row as TcasStatsPreviewRow).data;
   if (!d) return null;
+  const passed = formatPassed(d.passedRound1, d.passedRound2);
+  const quotaLine = `รับ ${d.quotaSeats ?? "—"} • สมัคร ${d.applicants ?? "—"}`;
+  const settledScore =
+    d.minScoreR2 !== null
+      ? `R2: ${d.minScoreR2} – ${d.maxScoreR2 ?? "?"}`
+      : d.minScoreR1 !== null
+        ? `R1: ${d.minScoreR1} – ${d.maxScoreR1 ?? "?"}`
+        : null;
   return (
     <div className="space-y-1">
       <p className="font-bold text-slate-800">
-        {d.courseCode} • {d.university} • {d.major}
+        {d.courseCode} • {d.university}
+        {d.campus ? ` (${d.campus})` : ""} • {d.major}
+        {d.subTrack ? ` — ${d.subTrack}` : ""}
       </p>
       <p className="text-slate-500">
-        ปี {d.year} • รับ {d.quotaSeats} • สมัคร {d.applicants} • ผ่าน 1/2:{" "}
-        {d.passedRound1}/{d.passedRound2}
+        ปี {d.year} • {quotaLine} • {passed}
       </p>
-      {d.minScoreR2 !== null && (
-        <p className="text-slate-400">
-          คะแนน R2: {d.minScoreR2} – {d.maxScoreR2}
-        </p>
-      )}
+      {settledScore && <p className="text-slate-400">{settledScore}</p>}
       {(row as TcasStatsPreviewRow).programLinkedId === null && (
         <p className="text-[10px] text-amber-600">
           ⚠ ไม่พบโปรแกรมที่ courseCode นี้ — แถวจะถูกบันทึกแบบไม่ผูกโปรแกรม
@@ -233,4 +238,11 @@ function RowDetail({ row }: { row: AnyPreviewRow }) {
       )}
     </div>
   );
+}
+
+function formatPassed(r1: number | null, r2: number | null): string {
+  if (r1 === null && r2 === null) return "ไม่มีข้อมูลผู้ผ่าน";
+  if (r2 === null) return `ผ่าน ${r1}`;
+  if (r1 === null) return `ผ่าน (รอบ 2) ${r2}`;
+  return `ผ่าน 1/2: ${r1}/${r2}`;
 }

@@ -267,8 +267,11 @@ export class TcasImportService {
         const data = {
           courseCode: row.data.courseCode,
           university: row.data.university,
+          campus: row.data.campus,
           faculty: row.data.faculty,
           major: row.data.major,
+          subTrack: row.data.subTrack,
+          jointCode: row.data.jointCode,
           year: row.data.year,
           round: row.data.round,
           quotaSeats: row.data.quotaSeats,
@@ -385,10 +388,10 @@ function diffCriteriaRow(
 
 function statsRowUnchanged(
   existing: {
-    quotaSeats: number;
-    applicants: number;
-    passedRound1: number;
-    passedRound2: number;
+    quotaSeats: number | null;
+    applicants: number | null;
+    passedRound1: number | null;
+    passedRound2: number | null;
     maxScoreR1: number | null;
     minScoreR1: number | null;
     maxScoreR2: number | null;

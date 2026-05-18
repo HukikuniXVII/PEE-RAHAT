@@ -23,14 +23,17 @@ export interface TcasCriteriaParsedRow {
 export interface TcasStatsParsedRow {
   courseCode: string;
   university: string;
+  campus: string | null;
   faculty: string;
   major: string;
+  subTrack: string | null;
+  jointCode: string | null;
   year: number;
   round: TcasRound;
-  quotaSeats: number;
-  applicants: number;
-  passedRound1: number;
-  passedRound2: number;
+  quotaSeats: number | null;
+  applicants: number | null;
+  passedRound1: number | null;
+  passedRound2: number | null;
   maxScoreR1: number | null;
   minScoreR1: number | null;
   maxScoreR2: number | null;
