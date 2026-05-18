@@ -48,10 +48,17 @@ import {
   type SlipVerificationResult,
   type StudySheet,
   type Subject,
+  type TcasAiParseResponse,
+  type TcasCommitResult,
   type TcasDeadline,
+  type TcasImportAuditEntry,
   type TcasProgram,
+  type TcasRound,
+  type TcasRowEdits,
   type TcasWhatIfRequest,
   type TcasWhatIfResult,
+  type AiUsageLogEntry,
+  type AiUsageSummary,
   type Tutor,
   type TutorOnboardingDto,
   type TutorProfileUpdateDto,
@@ -175,6 +182,43 @@ async function request<T>(
   // "Unexpected end of JSON input". Read as text, then JSON.parse if the
   // body is non-empty; otherwise return undefined so consumers can treat
   // it as "no data".
+  const text = await res.text();
+  if (!text) return undefined as T;
+  return JSON.parse(text) as T;
+}
+
+// Multipart upload — preserves the same 401-refresh path as request(). Lets
+// the browser set Content-Type with the multipart boundary.
+async function requestMultipart<T>(
+  path: string,
+  body: FormData,
+  accessToken?: string,
+): Promise<T> {
+  const headers = new Headers();
+  const explicitToken = accessToken;
+  const tokenToUse = explicitToken ?? (await getBrowserAccessToken());
+  if (tokenToUse) headers.set("Authorization", `Bearer ${tokenToUse}`);
+
+  const url = `${baseUrl}${path}`;
+  let res = await fetch(url, { method: "POST", body, headers });
+  if (
+    res.status === 401 &&
+    explicitToken === undefined &&
+    typeof window !== "undefined"
+  ) {
+    const refreshed = await refreshBrowserAccessToken();
+    if (refreshed) {
+      headers.set("Authorization", `Bearer ${refreshed}`);
+      res = await fetch(url, { method: "POST", body, headers });
+    }
+  }
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as Partial<ApiError>;
+    throw Object.assign(
+      new Error(err.message ?? `Upload failed: ${res.status}`),
+      { statusCode: res.status, code: err.code, details: err.details },
+    );
+  }
   const text = await res.text();
   if (!text) return undefined as T;
   return JSON.parse(text) as T;
@@ -307,6 +351,67 @@ export function createApiClient(opts: ApiClientOptions = {}) {
           { method: "POST", body: JSON.stringify(dto) },
           token,
         ),
+      // FR-TC-02: AI-powered TCAS criteria importer. parseAi sends a PDF
+      // for Gemini extraction; reparse reruns against the same buffered
+      // PDF with a different model; commit applies admin rowEdits and
+      // writes to TcasProgram.
+      tcas: {
+        parseAi: (
+          file: File,
+          meta: {
+            university: string;
+            round: TcasRound;
+            admissionYear: number;
+            sourceUrl?: string;
+            allowFallback?: boolean;
+          },
+        ) => {
+          const fd = new FormData();
+          fd.append("file", file, file.name);
+          fd.append("university", meta.university);
+          fd.append("round", meta.round);
+          fd.append("admissionYear", String(meta.admissionYear));
+          if (meta.sourceUrl) fd.append("sourceUrl", meta.sourceUrl);
+          if (meta.allowFallback !== undefined) {
+            fd.append("allowFallback", String(meta.allowFallback));
+          }
+          return requestMultipart<TcasAiParseResponse>(
+            API_PATHS.adminTcasCriteriaParseAi,
+            fd,
+            token,
+          );
+        },
+        reparse: (uploadId: string, model?: string) =>
+          request<TcasAiParseResponse>(
+            API_PATHS.adminTcasCriteriaReparse,
+            {
+              method: "POST",
+              body: JSON.stringify({ uploadId, model }),
+            },
+            token,
+          ),
+        commit: (uploadId: string, rowEdits?: TcasRowEdits) =>
+          request<TcasCommitResult>(
+            API_PATHS.adminTcasCriteriaCommit,
+            {
+              method: "POST",
+              body: JSON.stringify({ uploadId, rowEdits }),
+            },
+            token,
+          ),
+        listImports: () =>
+          request<TcasImportAuditEntry[]>(
+            API_PATHS.adminTcasImports,
+            {},
+            token,
+          ),
+        aiUsage: () =>
+          request<{ summary: AiUsageSummary; recent: AiUsageLogEntry[] }>(
+            API_PATHS.adminAiUsage,
+            {},
+            token,
+          ),
+      },
     },
     tutors: {
       search: (q: TutorSearchQuery) =>
