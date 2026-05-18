@@ -21,30 +21,7 @@ export class TcasService {
       where: round ? { round: round as TcasProgram["round"] } : undefined,
       orderBy: [{ university: "asc" }, { major: "asc" }],
     });
-    // Past stats are matched by courseCode (not the FK relation) so that
-    // stats imported before a program existed still show up once the program
-    // lands. We grab all relevant stats in one query, then group locally.
-    const courseCodes = rows
-      .map((r) => r.courseCode)
-      .filter((c): c is string => c !== null);
-    const allStats = courseCodes.length
-      ? await this.prisma.tcasProgramStat.findMany({
-          where: { courseCode: { in: courseCodes } },
-          orderBy: { year: "desc" },
-        })
-      : [];
-    const statsByCourse = new Map<string, typeof allStats>();
-    for (const s of allStats) {
-      const arr = statsByCourse.get(s.courseCode) ?? [];
-      arr.push(s);
-      statsByCourse.set(s.courseCode, arr);
-    }
-    return rows.map((r) =>
-      this.toDto(
-        r,
-        r.courseCode ? (statsByCourse.get(r.courseCode) ?? []) : [],
-      ),
-    );
+    return rows.map((r) => this.toDto(r));
   }
 
   async listDeadlines(): Promise<TcasDeadline[]> {
@@ -167,35 +144,23 @@ export class TcasService {
     };
   }
 
-  private toDto(
-    r: {
-      id: string;
-      university: string;
-      campus: string | null;
-      faculty: string;
-      major: string;
-      subTrack: string | null;
-      programType: string | null;
-      courseCode: string | null;
-      round: string;
-      admissionYear: number;
-      quotaSeats: number;
-      components: unknown;
-      totalMinScore: number | null;
-      tags: string[];
-      sourceUrl: string | null;
-    },
-    pastStats: Array<{
-      year: number;
-      round: string;
-      applicants: number | null;
-      quotaSeats: number | null;
-      minScoreR2: number | null;
-      maxScoreR2: number | null;
-      minScoreR1: number | null;
-      maxScoreR1: number | null;
-    }> = [],
-  ): TcasProgram {
+  private toDto(r: {
+    id: string;
+    university: string;
+    campus: string | null;
+    faculty: string;
+    major: string;
+    subTrack: string | null;
+    programType: string | null;
+    courseCode: string | null;
+    round: string;
+    admissionYear: number;
+    quotaSeats: number;
+    components: unknown;
+    totalMinScore: number | null;
+    tags: string[];
+    sourceUrl: string | null;
+  }): TcasProgram {
     return {
       id: r.id,
       university: r.university,
@@ -212,17 +177,6 @@ export class TcasService {
       totalMinScore: r.totalMinScore,
       tags: r.tags,
       sourceUrl: r.sourceUrl,
-      // R2 (final) cut-offs are what students target; R1 numbers are
-      // a midway snapshot. We prefer R2 and fall back to R1 to keep the
-      // panel useful even for rounds CUPT only published once.
-      pastStats: pastStats.map((s) => ({
-        year: s.year,
-        round: s.round as TcasProgram["round"],
-        applicants: s.applicants,
-        quotaSeats: s.quotaSeats,
-        minScore: s.minScoreR2 ?? s.minScoreR1,
-        maxScore: s.maxScoreR2 ?? s.maxScoreR1,
-      })),
     };
   }
 }

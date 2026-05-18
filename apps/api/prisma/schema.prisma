@@ -283,58 +283,17 @@ model TcasProgram {
   importedAt    DateTime?
   importedBy    String?
 
-  pastStats     TcasProgramStat[]
-
   @@unique([university, major, subTrack, programType, round, admissionYear], name: "tcas_program_identity")
   @@index([round, admissionYear])
   @@index([courseCode])
 }
 
-model TcasProgramStat {
-  id            String   @id @default(uuid())
-  programId     String?
-  program       TcasProgram? @relation(fields: [programId], references: [id], onDelete: SetNull)
-
-  courseCode    String
-  university    String
-  campus        String?              // วิทยาเขต — main vs satellite
-  faculty       String
-  major         String
-  subTrack      String?              // สาขา/วิชาเอก — specialization within a program
-  jointCode     String?              // รหัสรับร่วม — CUPT joint-admission group key
-  year          Int
-  round         TcasRoundKey
-
-  // CUPT sometimes publishes rows with no quota (aggregated description rows
-  // or programs without a published cap). Treat both as nullable so the
-  // importer doesn't reject them — admin can filter at preview time.
-  quotaSeats    Int?                 // รับ
-  applicants    Int?                 // สมัคร
-  // Pass counts are nullable because the TCAS68 r3_1 layout publishes only
-  // one "ผ่าน" column (no round-1/round-2 split). For that layout we store
-  // the value in passedRound1 and leave passedRound2 null.
-  // Float (not Int) because CUPT occasionally publishes fractional values
-  // and our row 2899 audit found at least one row where CUPT shifted a
-  // score into this column ("41.1709"); we accept what they ship.
-  passedRound1  Float?
-  passedRound2  Float?
-
-  maxScoreR1    Float?
-  minScoreR1    Float?
-  maxScoreR2    Float?
-  minScoreR2    Float?
-
-  sourceFile    String?
-  importedAt    DateTime @default(now())
-
-  @@unique([courseCode, year, round])
-  @@index([year, round])
-  @@index([programId])
-}
-
 model TcasImportAudit {
   id         String   @id @default(uuid())
-  kind       String   // "criteria" | "stats"
+  // Always "criteria" today. Reserved as a free-form string in case future
+  // editorial imports (deadlines, programs from a different source) want
+  // to reuse the audit log.
+  kind       String
   filename   String
   fileHash   String?
   inserted   Int      @default(0)

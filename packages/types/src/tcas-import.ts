@@ -20,26 +20,6 @@ export interface TcasCriteriaParsedRow {
   sourceUrl: string | null;
 }
 
-export interface TcasStatsParsedRow {
-  courseCode: string;
-  university: string;
-  campus: string | null;
-  faculty: string;
-  major: string;
-  subTrack: string | null;
-  jointCode: string | null;
-  year: number;
-  round: TcasRound;
-  quotaSeats: number | null;
-  applicants: number | null;
-  passedRound1: number | null;
-  passedRound2: number | null;
-  maxScoreR1: number | null;
-  minScoreR1: number | null;
-  maxScoreR2: number | null;
-  minScoreR2: number | null;
-}
-
 export interface TcasCriteriaDiffEntry {
   field: string;
   before: unknown;
@@ -52,15 +32,6 @@ export interface TcasCriteriaPreviewRow {
   data?: TcasCriteriaParsedRow;
   existingId?: string;
   diff?: TcasCriteriaDiffEntry[];
-  error?: string;
-}
-
-export interface TcasStatsPreviewRow {
-  rowIndex: number;
-  status: TcasPreviewStatus;
-  data?: TcasStatsParsedRow;
-  existingId?: string;
-  programLinkedId?: string | null;
   error?: string;
 }
 
@@ -78,12 +49,6 @@ export interface TcasCriteriaPreviewResponse {
   summary: TcasPreviewSummary;
 }
 
-export interface TcasStatsPreviewResponse {
-  uploadId: string;
-  rows: TcasStatsPreviewRow[];
-  summary: TcasPreviewSummary;
-}
-
 export interface TcasCommitResult {
   inserted: number;
   updated: number;
@@ -92,7 +57,7 @@ export interface TcasCommitResult {
 
 export interface TcasImportAuditEntry {
   id: string;
-  kind: "criteria" | "stats";
+  kind: string;
   filename: string;
   fileHash: string | null;
   inserted: number;

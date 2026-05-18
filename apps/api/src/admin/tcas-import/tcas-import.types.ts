@@ -1,9 +1,4 @@
-import type { TcasRound } from "@peerahat/types";
-
-import type {
-  ParsedCriteriaRow,
-  ParsedStatsRow,
-} from "./parsers/types";
+import type { ParsedCriteriaRow } from "./parsers/types";
 
 // Per-row preview status. The UI colors green/amber/grey/rose.
 export type PreviewStatus = "new" | "update" | "unchanged" | "error";
@@ -20,15 +15,6 @@ export interface CriteriaPreviewRow {
   data?: ParsedCriteriaRow;
   existingId?: string;
   diff?: CriteriaDiffEntry[];
-  error?: string;
-}
-
-export interface StatsPreviewRow {
-  rowIndex: number;
-  status: PreviewStatus;
-  data?: ParsedStatsRow;
-  existingId?: string;
-  programLinkedId?: string | null;
   error?: string;
 }
 
@@ -50,17 +36,9 @@ export interface StashedCriteriaUpload {
   summary: PreviewSummary;
 }
 
-export interface StashedStatsUpload {
-  kind: "stats";
-  filename: string;
-  fileHash: string;
-  year: number;
-  round: TcasRound;
-  rows: StatsPreviewRow[];
-  summary: PreviewSummary;
-}
-
-export type StashedUpload = StashedCriteriaUpload | StashedStatsUpload;
+// Discriminated union kept (even with one member) so the cache fetch type
+// narrowing reads naturally and future kinds can slot in.
+export type StashedUpload = StashedCriteriaUpload;
 
 export interface CommitResult {
   inserted: number;

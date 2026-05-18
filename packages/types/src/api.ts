@@ -68,8 +68,6 @@ export const API_PATHS = {
   tcasDeadlines: "/tcas/deadlines",
   adminTcasCriteriaPreview: "/admin/tcas/criteria/preview",
   adminTcasCriteriaCommit: "/admin/tcas/criteria/commit",
-  adminTcasStatsPreview: "/admin/tcas/stats/preview",
-  adminTcasStatsCommit: "/admin/tcas/stats/commit",
   adminTcasImports: "/admin/tcas/imports",
   adminTcasExamCatalogue: "/admin/tcas/exam-catalogue",
   community: "/community/posts",

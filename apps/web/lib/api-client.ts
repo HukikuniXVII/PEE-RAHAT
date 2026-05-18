@@ -54,8 +54,6 @@ import {
   type TcasExamCatalogueEntry,
   type TcasImportAuditEntry,
   type TcasProgram,
-  type TcasRound,
-  type TcasStatsPreviewResponse,
   type TcasWhatIfRequest,
   type TcasWhatIfResult,
   type Tutor,
@@ -364,26 +362,6 @@ export function createApiClient(opts: ApiClientOptions = {}) {
         commitCriteria: (uploadId: string) =>
           request<TcasCommitResult>(
             API_PATHS.adminTcasCriteriaCommit,
-            { method: "POST", body: JSON.stringify({ uploadId }) },
-            token,
-          ),
-        previewStats: (
-          file: File,
-          meta: { year: number; round: TcasRound },
-        ) => {
-          const fd = new FormData();
-          fd.append("file", file, file.name);
-          fd.append("year", String(meta.year));
-          fd.append("round", meta.round);
-          return requestMultipart<TcasStatsPreviewResponse>(
-            API_PATHS.adminTcasStatsPreview,
-            fd,
-            token,
-          );
-        },
-        commitStats: (uploadId: string) =>
-          request<TcasCommitResult>(
-            API_PATHS.adminTcasStatsCommit,
             { method: "POST", body: JSON.stringify({ uploadId }) },
             token,
           ),

@@ -30,37 +30,20 @@ export default async function AdminTcasImportPage() {
         </div>
       </header>
 
-      <div className="grid sm:grid-cols-2 gap-4">
-        <Link
-          href={"/admin/tcas/import/criteria" as Route}
-          className="block p-6 rounded-2xl border border-slate-200 bg-white hover:border-indigo-300 hover:shadow-sm transition-all"
-        >
-          <p className="text-[10px] font-black uppercase tracking-wider text-indigo-600 mb-2">
-            Criteria
-          </p>
-          <h3 className="font-bold text-slate-800 mb-1">
-            เกณฑ์การรับเข้า (CSV)
-          </h3>
-          <p className="text-xs text-slate-500">
-            อัปโหลดเกณฑ์แอดมิชชั่น/โควตา รวมน้ำหนักวิชา TGAT/TPAT/A-Level/NetSat
-          </p>
-        </Link>
-
-        <Link
-          href={"/admin/tcas/import/stats" as Route}
-          className="block p-6 rounded-2xl border border-slate-200 bg-white hover:border-indigo-300 hover:shadow-sm transition-all"
-        >
-          <p className="text-[10px] font-black uppercase tracking-wider text-emerald-600 mb-2">
-            Past Stats
-          </p>
-          <h3 className="font-bold text-slate-800 mb-1">
-            สถิติคะแนนปีที่ผ่านมา (CSV หรือ XLSX)
-          </h3>
-          <p className="text-xs text-slate-500">
-            อัปโหลดไฟล์ที่ปวงพ. เผยแพร่ (รหัสหลักสูตร, รับ, สมัคร, คะแนน R1/R2)
-          </p>
-        </Link>
-      </div>
+      <Link
+        href={"/admin/tcas/import/criteria" as Route}
+        className="block p-6 rounded-2xl border border-slate-200 bg-white hover:border-indigo-300 hover:shadow-sm transition-all"
+      >
+        <p className="text-[10px] font-black uppercase tracking-wider text-indigo-600 mb-2">
+          Criteria
+        </p>
+        <h3 className="font-bold text-slate-800 mb-1">
+          เกณฑ์การรับเข้า (CSV)
+        </h3>
+        <p className="text-xs text-slate-500">
+          อัปโหลดเกณฑ์แอดมิชชั่น/โควตา รวมน้ำหนักวิชา TGAT/TPAT/A-Level/NetSat
+        </p>
+      </Link>
 
       <Link
         href={"/admin/tcas/exam-catalogue" as Route}

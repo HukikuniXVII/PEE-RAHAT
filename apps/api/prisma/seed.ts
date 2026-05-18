@@ -104,7 +104,6 @@ async function seed() {
       university: "จุฬาลงกรณ์มหาวิทยาลัย",
       faculty: "คณะวิศวกรรมศาสตร์",
       major: "วิศวกรรมคอมพิวเตอร์",
-      courseCode: "10010121300501A",
       round: "r3_admission" as const,
       admissionYear: 2569,
       quotaSeats: 215,
@@ -148,9 +147,6 @@ async function seed() {
       university: "มหาวิทยาลัยขอนแก่น",
       faculty: "คณะวิศวกรรมศาสตร์",
       major: "วิศวกรรมดิจิทัล",
-      // Placeholder courseCode — not joined to real past-stats; once an admin
-      // imports the matching CUPT row by courseCode the panel will populate.
-      courseCode: "40010121400001A",
       round: "r3_admission" as const,
       admissionYear: 2569,
       quotaSeats: 50,
@@ -213,7 +209,6 @@ async function seed() {
       major: p.major,
       subTrack: null,
       programType: p.programType ?? null,
-      courseCode: ("courseCode" in p ? p.courseCode : null) as string | null,
       round: p.round,
       admissionYear: p.admissionYear,
       quotaSeats: p.quotaSeats,
@@ -227,66 +222,6 @@ async function seed() {
     } else {
       await prisma.tcasProgram.create({ data });
     }
-  }
-
-  // ─── Past-stats (FR-TC-02) ──────────────────────────────────────────────
-  // Real CUPT data for Chula CompE (courseCode 10010121300501A) from the two
-  // fixture xlsx in .idea/ — demonstrates both layout shapes the importer
-  // handles:
-  //  - TCAS68 r3_1: single-pass, only R1 fields set, passedRound2 NULL
-  //  - TCAS67:      two-pass, both R1 and R2 fields set
-  const pastStats = [
-    {
-      courseCode: "10010121300501A",
-      university: "จุฬาลงกรณ์มหาวิทยาลัย",
-      campus: "วิทยาเขตหลัก",
-      faculty: "คณะวิศวกรรมศาสตร์",
-      major: "หลักสูตรวิศวกรรมศาสตรบัณฑิต สาขาวิชาวิศวกรรมคอมพิวเตอร์",
-      subTrack: null,
-      jointCode: "0",
-      year: 2568,
-      round: "r3_admission" as const,
-      quotaSeats: 80,
-      applicants: 460,
-      passedRound1: 80,
-      passedRound2: null,
-      maxScoreR1: 89.0164,
-      minScoreR1: 74.9664,
-      maxScoreR2: null,
-      minScoreR2: null,
-    },
-    {
-      courseCode: "10010121300501A",
-      university: "จุฬาลงกรณ์มหาวิทยาลัย",
-      campus: "วิทยาเขตหลัก",
-      faculty: "คณะวิศวกรรมศาสตร์",
-      major: "หลักสูตรวิศวกรรมศาสตรบัณฑิต สาขาวิชาวิศวกรรมคอมพิวเตอร์",
-      subTrack: null,
-      jointCode: "0",
-      year: 2567,
-      round: "r3_admission" as const,
-      quotaSeats: 65,
-      applicants: 579,
-      passedRound1: 65,
-      passedRound2: 65,
-      maxScoreR1: 90.4218,
-      minScoreR1: 72.4888,
-      maxScoreR2: 90.4218,
-      minScoreR2: 72.2942,
-    },
-  ];
-  for (const s of pastStats) {
-    await prisma.tcasProgramStat.upsert({
-      where: {
-        courseCode_year_round: {
-          courseCode: s.courseCode,
-          year: s.year,
-          round: s.round,
-        },
-      },
-      update: {},
-      create: s,
-    });
   }
 
   await prisma.tcasDeadline.createMany({

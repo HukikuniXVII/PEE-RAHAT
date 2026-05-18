@@ -4,7 +4,7 @@ import type {
 } from "@peerahat/types";
 
 // ─── Per-row result envelope ──────────────────────────────────────────────
-// Every parser walks each row and either produces a typed payload or a
+// The criteria parser walks each row and either produces a typed payload or a
 // human-readable Thai error. The preview endpoint then layers `new | update
 // | unchanged` on top by querying the DB.
 
@@ -17,8 +17,6 @@ export interface ParseResult<T> {
   errorCount: number;
   okCount: number;
 }
-
-// ─── Parsed payloads ──────────────────────────────────────────────────────
 
 export interface ParsedCriteriaRow {
   university: string;
@@ -35,28 +33,6 @@ export interface ParsedCriteriaRow {
   totalMinScore: number | null;
   sourceUrl: string | null;
 }
-
-export interface ParsedStatsRow {
-  courseCode: string;
-  university: string;
-  campus: string | null;
-  faculty: string;
-  major: string;
-  subTrack: string | null;
-  jointCode: string | null;
-  year: number;
-  round: TcasRound;
-  quotaSeats: number | null;
-  applicants: number | null;
-  passedRound1: number | null;
-  passedRound2: number | null;
-  maxScoreR1: number | null;
-  minScoreR1: number | null;
-  maxScoreR2: number | null;
-  minScoreR2: number | null;
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────
 
 export function makeResult<T>(rows: ParseRowResult<T>[]): ParseResult<T> {
   let okCount = 0;

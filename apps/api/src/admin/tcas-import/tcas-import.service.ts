@@ -1,15 +1,12 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
-import type { TcasRound } from "@peerahat/types";
+import { Prisma } from "@prisma/client";
 import { createHash } from "node:crypto";
 
 import { PrismaService } from "../../prisma/prisma.service";
 
 import {
   parseCriteriaCsv,
-  parseStatsCsv,
-  parseStatsXlsx,
   type ParsedCriteriaRow,
-  type ParsedStatsRow,
 } from "./parsers";
 import { TcasImportCache } from "./tcas-import.cache";
 import type {
@@ -19,9 +16,7 @@ import type {
   PreviewStatus,
   PreviewSummary,
   StashedCriteriaUpload,
-  StashedStatsUpload,
   StashedUpload,
-  StatsPreviewRow,
 } from "./tcas-import.types";
 
 @Injectable()
@@ -107,7 +102,7 @@ export class TcasImportService {
     let updated = 0;
     let skipped = 0;
 
-    await this.prisma.$transaction(async (tx) => {
+    await this.runCommitTx(async (tx) => {
       for (const row of stashed.rows) {
         if (row.status === "unchanged") {
           skipped++;
@@ -164,153 +159,27 @@ export class TcasImportService {
     return { inserted, updated, skipped };
   }
 
-  // ─── Stats ─────────────────────────────────────────────────────────────
-
-  async previewStats(
-    filename: string,
-    buffer: Buffer,
-    meta: { year: number; round: TcasRound },
-  ): Promise<{
-    uploadId: string;
-    rows: StatsPreviewRow[];
-    summary: PreviewSummary;
-  }> {
-    const ext = filename.toLowerCase();
-    const parsed = ext.endsWith(".xlsx")
-      ? parseStatsXlsx(buffer, meta)
-      : parseStatsCsv(buffer.toString("utf8"));
-
-    const previewRows: StatsPreviewRow[] = [];
-    for (const r of parsed.rows) {
-      if (!r.ok) {
-        previewRows.push({
-          rowIndex: r.rowIndex,
-          status: "error",
-          error: r.error,
-        });
-        continue;
+  // Maps Prisma's P2002 (unique constraint violation) into a 400 with a Thai
+  // explanation. Anything else bubbles as a 500 — those are genuine bugs.
+  private async runCommitTx<T>(
+    fn: (tx: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
+    try {
+      return await this.prisma.$transaction(fn);
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2002"
+      ) {
+        const target = Array.isArray(err.meta?.target)
+          ? (err.meta!.target as string[]).join(", ")
+          : String(err.meta?.target ?? "unknown");
+        throw new BadRequestException(
+          `มีข้อมูลซ้ำในไฟล์ (${target}) — กรุณาตรวจสอบและลองใหม่`,
+        );
       }
-      // Year and round may come from the form (xlsx) or the row itself (csv).
-      // The xlsx parser already filled them in; for CSV we trust the row but
-      // overwrite if the operator picked something else.
-      const merged: ParsedStatsRow = {
-        ...r.data,
-        year: meta.year,
-        round: meta.round,
-      };
-      const existing = await this.prisma.tcasProgramStat.findUnique({
-        where: {
-          courseCode_year_round: {
-            courseCode: merged.courseCode,
-            year: merged.year,
-            round: merged.round,
-          },
-        },
-      });
-      // We also try to back-link to a program by courseCode so the calculator
-      // can display past-stats next to the matching program.
-      const linkedProgram = await this.prisma.tcasProgram.findFirst({
-        where: { courseCode: merged.courseCode },
-        select: { id: true },
-      });
-      const status: PreviewStatus = !existing
-        ? "new"
-        : statsRowUnchanged(existing, merged)
-          ? "unchanged"
-          : "update";
-      previewRows.push({
-        rowIndex: r.rowIndex,
-        status,
-        data: merged,
-        existingId: existing?.id,
-        programLinkedId: linkedProgram?.id ?? null,
-      });
+      throw err;
     }
-
-    const summary = summarize(previewRows);
-    const uploadId = await this.cache.stash<StashedStatsUpload>({
-      kind: "stats",
-      filename,
-      fileHash: sha256(buffer),
-      year: meta.year,
-      round: meta.round,
-      rows: previewRows,
-      summary,
-    });
-    return { uploadId, rows: previewRows, summary };
-  }
-
-  async commitStats(
-    uploadId: string,
-    adminUserId: string,
-  ): Promise<CommitResult> {
-    const stashed = await this.cache.fetch<StashedUpload>(uploadId);
-    if (!stashed || stashed.kind !== "stats") {
-      throw new BadRequestException("uploadId หมดอายุหรือไม่ใช่ stats");
-    }
-    if (stashed.summary.error > 0) {
-      throw new BadRequestException(
-        `ยังมี ${stashed.summary.error} แถวที่ผิดพลาด — แก้ไฟล์แล้วอัปโหลดใหม่`,
-      );
-    }
-    let inserted = 0;
-    let updated = 0;
-    let skipped = 0;
-
-    await this.prisma.$transaction(async (tx) => {
-      for (const row of stashed.rows) {
-        if (row.status === "unchanged") {
-          skipped++;
-          continue;
-        }
-        if (!row.data) continue;
-        const data = {
-          courseCode: row.data.courseCode,
-          university: row.data.university,
-          campus: row.data.campus,
-          faculty: row.data.faculty,
-          major: row.data.major,
-          subTrack: row.data.subTrack,
-          jointCode: row.data.jointCode,
-          year: row.data.year,
-          round: row.data.round,
-          quotaSeats: row.data.quotaSeats,
-          applicants: row.data.applicants,
-          passedRound1: row.data.passedRound1,
-          passedRound2: row.data.passedRound2,
-          maxScoreR1: row.data.maxScoreR1,
-          minScoreR1: row.data.minScoreR1,
-          maxScoreR2: row.data.maxScoreR2,
-          minScoreR2: row.data.minScoreR2,
-          sourceFile: stashed.filename,
-          programId: row.programLinkedId ?? null,
-        };
-        if (row.status === "new") {
-          await tx.tcasProgramStat.create({ data });
-          inserted++;
-        } else if (row.status === "update" && row.existingId) {
-          await tx.tcasProgramStat.update({
-            where: { id: row.existingId },
-            data,
-          });
-          updated++;
-        }
-      }
-      await tx.tcasImportAudit.create({
-        data: {
-          kind: "stats",
-          filename: stashed.filename,
-          fileHash: stashed.fileHash,
-          inserted,
-          updated,
-          skipped,
-          importedBy: adminUserId,
-        },
-      });
-    });
-
-    await this.cache.drop(uploadId);
-    return { inserted, updated, skipped };
   }
 
   // ─── Audit log ────────────────────────────────────────────────────────
@@ -386,27 +255,3 @@ function diffCriteriaRow(
   return out;
 }
 
-function statsRowUnchanged(
-  existing: {
-    quotaSeats: number | null;
-    applicants: number | null;
-    passedRound1: number | null;
-    passedRound2: number | null;
-    maxScoreR1: number | null;
-    minScoreR1: number | null;
-    maxScoreR2: number | null;
-    minScoreR2: number | null;
-  },
-  next: ParsedStatsRow,
-): boolean {
-  return (
-    existing.quotaSeats === next.quotaSeats &&
-    existing.applicants === next.applicants &&
-    existing.passedRound1 === next.passedRound1 &&
-    existing.passedRound2 === next.passedRound2 &&
-    existing.maxScoreR1 === next.maxScoreR1 &&
-    existing.minScoreR1 === next.minScoreR1 &&
-    existing.maxScoreR2 === next.maxScoreR2 &&
-    existing.minScoreR2 === next.minScoreR2
-  );
-}

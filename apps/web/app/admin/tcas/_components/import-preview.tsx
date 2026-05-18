@@ -4,16 +4,13 @@ import type {
   TcasCriteriaPreviewRow,
   TcasPreviewStatus,
   TcasPreviewSummary,
-  TcasStatsPreviewRow,
 } from "@peerahat/types";
 import { cn } from "@peerahat/ui";
 import { AlertCircle, CheckCircle2, Edit2, Minus } from "lucide-react";
 import { useMemo, useState } from "react";
 
-type AnyPreviewRow = TcasCriteriaPreviewRow | TcasStatsPreviewRow;
-
 interface Props {
-  rows: AnyPreviewRow[];
+  rows: TcasCriteriaPreviewRow[];
   summary: TcasPreviewSummary;
 }
 
@@ -162,87 +159,47 @@ function StatusBadge({ status }: { status: TcasPreviewStatus }) {
   );
 }
 
-function RowDetail({ row }: { row: AnyPreviewRow }) {
+function RowDetail({ row }: { row: TcasCriteriaPreviewRow }) {
   if (row.status === "error") {
     return <p className="text-rose-600 font-medium">{row.error}</p>;
   }
-
-  if ("components" in (row.data ?? {})) {
-    const d = (row as TcasCriteriaPreviewRow).data;
-    if (!d) return null;
-    return (
-      <div className="space-y-1">
-        <p className="font-bold text-slate-800">
-          {d.university} • {d.faculty} • {d.major}
-          {d.programType ? ` (${d.programType})` : ""}
-        </p>
-        <p className="text-slate-500">
-          รอบ {d.round} • ปี {d.admissionYear} • โควตา {d.quotaSeats}
-          {d.totalMinScore !== null ? ` • ต่ำสุด ${d.totalMinScore}` : ""}
-        </p>
-        <p className="text-slate-400 truncate">
-          {d.components.exams
-            .map(
-              (e) =>
-                `${e.code ? `${e.system}:${e.code}` : e.system}=${e.weight}${
-                  e.min !== null ? `/${e.min}` : ""
-                }`,
-            )
-            .join(" • ")}
-        </p>
-        {(row as TcasCriteriaPreviewRow).diff &&
-          (row as TcasCriteriaPreviewRow).diff!.length > 0 && (
-            <details className="text-[10px] text-amber-700">
-              <summary className="cursor-pointer font-bold">
-                เปลี่ยนแปลง {(row as TcasCriteriaPreviewRow).diff!.length} ฟิลด์
-              </summary>
-              <ul className="mt-1 space-y-0.5">
-                {(row as TcasCriteriaPreviewRow).diff!.map((d) => (
-                  <li key={d.field}>
-                    <code className="font-mono">{d.field}</code>:{" "}
-                    {JSON.stringify(d.before)} → {JSON.stringify(d.after)}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
-      </div>
-    );
-  }
-
-  const d = (row as TcasStatsPreviewRow).data;
+  const d = row.data;
   if (!d) return null;
-  const passed = formatPassed(d.passedRound1, d.passedRound2);
-  const quotaLine = `รับ ${d.quotaSeats ?? "—"} • สมัคร ${d.applicants ?? "—"}`;
-  const settledScore =
-    d.minScoreR2 !== null
-      ? `R2: ${d.minScoreR2} – ${d.maxScoreR2 ?? "?"}`
-      : d.minScoreR1 !== null
-        ? `R1: ${d.minScoreR1} – ${d.maxScoreR1 ?? "?"}`
-        : null;
   return (
     <div className="space-y-1">
       <p className="font-bold text-slate-800">
-        {d.courseCode} • {d.university}
-        {d.campus ? ` (${d.campus})` : ""} • {d.major}
-        {d.subTrack ? ` — ${d.subTrack}` : ""}
+        {d.university} • {d.faculty} • {d.major}
+        {d.programType ? ` (${d.programType})` : ""}
       </p>
       <p className="text-slate-500">
-        ปี {d.year} • {quotaLine} • {passed}
+        รอบ {d.round} • ปี {d.admissionYear} • โควตา {d.quotaSeats}
+        {d.totalMinScore !== null ? ` • ต่ำสุด ${d.totalMinScore}` : ""}
       </p>
-      {settledScore && <p className="text-slate-400">{settledScore}</p>}
-      {(row as TcasStatsPreviewRow).programLinkedId === null && (
-        <p className="text-[10px] text-amber-600">
-          ⚠ ไม่พบโปรแกรมที่ courseCode นี้ — แถวจะถูกบันทึกแบบไม่ผูกโปรแกรม
-        </p>
+      <p className="text-slate-400 truncate">
+        {d.components.exams
+          .map(
+            (e) =>
+              `${e.code ? `${e.system}:${e.code}` : e.system}=${e.weight}${
+                e.min !== null ? `/${e.min}` : ""
+              }`,
+          )
+          .join(" • ")}
+      </p>
+      {row.diff && row.diff.length > 0 && (
+        <details className="text-[10px] text-amber-700">
+          <summary className="cursor-pointer font-bold">
+            เปลี่ยนแปลง {row.diff.length} ฟิลด์
+          </summary>
+          <ul className="mt-1 space-y-0.5">
+            {row.diff.map((d) => (
+              <li key={d.field}>
+                <code className="font-mono">{d.field}</code>:{" "}
+                {JSON.stringify(d.before)} → {JSON.stringify(d.after)}
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
     </div>
   );
-}
-
-function formatPassed(r1: number | null, r2: number | null): string {
-  if (r1 === null && r2 === null) return "ไม่มีข้อมูลผู้ผ่าน";
-  if (r2 === null) return `ผ่าน ${r1}`;
-  if (r1 === null) return `ผ่าน (รอบ 2) ${r2}`;
-  return `ผ่าน 1/2: ${r1}/${r2}`;
 }
