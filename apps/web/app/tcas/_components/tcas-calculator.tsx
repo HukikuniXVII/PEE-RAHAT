@@ -2,7 +2,9 @@
 
 import {
   componentKey,
+  type ExamOption,
   type ExamSystem,
+  type ProgramComponent,
   type TcasDeadline,
   type TcasProgram,
   type TcasRound,
@@ -117,15 +119,30 @@ export function TcasCalculator({ initialPrograms, initialDeadlines }: Props) {
   const result = whatIf.data ?? null;
   const isSafe = result?.isOnTrack ?? false;
 
-  const groupedExams = useMemo(() => {
-    if (!target) return [] as Array<{ system: ExamSystem; items: TcasProgram["components"]["exams"] }>;
-    const groups = new Map<ExamSystem, TcasProgram["components"]["exams"]>();
-    for (const c of target.components.exams) {
-      const arr = groups.get(c.system) ?? [];
-      arr.push(c);
-      groups.set(c.system, arr);
-    }
-    return Array.from(groups.entries()).map(([system, items]) => ({ system, items }));
+  // Render order: group consecutive `single` components by system so A-Level
+  // subjects cluster together, but break out chooseHighest groups into their
+  // own band (they read clearly only when the shared-weight contract is
+  // visible). We don't reorder across boundaries — the PDF order is meaningful.
+  type RenderBlock =
+    | { kind: "single-group"; system: ExamSystem; items: Array<Extract<ProgramComponent, { type: "single" }>> }
+    | { kind: "choose"; idx: number; group: Extract<ProgramComponent, { type: "chooseHighest" }> };
+
+  const blocks = useMemo<RenderBlock[]>(() => {
+    if (!target) return [];
+    const out: RenderBlock[] = [];
+    target.components.exams.forEach((c, idx) => {
+      if (c.type === "chooseHighest") {
+        out.push({ kind: "choose", idx, group: c });
+        return;
+      }
+      const last = out[out.length - 1];
+      if (last && last.kind === "single-group" && last.system === c.system) {
+        last.items.push(c);
+      } else {
+        out.push({ kind: "single-group", system: c.system, items: [c] });
+      }
+    });
+    return out;
   }, [target]);
 
   function updateScore(key: string, raw: string) {
@@ -193,50 +210,59 @@ export function TcasCalculator({ initialPrograms, initialDeadlines }: Props) {
 
             {target ? (
               <div className="space-y-5">
-                {groupedExams.map((group) => (
-                  <div key={group.system} className="space-y-2">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-600">
-                      {SYSTEM_LABELS[group.system]}
-                    </p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                      {group.items.map((c) => {
-                        const key = componentKey(c.system, c.code);
-                        return (
-                          <div
-                            key={key}
-                            className="space-y-1.5 p-3 rounded-2xl border bg-indigo-50/50 border-indigo-100"
-                          >
-                            <div className="flex justify-between items-start gap-2">
-                              <label
-                                className="text-[9px] font-bold text-indigo-600 leading-tight line-clamp-2"
-                                title={c.name}
-                              >
-                                {c.name}
-                              </label>
-                              <span className="text-[9px] font-bold text-indigo-400 shrink-0">
-                                {c.weight}%
-                              </span>
+                {blocks.map((block, i) =>
+                  block.kind === "single-group" ? (
+                    <div key={`s-${i}`} className="space-y-2">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-600">
+                        {SYSTEM_LABELS[block.system]}
+                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        {block.items.map((c) => {
+                          const key = componentKey(c.system, c.code);
+                          return (
+                            <div
+                              key={key}
+                              className="space-y-1.5 p-3 rounded-2xl border bg-indigo-50/50 border-indigo-100"
+                            >
+                              <div className="flex justify-between items-start gap-2">
+                                <label
+                                  className="text-[9px] font-bold text-indigo-600 leading-tight line-clamp-2"
+                                  title={c.name}
+                                >
+                                  {c.name}
+                                </label>
+                                <span className="text-[9px] font-bold text-indigo-400 shrink-0">
+                                  {c.weight}%
+                                </span>
+                              </div>
+                              {c.min !== null && (
+                                <p className="text-[8px] font-bold text-rose-500">
+                                  ขั้นต่ำ {c.min}
+                                </p>
+                              )}
+                              <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={scores[key] ?? ""}
+                                onChange={(e) => updateScore(key, e.target.value)}
+                                className="w-full bg-transparent text-sm font-bold focus:outline-none placeholder:text-slate-300"
+                                placeholder="0"
+                              />
                             </div>
-                            {c.min !== null && (
-                              <p className="text-[8px] font-bold text-rose-500">
-                                ขั้นต่ำ {c.min}
-                              </p>
-                            )}
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              value={scores[key] ?? ""}
-                              onChange={(e) => updateScore(key, e.target.value)}
-                              className="w-full bg-transparent text-sm font-bold focus:outline-none placeholder:text-slate-300"
-                              placeholder="0"
-                            />
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ) : (
+                    <ChooseHighestBlock
+                      key={`c-${block.idx}`}
+                      group={block.group}
+                      scores={scores}
+                      onChange={updateScore}
+                    />
+                  ),
+                )}
               </div>
             ) : (
               <p className="text-sm text-slate-500">
@@ -557,6 +583,90 @@ export function TcasCalculator({ initialPrograms, initialDeadlines }: Props) {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ChooseHighestBlock({
+  group,
+  scores,
+  onChange,
+}: {
+  group: Extract<ProgramComponent, { type: "chooseHighest" }>;
+  scores: TcasScores;
+  onChange: (key: string, raw: string) => void;
+}) {
+  // Show which option is currently leading — it's the one that'll be applied.
+  let bestIdx = 0;
+  let bestScore = scores[componentKey(group.options[0] as ExamOption)] ?? 0;
+  group.options.forEach((opt, i) => {
+    const s = scores[componentKey(opt)] ?? 0;
+    if (s > bestScore) {
+      bestIdx = i;
+      bestScore = s;
+    }
+  });
+
+  return (
+    <div className="rounded-2xl border-2 border-purple-200 bg-purple-50/40 p-4 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-purple-700">
+            เลือกสอบ (ใช้คะแนนสูงสุด)
+          </p>
+          <p className="text-[10px] text-slate-500 mt-0.5">
+            ระบบจะเลือกวิชาที่คุณทำคะแนนได้สูงสุดในกลุ่มนี้ × น้ำหนัก
+          </p>
+        </div>
+        <div className="text-right shrink-0">
+          <span className="text-[10px] font-bold text-purple-600">
+            น้ำหนักรวม {group.weight}%
+          </span>
+          {group.min !== null && (
+            <p className="text-[9px] font-bold text-rose-500">
+              ขั้นต่ำ {group.min}
+            </p>
+          )}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+        {group.options.map((opt, i) => {
+          const key = componentKey(opt);
+          const winning = i === bestIdx && bestScore > 0;
+          return (
+            <div
+              key={key}
+              className={cn(
+                "space-y-1.5 p-3 rounded-xl border bg-white transition-all",
+                winning ? "border-purple-400 ring-2 ring-purple-100" : "border-purple-100",
+              )}
+            >
+              <div className="flex justify-between items-start gap-2">
+                <label
+                  className="text-[9px] font-bold text-purple-700 leading-tight line-clamp-2"
+                  title={opt.name}
+                >
+                  {opt.name}
+                </label>
+                {winning && (
+                  <span className="text-[8px] font-black text-purple-600 shrink-0">
+                    ✓ ใช้
+                  </span>
+                )}
+              </div>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={scores[key] ?? ""}
+                onChange={(e) => onChange(key, e.target.value)}
+                className="w-full bg-transparent text-sm font-bold focus:outline-none placeholder:text-slate-300"
+                placeholder="0"
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );

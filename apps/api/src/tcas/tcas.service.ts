@@ -1,6 +1,9 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import type {
+  ExamOption,
+  ExamSystem,
   FailedPerSubjectMin,
+  ProgramComponent,
   ProgramComponents,
   SubjectGap,
   TcasDeadline,
@@ -38,7 +41,9 @@ export class TcasService {
 
   /**
    * FR-TC-03: three independent gates (GPAX, total-min, per-subject-min) +
-   * per-subject deficit distribution. FR-TC-05 Plan B kept as a stub.
+   * per-subject deficit distribution. Supports both single components and
+   * chooseHighest groups (the group contributes the max score among its
+   * options × group weight).
    */
   async whatIf(
     programId: string,
@@ -50,7 +55,7 @@ export class TcasService {
     if (!program) throw new NotFoundException();
     const components = program.components as unknown as ProgramComponents;
 
-    // Gate 1: GPAX threshold (no weight; a flat eligibility check).
+    // Gate 1: GPAX threshold.
     const gpax = scores["gpax"] ?? 0;
     const meetsGpax =
       components.gpaxMin === null || gpax >= components.gpaxMin;
@@ -58,31 +63,32 @@ export class TcasService {
     // Gate 2 + weighted average.
     let weighted = 0;
     const failedPerSubjectMins: FailedPerSubjectMin[] = [];
+    // Cache of (component → effective score) so the deficit loop can reuse it.
+    const effective = new Map<ProgramComponent, EffectiveScore>();
+
     for (const comp of components.exams) {
-      const key = componentKey(comp.system, comp.code);
-      const score = scores[key] ?? 0;
-      if (comp.min !== null && score < comp.min) {
+      const eff = effectiveScoreFor(comp, scores);
+      effective.set(comp, eff);
+      if (comp.min !== null && eff.score < comp.min) {
         failedPerSubjectMins.push({
-          system: comp.system,
-          code: comp.code,
-          name: comp.name,
+          system: eff.system,
+          code: eff.code,
+          name: eff.name,
           need: comp.min,
-          have: score,
+          have: eff.score,
         });
       }
-      weighted += score * (comp.weight / 100);
+      weighted += eff.score * (comp.weight / 100);
     }
     const weightedAverage = Number(weighted.toFixed(2));
 
-    // Gate 3: overall threshold (e.g. KKU's 30).
+    // Gate 3: overall threshold.
     const meetsTotalMin =
       program.totalMinScore === null || weighted >= program.totalMinScore;
 
     const isOnTrack =
       meetsGpax && meetsTotalMin && failedPerSubjectMins.length === 0;
 
-    // Reference value for the deficit calc — use whichever cut-off the program
-    // actually publishes. If neither is set the gap is meaningless, so leave it at 0.
     const target = program.totalMinScore ?? 0;
     const gap = Number((weighted - target).toFixed(2));
 
@@ -93,24 +99,23 @@ export class TcasService {
         components.exams.reduce((a, e) => a + e.weight, 0) || 1;
       for (const comp of components.exams) {
         const share = deficit * (comp.weight / totalWeight);
-        // pointsNeeded is on the subject's own scale: share / weightFraction.
         const pointsNeeded = Math.ceil(share / (comp.weight / 100));
-        const key = componentKey(comp.system, comp.code);
-        const currentScore = scores[key] ?? 0;
+        const eff = effective.get(comp)!;
         subjectGaps.push({
-          system: comp.system,
-          code: comp.code,
-          name: comp.name,
+          system: eff.system,
+          code: eff.code,
+          name: eff.name,
           weightPct: comp.weight,
-          currentScore,
-          requiredScore: currentScore + pointsNeeded,
+          currentScore: eff.score,
+          requiredScore: eff.score + pointsNeeded,
           pointsNeeded,
+          groupOptions:
+            comp.type === "chooseHighest" ? comp.options : undefined,
         });
       }
     }
 
-    // FR-TC-05: 3 nearest reachable programs in same round, sharing tags, with
-    // a totalMinScore at or below the candidate's weighted average + 5. Phase 1 stub.
+    // FR-TC-05: 3 nearest reachable programs (stub).
     const planBRows = await this.prisma.tcasProgram.findMany({
       where: {
         id: { not: programId },
@@ -179,4 +184,49 @@ export class TcasService {
       sourceUrl: r.sourceUrl,
     };
   }
+}
+
+interface EffectiveScore {
+  system: ExamSystem;
+  code: string;
+  name: string;
+  score: number;
+}
+
+// Picks the score a component contributes given the student's scores map.
+// For a single component this is just lookup; for a chooseHighest group it's
+// the max across all options (with the winning option's identity surfaced
+// for the gap row so the UI can label it concretely).
+function effectiveScoreFor(
+  comp: ProgramComponent,
+  scores: TcasScores,
+): EffectiveScore {
+  if (comp.type === "single") {
+    const key = componentKey(comp.system, comp.code);
+    return {
+      system: comp.system,
+      code: comp.code,
+      name: comp.name,
+      score: scores[key] ?? 0,
+    };
+  }
+  // chooseHighest: pick the option with the highest score. Ties resolve to
+  // the first option to keep output deterministic. If nothing is scored, the
+  // first option still "wins" with 0 — gives the UI something to render.
+  let bestOption: ExamOption = comp.options[0]!;
+  let bestScore = scores[componentKey(bestOption)] ?? 0;
+  for (let i = 1; i < comp.options.length; i++) {
+    const opt = comp.options[i]!;
+    const s = scores[componentKey(opt)] ?? 0;
+    if (s > bestScore) {
+      bestOption = opt;
+      bestScore = s;
+    }
+  }
+  return {
+    system: bestOption.system,
+    code: bestOption.code,
+    name: bestOption.name,
+    score: bestScore,
+  };
 }

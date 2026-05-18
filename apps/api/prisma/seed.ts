@@ -96,9 +96,11 @@ async function seed() {
   }
 
   // ─── TCAS programs (FR-TC-02) ──────────────────────────────────────────
-  // Each program declares its admission components in the generic
-  // {system, code, name, weight, min} shape. Composite key in components.exams
-  // mirrors the importer's mini-DSL: tgat | tpat:30 | aLevel:61 | netsat:103.
+  // Each program's components live in a discriminated union:
+  //   - type: "single" → one subject carries `weight`%
+  //   - type: "chooseHighest" → group of options sharing `weight`%; the
+  //     student's max score among them is what counts. Chula R3 row 043
+  //     in the real PDF uses this with 4 science subjects sharing 80%.
   const tcasPrograms = [
     {
       university: "จุฬาลงกรณ์มหาวิทยาลัย",
@@ -111,11 +113,11 @@ async function seed() {
       components: {
         gpaxMin: null,
         exams: [
-          { system: "tgat", code: "", name: "TGAT", weight: 20, min: null },
-          { system: "tpat", code: "30", name: "TPAT 3 วิทย์-เทคโนโลยี-วิศวะ", weight: 30, min: null },
-          { system: "aLevel", code: "61", name: "คณิตศาสตร์ประยุกต์ 1", weight: 20, min: null },
-          { system: "aLevel", code: "64", name: "ฟิสิกส์", weight: 20, min: null },
-          { system: "aLevel", code: "65", name: "เคมี", weight: 10, min: null },
+          { type: "single" as const, system: "tgat", code: "", name: "TGAT", weight: 20, min: null },
+          { type: "single" as const, system: "tpat", code: "30", name: "TPAT 3 วิทย์-เทคโนโลยี-วิศวะ", weight: 30, min: null },
+          { type: "single" as const, system: "aLevel", code: "61", name: "คณิตศาสตร์ประยุกต์ 1", weight: 20, min: null },
+          { type: "single" as const, system: "aLevel", code: "64", name: "ฟิสิกส์", weight: 20, min: null },
+          { type: "single" as const, system: "aLevel", code: "65", name: "เคมี", weight: 10, min: null },
         ],
       },
       tags: ["Engineering", "Tech"],
@@ -131,14 +133,14 @@ async function seed() {
       components: {
         gpaxMin: null,
         exams: [
-          { system: "tpat", code: "10", name: "TPAT 1 กสพท.", weight: 30, min: null },
-          { system: "aLevel", code: "61", name: "คณิตศาสตร์ประยุกต์ 1", weight: 14, min: null },
-          { system: "aLevel", code: "82", name: "ภาษาอังกฤษ", weight: 14, min: null },
-          { system: "aLevel", code: "64", name: "ฟิสิกส์", weight: 9.33, min: null },
-          { system: "aLevel", code: "65", name: "เคมี", weight: 9.33, min: null },
-          { system: "aLevel", code: "66", name: "ชีววิทยา", weight: 9.34, min: null },
-          { system: "aLevel", code: "81", name: "ภาษาไทย", weight: 7, min: null },
-          { system: "aLevel", code: "70", name: "สังคมศึกษา", weight: 7, min: null },
+          { type: "single" as const, system: "tpat", code: "10", name: "TPAT 1 กสพท.", weight: 30, min: null },
+          { type: "single" as const, system: "aLevel", code: "61", name: "คณิตศาสตร์ประยุกต์ 1", weight: 14, min: null },
+          { type: "single" as const, system: "aLevel", code: "82", name: "ภาษาอังกฤษ", weight: 14, min: null },
+          { type: "single" as const, system: "aLevel", code: "64", name: "ฟิสิกส์", weight: 9.33, min: null },
+          { type: "single" as const, system: "aLevel", code: "65", name: "เคมี", weight: 9.33, min: null },
+          { type: "single" as const, system: "aLevel", code: "66", name: "ชีววิทยา", weight: 9.34, min: null },
+          { type: "single" as const, system: "aLevel", code: "81", name: "ภาษาไทย", weight: 7, min: null },
+          { type: "single" as const, system: "aLevel", code: "70", name: "สังคมศึกษา", weight: 7, min: null },
         ],
       },
       tags: ["Medicine", "Health"],
@@ -154,10 +156,10 @@ async function seed() {
       components: {
         gpaxMin: null,
         exams: [
-          { system: "tgat", code: "", name: "TGAT", weight: 20, min: null },
-          { system: "tpat", code: "30", name: "TPAT 3 วิทย์-เทคโนโลยี-วิศวะ", weight: 40, min: null },
-          { system: "aLevel", code: "61", name: "คณิตศาสตร์ประยุกต์ 1", weight: 20, min: null },
-          { system: "aLevel", code: "82", name: "ภาษาอังกฤษ", weight: 20, min: null },
+          { type: "single" as const, system: "tgat", code: "", name: "TGAT", weight: 20, min: null },
+          { type: "single" as const, system: "tpat", code: "30", name: "TPAT 3 วิทย์-เทคโนโลยี-วิศวะ", weight: 40, min: null },
+          { type: "single" as const, system: "aLevel", code: "61", name: "คณิตศาสตร์ประยุกต์ 1", weight: 20, min: null },
+          { type: "single" as const, system: "aLevel", code: "82", name: "ภาษาอังกฤษ", weight: 20, min: null },
         ],
       },
       tags: ["Engineering", "Digital"],
@@ -178,13 +180,44 @@ async function seed() {
       components: {
         gpaxMin: null,
         exams: [
-          { system: "tpat", code: "30", name: "TPAT 3 วิทย์-เทคโนโลยี-วิศวะ", weight: 20, min: null },
-          { system: "netsat", code: "102", name: "SAT1 ภาษาอังกฤษ", weight: 30, min: null },
-          { system: "netsat", code: "103", name: "SAT1 คณิตศาสตร์", weight: 30, min: 20 },
-          { system: "netsat", code: "204", name: "SAT2 ฟิสิกส์", weight: 20, min: 20 },
+          { type: "single" as const, system: "tpat", code: "30", name: "TPAT 3 วิทย์-เทคโนโลยี-วิศวะ", weight: 20, min: null },
+          { type: "single" as const, system: "netsat", code: "102", name: "SAT1 ภาษาอังกฤษ", weight: 30, min: null },
+          { type: "single" as const, system: "netsat", code: "103", name: "SAT1 คณิตศาสตร์", weight: 30, min: 20 },
+          { type: "single" as const, system: "netsat", code: "204", name: "SAT2 ฟิสิกส์", weight: 20, min: 20 },
         ],
       },
       tags: ["Engineering", "Tech", "KKU"],
+    },
+    // Synthetic chooseHighest demo (mirrors Chula R3 row 043's pattern):
+    // four science subjects share one 80% weight, with the student's
+    // highest scorer carrying the group. Exercises the new component
+    // shape end-to-end in the calculator.
+    {
+      university: "จุฬาลงกรณ์มหาวิทยาลัย",
+      faculty: "คณะวิทยาศาสตร์",
+      major: "หลักสูตรวิทยาศาสตรบัณฑิต (กลุ่ม chooseHighest)",
+      round: "r3_admission" as const,
+      admissionYear: 2569,
+      quotaSeats: 60,
+      totalMinScore: 55,
+      components: {
+        gpaxMin: null,
+        exams: [
+          { type: "single" as const, system: "tgat", code: "", name: "TGAT", weight: 20, min: null },
+          {
+            type: "chooseHighest" as const,
+            weight: 80,
+            min: null,
+            options: [
+              { system: "aLevel" as const, code: "61", name: "คณิตศาสตร์ประยุกต์ 1" },
+              { system: "aLevel" as const, code: "64", name: "ฟิสิกส์" },
+              { system: "aLevel" as const, code: "65", name: "เคมี" },
+              { system: "aLevel" as const, code: "66", name: "ชีววิทยา" },
+            ],
+          },
+        ],
+      },
+      tags: ["Science"],
     },
   ];
   // Prisma v5 doesn't allow nulls in compound unique-where, so we look the row

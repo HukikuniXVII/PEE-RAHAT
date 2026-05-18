@@ -20,14 +20,41 @@ export const examSystemSchema = z.enum([
 export type ExamSystem = z.infer<typeof examSystemSchema>;
 
 // ─── Program components ───────────────────────────────────────────────────
+// Two shapes share one discriminated union:
+//   - "single": the normal "Subject X carries N% of the score" component.
+//   - "chooseHighest": a group of options that share one weight; the student's
+//     highest-scoring option in the group is what counts. Chula R3 row 043
+//     uses this pattern with four science subjects sharing 80%.
 
-export const programComponentSchema = z.object({
+export const examOptionSchema = z.object({
+  system: examSystemSchema,
+  code: z.string(),
+  name: z.string(),
+});
+export type ExamOption = z.infer<typeof examOptionSchema>;
+
+export const singleComponentSchema = z.object({
+  type: z.literal("single"),
   system: examSystemSchema,
   code: z.string(),
   name: z.string(),
   weight: z.number().min(0).max(100),
   min: z.number().nullable(),
 });
+export type SingleComponent = z.infer<typeof singleComponentSchema>;
+
+export const chooseHighestGroupSchema = z.object({
+  type: z.literal("chooseHighest"),
+  weight: z.number().min(0).max(100),
+  min: z.number().nullable(),
+  options: z.array(examOptionSchema).min(2),
+});
+export type ChooseHighestGroup = z.infer<typeof chooseHighestGroupSchema>;
+
+export const programComponentSchema = z.discriminatedUnion("type", [
+  singleComponentSchema,
+  chooseHighestGroupSchema,
+]);
 export type ProgramComponent = z.infer<typeof programComponentSchema>;
 
 export const programComponentsSchema = z
@@ -40,14 +67,21 @@ export const programComponentsSchema = z
       const sum = c.exams.reduce((a, e) => a + e.weight, 0);
       return Math.abs(sum - 100) < 0.5;
     },
-    { message: "Sum of exam weights must equal 100" },
+    { message: "Sum of weights must equal 100" },
   );
 export type ProgramComponents = z.infer<typeof programComponentsSchema>;
 
 // Key format: `${system}:${code}` when code is set; just `system` when code is empty.
 // Special key "gpax" for GPA. Examples: "gpax", "tgat", "tgat:1", "tpat:30", "aLevel:61", "netsat:103".
-export function componentKey(system: ExamSystem, code: string): string {
-  return code ? `${system}:${code}` : system;
+export function componentKey(
+  systemOrOption: ExamSystem | ExamOption,
+  code?: string,
+): string {
+  if (typeof systemOrOption === "string") {
+    return code ? `${systemOrOption}:${code}` : systemOrOption;
+  }
+  const opt = systemOrOption;
+  return opt.code ? `${opt.system}:${opt.code}` : opt.system;
 }
 
 export const tcasScoresSchema = z.record(z.string(), z.number());
@@ -59,7 +93,7 @@ export const tcasWhatIfRequestSchema = z.object({
 });
 export type TcasWhatIfRequest = z.infer<typeof tcasWhatIfRequestSchema>;
 
-// ─── Program + stats DTOs ─────────────────────────────────────────────────
+// ─── Program DTO ──────────────────────────────────────────────────────────
 
 export interface TcasProgram {
   id: string;
@@ -96,6 +130,10 @@ export interface SubjectGap {
   currentScore: number;
   requiredScore: number;
   pointsNeeded: number;
+  // For chooseHighest groups, the gap is reported against the currently-best
+  // option. groupOptions lists every option so the UI can show what else
+  // qualifies for the same slot.
+  groupOptions?: ExamOption[];
 }
 
 export interface FailedPerSubjectMin {
