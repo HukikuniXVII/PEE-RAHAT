@@ -77,6 +77,18 @@ export interface TcasProgram {
   totalMinScore: number | null;
   tags: string[];
   sourceUrl: string | null;
+  // FR-TC-02: historical cut-offs matched by courseCode (joined by the
+  // service). May be empty when stats haven't been imported for this program.
+  pastStats: TcasProgramPastYear[];
+}
+
+export interface TcasProgramPastYear {
+  year: number;
+  round: TcasRound;
+  applicants: number;
+  quotaSeats: number;
+  minScore: number | null;
+  maxScore: number | null;
 }
 
 export interface TcasProgramStat {

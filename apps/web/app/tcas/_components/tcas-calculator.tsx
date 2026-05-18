@@ -417,6 +417,10 @@ export function TcasCalculator({ initialPrograms, initialDeadlines }: Props) {
                 </div>
               )}
 
+              {target.pastStats.length > 0 && (
+                <PastStatsPanel pastStats={target.pastStats} />
+              )}
+
               {!isSafe && result.planB.length > 0 && (
                 <div className="space-y-3">
                   <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
@@ -559,6 +563,121 @@ export function TcasCalculator({ initialPrograms, initialDeadlines }: Props) {
         </div>
       </div>
     </div>
+  );
+}
+
+function PastStatsPanel({
+  pastStats,
+}: {
+  pastStats: TcasProgram["pastStats"];
+}) {
+  // Sort newest → oldest for the label, but feed the sparkline oldest → newest
+  // so the line moves left-to-right with time.
+  const sorted = [...pastStats].sort((a, b) => b.year - a.year);
+  const latest = sorted[0];
+  if (!latest) return null;
+  const tcasNumber = latest.year - 2500;
+  const chronological = [...sorted].reverse();
+
+  return (
+    <div className="p-5 bg-white border border-slate-200 rounded-2xl space-y-3">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            คะแนนรับปีที่แล้ว
+          </p>
+          <p className="text-lg font-black text-slate-800">
+            {latest.minScore !== null
+              ? `${latest.minScore.toFixed(2)} – ${latest.maxScore?.toFixed(2) ?? "?"}`
+              : "ยังไม่ประกาศ"}
+            <span className="text-xs font-bold text-slate-400 ml-2">
+              (TCAS {tcasNumber})
+            </span>
+          </p>
+          <p className="text-[10px] text-slate-400">
+            สมัคร {latest.applicants.toLocaleString()} • รับ {latest.quotaSeats}
+          </p>
+        </div>
+        {chronological.length >= 2 && (
+          <MinScoreSparkline data={chronological} />
+        )}
+      </div>
+      {sorted.length > 1 && (
+        <details className="text-xs">
+          <summary className="cursor-pointer text-indigo-600 font-bold">
+            ดูประวัติทั้งหมด ({sorted.length} ปี)
+          </summary>
+          <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {sorted.map((s) => (
+              <div
+                key={`${s.year}-${s.round}`}
+                className="p-2 rounded-lg bg-slate-50 text-center"
+              >
+                <p className="text-[9px] font-bold text-slate-400">
+                  TCAS {s.year - 2500}
+                </p>
+                <p className="text-xs font-bold text-slate-700">
+                  {s.minScore?.toFixed(2) ?? "—"}
+                </p>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+    </div>
+  );
+}
+
+function MinScoreSparkline({
+  data,
+}: {
+  data: TcasProgram["pastStats"];
+}) {
+  // Tiny hand-rolled SVG sparkline; no chart lib needed for one line.
+  const points = data
+    .map((s) => s.minScore)
+    .filter((v): v is number => v !== null);
+  if (points.length < 2) return null;
+
+  const width = 120;
+  const height = 36;
+  const pad = 4;
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const span = max - min || 1;
+
+  const coords = points.map((v, i) => {
+    const x = pad + (i * (width - 2 * pad)) / (points.length - 1);
+    const y = height - pad - ((v - min) / span) * (height - 2 * pad);
+    return { x, y };
+  });
+
+  const path = coords
+    .map((c, i) => `${i === 0 ? "M" : "L"}${c.x.toFixed(1)},${c.y.toFixed(1)}`)
+    .join(" ");
+
+  const last = coords[coords.length - 1]!;
+  const trendUp =
+    points[points.length - 1]! > points[0]!;
+
+  return (
+    <svg width={width} height={height} className="shrink-0">
+      <title>แนวโน้มคะแนนต่ำสุด</title>
+      <path
+        d={path}
+        fill="none"
+        stroke={trendUp ? "#dc2626" : "#059669"}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle
+        cx={last.x}
+        cy={last.y}
+        r={2.5}
+        fill={trendUp ? "#dc2626" : "#059669"}
+      />
+    </svg>
   );
 }
 

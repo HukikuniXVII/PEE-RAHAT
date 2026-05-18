@@ -104,6 +104,7 @@ async function seed() {
       university: "จุฬาลงกรณ์มหาวิทยาลัย",
       faculty: "คณะวิศวกรรมศาสตร์",
       major: "วิศวกรรมคอมพิวเตอร์",
+      courseCode: "10010121300001A",
       round: "r3_admission" as const,
       admissionYear: 2569,
       quotaSeats: 215,
@@ -147,6 +148,7 @@ async function seed() {
       university: "มหาวิทยาลัยขอนแก่น",
       faculty: "คณะวิศวกรรมศาสตร์",
       major: "วิศวกรรมดิจิทัล",
+      courseCode: "40010121400001A",
       round: "r3_admission" as const,
       admissionYear: 2569,
       quotaSeats: 50,
@@ -209,6 +211,7 @@ async function seed() {
       major: p.major,
       subTrack: null,
       programType: p.programType ?? null,
+      courseCode: ("courseCode" in p ? p.courseCode : null) as string | null,
       round: p.round,
       admissionYear: p.admissionYear,
       quotaSeats: p.quotaSeats,
@@ -222,6 +225,89 @@ async function seed() {
     } else {
       await prisma.tcasProgram.create({ data });
     }
+  }
+
+  // ─── Past-stats (FR-TC-02) ──────────────────────────────────────────────
+  // Two years of Chulalongkorn + Khon Kaen Digital so the sparkline kicks
+  // in. Joined by courseCode in the API layer.
+  const pastStats = [
+    {
+      courseCode: "10010121300001A",
+      university: "จุฬาลงกรณ์มหาวิทยาลัย",
+      faculty: "คณะวิศวกรรมศาสตร์",
+      major: "หลักสูตรวิศวกรรมศาสตรบัณฑิต สาขาวิศวกรรมคอมพิวเตอร์",
+      year: 2568,
+      round: "r3_admission" as const,
+      quotaSeats: 215,
+      applicants: 1417,
+      passedRound1: 215,
+      passedRound2: 215,
+      maxScoreR1: 82.6,
+      minScoreR1: 59.98,
+      maxScoreR2: 82.6,
+      minScoreR2: 59.88,
+    },
+    {
+      courseCode: "10010121300001A",
+      university: "จุฬาลงกรณ์มหาวิทยาลัย",
+      faculty: "คณะวิศวกรรมศาสตร์",
+      major: "หลักสูตรวิศวกรรมศาสตรบัณฑิต สาขาวิศวกรรมคอมพิวเตอร์",
+      year: 2567,
+      round: "r3_admission" as const,
+      quotaSeats: 200,
+      applicants: 1289,
+      passedRound1: 200,
+      passedRound2: 200,
+      maxScoreR1: 81.5,
+      minScoreR1: 58.4,
+      maxScoreR2: 81.5,
+      minScoreR2: 58.2,
+    },
+    {
+      courseCode: "40010121400001A",
+      university: "มหาวิทยาลัยขอนแก่น",
+      faculty: "คณะวิศวกรรมศาสตร์",
+      major: "วิศวกรรมดิจิทัล",
+      year: 2568,
+      round: "r3_admission" as const,
+      quotaSeats: 50,
+      applicants: 312,
+      passedRound1: 50,
+      passedRound2: 50,
+      maxScoreR1: 74.3,
+      minScoreR1: 49.1,
+      maxScoreR2: 74.3,
+      minScoreR2: 48.9,
+    },
+    {
+      courseCode: "40010121400001A",
+      university: "มหาวิทยาลัยขอนแก่น",
+      faculty: "คณะวิศวกรรมศาสตร์",
+      major: "วิศวกรรมดิจิทัล",
+      year: 2567,
+      round: "r3_admission" as const,
+      quotaSeats: 45,
+      applicants: 281,
+      passedRound1: 45,
+      passedRound2: 45,
+      maxScoreR1: 72.0,
+      minScoreR1: 46.5,
+      maxScoreR2: 72.0,
+      minScoreR2: 46.2,
+    },
+  ];
+  for (const s of pastStats) {
+    await prisma.tcasProgramStat.upsert({
+      where: {
+        courseCode_year_round: {
+          courseCode: s.courseCode,
+          year: s.year,
+          round: s.round,
+        },
+      },
+      update: {},
+      create: s,
+    });
   }
 
   await prisma.tcasDeadline.createMany({
