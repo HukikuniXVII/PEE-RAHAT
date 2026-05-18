@@ -35,6 +35,18 @@ describe("parseStatsCsv", () => {
     expect(row.data.minScoreR2).toBeNull();
   });
 
+  it("accepts fractional passedRound1/2 (CUPT row 2899 ships 41.1709)", () => {
+    const csv = [
+      HEADER,
+      `CC1,U,,F,M,,,2568,r3_admission,10,151,10,41.1709,46.3295,10.0,46.3295,40.8607`,
+    ].join("\n");
+    const r = parseStatsCsv(csv);
+    expect(r.errorCount).toBe(0);
+    const row = r.rows[0]!;
+    if (!row.ok) throw new Error("expected ok");
+    expect(row.data.passedRound2).toBeCloseTo(41.1709);
+  });
+
   it("strips comma thousands-separators (CUPT exports use them)", () => {
     const csv = [
       HEADER,

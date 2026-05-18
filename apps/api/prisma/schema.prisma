@@ -313,8 +313,11 @@ model TcasProgramStat {
   // Pass counts are nullable because the TCAS68 r3_1 layout publishes only
   // one "ผ่าน" column (no round-1/round-2 split). For that layout we store
   // the value in passedRound1 and leave passedRound2 null.
-  passedRound1  Int?
-  passedRound2  Int?
+  // Float (not Int) because CUPT occasionally publishes fractional values
+  // and our row 2899 audit found at least one row where CUPT shifted a
+  // score into this column ("41.1709"); we accept what they ship.
+  passedRound1  Float?
+  passedRound2  Float?
 
   maxScoreR1    Float?
   minScoreR1    Float?

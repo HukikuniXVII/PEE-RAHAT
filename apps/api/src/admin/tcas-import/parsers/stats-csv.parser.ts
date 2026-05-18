@@ -152,13 +152,17 @@ function parseRow(
       error: "quotaSeats / applicants ต้องเป็นจำนวนเต็มหรือเว้นว่าง",
     };
   }
-  const passedRound1 = intOrNull(cell(row, "passedRound1"));
-  const passedRound2 = intOrNull(cell(row, "passedRound2"));
+  // CUPT publishes integer counts in ผ่าน(รอบ*) but occasionally ships
+  // fractional / shifted values (TCAS67 row 2899 → "41.1709"). We accept
+  // floats so the source data passes through untouched; admins can spot the
+  // anomaly in preview.
+  const passedRound1 = floatOrNull(cell(row, "passedRound1"));
+  const passedRound2 = floatOrNull(cell(row, "passedRound2"));
   if (passedRound1 === BAD || passedRound2 === BAD) {
     return {
       rowIndex,
       ok: false,
-      error: "passedRound1 / passedRound2 ต้องเป็นจำนวนเต็มหรือเว้นว่าง",
+      error: "passedRound1 / passedRound2 ต้องเป็นตัวเลขหรือเว้นว่าง",
     };
   }
 
