@@ -288,23 +288,6 @@ model TcasProgram {
   @@index([courseCode])
 }
 
-model TcasImportAudit {
-  id         String   @id @default(uuid())
-  // Always "criteria" today. Reserved as a free-form string in case future
-  // editorial imports (deadlines, programs from a different source) want
-  // to reuse the audit log.
-  kind       String
-  filename   String
-  fileHash   String?
-  inserted   Int      @default(0)
-  updated    Int      @default(0)
-  skipped    Int      @default(0)
-  importedBy String?
-  importedAt DateTime @default(now())
-
-  @@index([importedAt])
-}
-
 model TcasDeadline {
   id    String   @id @default(uuid())
   title String

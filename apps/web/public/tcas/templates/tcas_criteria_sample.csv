@@ -1,4 +1,0 @@
-#  Sample criteria rows (FR-TC-02) — two real programs.
-university,campus,faculty,major,subTrack,programType,courseCode,round,admissionYear,quotaSeats,gpaxMin,totalMinScore,sourceUrl,components
-"จุฬาลงกรณ์มหาวิทยาลัย",,"คณะวิศวกรรมศาสตร์","วิศวกรรมคอมพิวเตอร์",,,,r3_admission,2569,215,,61.67,https://www.tcas.cupt.net/,"tgat=20;tpat:30=30;aLevel:61=20;aLevel:64=20;aLevel:65=10"
-"มหาวิทยาลัยขอนแก่น",,"คณะวิศวกรรมศาสตร์","วิศวกรรมคอมพิวเตอร์",,"ภาคปกติ",,r2_quota_kku_netsat,2569,30,,30,https://apps.admissions.kku.ac.th/web/quota/detail/5524/13540,"tpat:30=20;netsat:102=30;netsat:103=30/20;netsat:204=20/20"

@@ -4,7 +4,6 @@ import { cn } from "@peerahat/ui";
 import {
   BadgeCheck,
   Banknote,
-  GraduationCap,
   Receipt,
   ShieldAlert,
 } from "lucide-react";
@@ -17,7 +16,6 @@ const ADMIN_ITEMS = [
   { href: "/admin/payments", label: "ตรวจสลิป", icon: Receipt },
   { href: "/admin/payouts", label: "Payouts", icon: Banknote },
   { href: "/admin/reports", label: "Reports Queue", icon: ShieldAlert },
-  { href: "/admin/tcas/import", label: "นำเข้า TCAS", icon: GraduationCap },
 ] as const;
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
