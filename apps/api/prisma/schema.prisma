@@ -252,17 +252,86 @@ model StudySheet {
 
 // ─── TCAS ──────────────────────────────────────────────────────────────────
 
-model TcasProgram {
-  id         String   @id @default(uuid())
-  university String
-  faculty    String
-  major      String
-  round      String
-  minScore   Float
-  weights    Json
-  tags       String[]
+enum TcasRoundKey {
+  r1_portfolio
+  r2_quota_kku_netsat
+  r3_admission
+  r4_direct
+}
 
-  @@unique([university, major, round])
+model TcasProgram {
+  id            String   @id @default(uuid())
+
+  university    String
+  campus        String?
+  faculty       String
+  major         String
+  subTrack      String?
+  courseCode    String?
+  programType   String?
+
+  round         TcasRoundKey
+  admissionYear Int
+  quotaSeats    Int      @default(0)
+
+  components    Json
+  totalMinScore Float?
+
+  tags          String[]
+  sourceUrl     String?
+  sourceFile    String?
+  importedAt    DateTime?
+  importedBy    String?
+
+  pastStats     TcasProgramStat[]
+
+  @@unique([university, major, subTrack, programType, round, admissionYear], name: "tcas_program_identity")
+  @@index([round, admissionYear])
+  @@index([courseCode])
+}
+
+model TcasProgramStat {
+  id            String   @id @default(uuid())
+  programId     String?
+  program       TcasProgram? @relation(fields: [programId], references: [id], onDelete: SetNull)
+
+  courseCode    String
+  university    String
+  faculty       String
+  major         String
+  year          Int
+  round         TcasRoundKey
+
+  quotaSeats    Int
+  applicants    Int
+  passedRound1  Int      @default(0)
+  passedRound2  Int      @default(0)
+
+  maxScoreR1    Float?
+  minScoreR1    Float?
+  maxScoreR2    Float?
+  minScoreR2    Float?
+
+  sourceFile    String?
+  importedAt    DateTime @default(now())
+
+  @@unique([courseCode, year, round])
+  @@index([year, round])
+  @@index([programId])
+}
+
+model TcasImportAudit {
+  id         String   @id @default(uuid())
+  kind       String   // "criteria" | "stats"
+  filename   String
+  fileHash   String?
+  inserted   Int      @default(0)
+  updated    Int      @default(0)
+  skipped    Int      @default(0)
+  importedBy String?
+  importedAt DateTime @default(now())
+
+  @@index([importedAt])
 }
 
 model TcasDeadline {

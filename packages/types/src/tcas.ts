@@ -1,65 +1,101 @@
 import { z } from "zod";
 
-export type TcasRound = "1" | "2" | "3" | "4";
+// ─── Round + exam system enums ────────────────────────────────────────────
 
-export const tcasScoreFieldSchema = z.enum([
-  "gpax",
-  "tGat",
-  "tPat1",
-  "tPat2",
-  "tPat3",
-  "tPat4",
-  "tPat5",
-  "aLevelMath1",
-  "aLevelMath2",
-  "aLevelPhy",
-  "aLevelChe",
-  "aLevelBio",
-  "aLevelSci",
-  "aLevelThai",
-  "aLevelSoc",
-  "aLevelEng",
+export const tcasRoundSchema = z.enum([
+  "r1_portfolio",
+  "r2_quota_kku_netsat",
+  "r3_admission",
+  "r4_direct",
 ]);
+export type TcasRound = z.infer<typeof tcasRoundSchema>;
 
-export type TcasScoreField = z.infer<typeof tcasScoreFieldSchema>;
+export const examSystemSchema = z.enum([
+  "gpax",
+  "tgat",
+  "tpat",
+  "aLevel",
+  "netsat",
+]);
+export type ExamSystem = z.infer<typeof examSystemSchema>;
 
-const score0to100 = z.coerce.number().min(0).max(100).optional();
+// ─── Program components ───────────────────────────────────────────────────
 
-export const tcasScoresSchema = z.object({
-  gpax: z.coerce.number().min(0).max(4).optional(),
-  tGat: score0to100,
-  tPat1: score0to100,
-  tPat2: score0to100,
-  tPat3: score0to100,
-  tPat4: score0to100,
-  tPat5: score0to100,
-  aLevelMath1: score0to100,
-  aLevelMath2: score0to100,
-  aLevelPhy: score0to100,
-  aLevelChe: score0to100,
-  aLevelBio: score0to100,
-  aLevelSci: score0to100,
-  aLevelThai: score0to100,
-  aLevelSoc: score0to100,
-  aLevelEng: score0to100,
+export const programComponentSchema = z.object({
+  system: examSystemSchema,
+  code: z.string(),
+  name: z.string(),
+  weight: z.number().min(0).max(100),
+  min: z.number().nullable(),
 });
+export type ProgramComponent = z.infer<typeof programComponentSchema>;
 
+export const programComponentsSchema = z
+  .object({
+    gpaxMin: z.number().min(0).max(4).nullable(),
+    exams: z.array(programComponentSchema),
+  })
+  .refine(
+    (c) => {
+      const sum = c.exams.reduce((a, e) => a + e.weight, 0);
+      return Math.abs(sum - 100) < 0.5;
+    },
+    { message: "Sum of exam weights must equal 100" },
+  );
+export type ProgramComponents = z.infer<typeof programComponentsSchema>;
+
+// Key format: `${system}:${code}` when code is set; just `system` when code is empty.
+// Special key "gpax" for GPA. Examples: "gpax", "tgat", "tgat:1", "tpat:30", "aLevel:61", "netsat:103".
+export function componentKey(system: ExamSystem, code: string): string {
+  return code ? `${system}:${code}` : system;
+}
+
+export const tcasScoresSchema = z.record(z.string(), z.number());
 export type TcasScores = z.infer<typeof tcasScoresSchema>;
 
 export const tcasWhatIfRequestSchema = z.object({
   programId: z.string().min(1),
   scores: tcasScoresSchema,
 });
+export type TcasWhatIfRequest = z.infer<typeof tcasWhatIfRequestSchema>;
+
+// ─── Program + stats DTOs ─────────────────────────────────────────────────
 
 export interface TcasProgram {
   id: string;
   university: string;
+  campus: string | null;
   faculty: string;
   major: string;
+  subTrack: string | null;
+  programType: string | null;
+  courseCode: string | null;
   round: TcasRound;
-  minScore: number;
-  weights: Partial<Record<TcasScoreField, number>>;
+  admissionYear: number;
+  quotaSeats: number;
+  components: ProgramComponents;
+  totalMinScore: number | null;
   tags: string[];
+  sourceUrl: string | null;
+}
+
+export interface TcasProgramStat {
+  id: string;
+  programId: string | null;
+  courseCode: string;
+  university: string;
+  faculty: string;
+  major: string;
+  year: number;
+  round: TcasRound;
+  quotaSeats: number;
+  applicants: number;
+  passedRound1: number;
+  passedRound2: number;
+  maxScoreR1: number | null;
+  minScoreR1: number | null;
+  maxScoreR2: number | null;
+  minScoreR2: number | null;
 }
 
 export interface TcasDeadline {
@@ -69,14 +105,24 @@ export interface TcasDeadline {
   type: "exam" | "registration" | "announcement";
 }
 
-export type TcasWhatIfRequest = z.infer<typeof tcasWhatIfRequestSchema>;
+// ─── What-If result ───────────────────────────────────────────────────────
 
 export interface SubjectGap {
-  field: TcasScoreField;
+  system: ExamSystem;
+  code: string;
+  name: string;
   weightPct: number;
   currentScore: number;
   requiredScore: number;
   pointsNeeded: number;
+}
+
+export interface FailedPerSubjectMin {
+  system: ExamSystem;
+  code: string;
+  name: string;
+  need: number;
+  have: number;
 }
 
 export interface TcasWhatIfResult {
@@ -84,6 +130,9 @@ export interface TcasWhatIfResult {
   weightedAverage: number;
   gap: number;
   isOnTrack: boolean;
+  meetsTotalMin: boolean;
+  meetsGpax: boolean;
+  failedPerSubjectMins: FailedPerSubjectMin[];
   subjectGaps: SubjectGap[];
-  planB: Array<Pick<TcasProgram, "id" | "university" | "faculty" | "major" | "minScore">>;
+  planB: Array<Pick<TcasProgram, "id" | "university" | "faculty" | "major">>;
 }

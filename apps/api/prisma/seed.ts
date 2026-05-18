@@ -95,57 +95,133 @@ async function seed() {
     });
   }
 
-  // ─── TCAS programs ──────────────────────────────────────────────────────
-  const programs = [
+  // ─── TCAS programs (FR-TC-02) ──────────────────────────────────────────
+  // Each program declares its admission components in the generic
+  // {system, code, name, weight, min} shape. Composite key in components.exams
+  // mirrors the importer's mini-DSL: tgat | tpat:30 | aLevel:61 | netsat:103.
+  const tcasPrograms = [
     {
-      university: "Chulalongkorn University",
-      faculty: "Engineering",
-      major: "Computer Engineering",
-      round: "3",
-      minScore: 61.67,
-      weights: { tGat: 20, tPat3: 30, aLevelMath1: 20, aLevelPhy: 20, aLevelChe: 10 },
+      university: "จุฬาลงกรณ์มหาวิทยาลัย",
+      faculty: "คณะวิศวกรรมศาสตร์",
+      major: "วิศวกรรมคอมพิวเตอร์",
+      round: "r3_admission" as const,
+      admissionYear: 2569,
+      quotaSeats: 215,
+      totalMinScore: 61.67,
+      components: {
+        gpaxMin: null,
+        exams: [
+          { system: "tgat", code: "", name: "TGAT", weight: 20, min: null },
+          { system: "tpat", code: "30", name: "TPAT 3 วิทย์-เทคโนโลยี-วิศวะ", weight: 30, min: null },
+          { system: "aLevel", code: "61", name: "คณิตศาสตร์ประยุกต์ 1", weight: 20, min: null },
+          { system: "aLevel", code: "64", name: "ฟิสิกส์", weight: 20, min: null },
+          { system: "aLevel", code: "65", name: "เคมี", weight: 10, min: null },
+        ],
+      },
       tags: ["Engineering", "Tech"],
     },
     {
-      university: "Thammasat University",
-      faculty: "Medicine",
-      major: "Medicine",
-      round: "3",
-      minScore: 71.67,
-      weights: {
-        tPat1: 30,
-        aLevelMath1: 14,
-        aLevelEng: 14,
-        aLevelPhy: 9.33,
-        aLevelChe: 9.33,
-        aLevelBio: 9.34,
-        aLevelThai: 7,
-        aLevelSoc: 7,
+      university: "มหาวิทยาลัยธรรมศาสตร์",
+      faculty: "คณะแพทยศาสตร์",
+      major: "แพทยศาสตรบัณฑิต",
+      round: "r3_admission" as const,
+      admissionYear: 2569,
+      quotaSeats: 80,
+      totalMinScore: 71.67,
+      components: {
+        gpaxMin: null,
+        exams: [
+          { system: "tpat", code: "10", name: "TPAT 1 กสพท.", weight: 30, min: null },
+          { system: "aLevel", code: "61", name: "คณิตศาสตร์ประยุกต์ 1", weight: 14, min: null },
+          { system: "aLevel", code: "82", name: "ภาษาอังกฤษ", weight: 14, min: null },
+          { system: "aLevel", code: "64", name: "ฟิสิกส์", weight: 9.33, min: null },
+          { system: "aLevel", code: "65", name: "เคมี", weight: 9.33, min: null },
+          { system: "aLevel", code: "66", name: "ชีววิทยา", weight: 9.34, min: null },
+          { system: "aLevel", code: "81", name: "ภาษาไทย", weight: 7, min: null },
+          { system: "aLevel", code: "70", name: "สังคมศึกษา", weight: 7, min: null },
+        ],
       },
       tags: ["Medicine", "Health"],
     },
     {
-      university: "Khon Kaen University",
-      faculty: "Engineering",
-      major: "Digital Engineering",
-      round: "3",
-      minScore: 50.67,
-      weights: { tGat: 20, tPat3: 40, aLevelMath1: 20, aLevelEng: 20 },
+      university: "มหาวิทยาลัยขอนแก่น",
+      faculty: "คณะวิศวกรรมศาสตร์",
+      major: "วิศวกรรมดิจิทัล",
+      round: "r3_admission" as const,
+      admissionYear: 2569,
+      quotaSeats: 50,
+      totalMinScore: 50.67,
+      components: {
+        gpaxMin: null,
+        exams: [
+          { system: "tgat", code: "", name: "TGAT", weight: 20, min: null },
+          { system: "tpat", code: "30", name: "TPAT 3 วิทย์-เทคโนโลยี-วิศวะ", weight: 40, min: null },
+          { system: "aLevel", code: "61", name: "คณิตศาสตร์ประยุกต์ 1", weight: 20, min: null },
+          { system: "aLevel", code: "82", name: "ภาษาอังกฤษ", weight: 20, min: null },
+        ],
+      },
       tags: ["Engineering", "Digital"],
     },
-  ];
-  for (const p of programs) {
-    await prisma.tcasProgram.upsert({
-      where: {
-        university_major_round: {
-          university: p.university,
-          major: p.major,
-          round: p.round,
-        },
+    // KKU NetSat (Round 2 quota) — demonstrates per-subject min + totalMinScore
+    // gates that the calculator must surface independently.
+    {
+      university: "มหาวิทยาลัยขอนแก่น",
+      faculty: "คณะวิศวกรรมศาสตร์",
+      major: "วิศวกรรมคอมพิวเตอร์",
+      programType: "ภาคปกติ",
+      round: "r2_quota_kku_netsat" as const,
+      admissionYear: 2569,
+      quotaSeats: 30,
+      totalMinScore: 30,
+      sourceUrl:
+        "https://apps.admissions.kku.ac.th/web/quota/detail/5524/13540",
+      components: {
+        gpaxMin: null,
+        exams: [
+          { system: "tpat", code: "30", name: "TPAT 3 วิทย์-เทคโนโลยี-วิศวะ", weight: 20, min: null },
+          { system: "netsat", code: "102", name: "SAT1 ภาษาอังกฤษ", weight: 30, min: null },
+          { system: "netsat", code: "103", name: "SAT1 คณิตศาสตร์", weight: 30, min: 20 },
+          { system: "netsat", code: "204", name: "SAT2 ฟิสิกส์", weight: 20, min: 20 },
+        ],
       },
-      update: {},
-      create: p,
+      tags: ["Engineering", "Tech", "KKU"],
+    },
+  ];
+  // Prisma v5 doesn't allow nulls in compound unique-where, so we look the row
+  // up by the non-null parts (university+major+round+year+programType) and
+  // create-or-update by id. Seed only runs in dev — two queries is fine.
+  for (const p of tcasPrograms) {
+    const existing = await prisma.tcasProgram.findFirst({
+      where: {
+        university: p.university,
+        major: p.major,
+        round: p.round,
+        admissionYear: p.admissionYear,
+        programType: p.programType ?? null,
+        subTrack: null,
+      },
+      select: { id: true },
     });
+    const data = {
+      university: p.university,
+      campus: null,
+      faculty: p.faculty,
+      major: p.major,
+      subTrack: null,
+      programType: p.programType ?? null,
+      round: p.round,
+      admissionYear: p.admissionYear,
+      quotaSeats: p.quotaSeats,
+      components: p.components,
+      totalMinScore: p.totalMinScore,
+      tags: p.tags,
+      sourceUrl: p.sourceUrl ?? null,
+    };
+    if (existing) {
+      await prisma.tcasProgram.update({ where: { id: existing.id }, data });
+    } else {
+      await prisma.tcasProgram.create({ data });
+    }
   }
 
   await prisma.tcasDeadline.createMany({

@@ -1,11 +1,11 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  tcasScoresSchema,
+  componentKey,
+  type ExamSystem,
   type TcasDeadline,
   type TcasProgram,
-  type TcasScoreField,
+  type TcasRound,
   type TcasScores,
 } from "@peerahat/types";
 import { buttonVariants, cn } from "@peerahat/ui";
@@ -21,7 +21,6 @@ import {
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useForm, useWatch } from "react-hook-form";
 
 import { createApiClient } from "@/lib/api-client";
 
@@ -30,39 +29,26 @@ interface Props {
   initialDeadlines: TcasDeadline[];
 }
 
-const FIELDS: Array<{ name: Exclude<TcasScoreField, "gpax">; label: string }> = [
-  { name: "tGat", label: "TGAT" },
-  { name: "tPat1", label: "TPAT 1" },
-  { name: "tPat3", label: "TPAT 3" },
-  { name: "aLevelMath1", label: "Math 1" },
-  { name: "aLevelEng", label: "English" },
-  { name: "aLevelPhy", label: "Physics" },
-  { name: "aLevelChe", label: "Chem" },
-  { name: "aLevelBio", label: "Bio" },
-  { name: "aLevelSoc", label: "Social" },
-  { name: "aLevelThai", label: "Thai" },
-];
+const ROUND_LABELS: Record<TcasRound, string> = {
+  r1_portfolio: "รอบ 1 Portfolio",
+  r2_quota_kku_netsat: "รอบ 2 โควตา (KKU NetSat)",
+  r3_admission: "รอบ 3 Admission",
+  r4_direct: "รอบ 4 รับตรง",
+};
 
-function fieldLabel(field: TcasScoreField): string {
-  return field
-    .replace("aLevel", "A-")
-    .replace("tGat", "TGAT")
-    .replace("tPat", "TPAT");
+const SYSTEM_LABELS: Record<ExamSystem, string> = {
+  gpax: "GPAX",
+  tgat: "TGAT",
+  tpat: "TPAT",
+  aLevel: "A-Level",
+  netsat: "NetSat (KKU)",
+};
+
+// Map a component to a tutor-search query param. The tutors page does loose
+// matching on subject names, so the catalogue's Thai name works as the seed.
+function deeplinkSubject(name: string): string {
+  return encodeURIComponent(name);
 }
-
-function subjectFromField(field: TcasScoreField): string {
-  if (field.startsWith("aLevelMath")) return "Math";
-  if (field === "aLevelPhy") return "Physics";
-  if (field === "aLevelChe") return "Chemistry";
-  if (field === "aLevelBio") return "Biology";
-  if (field === "aLevelEng") return "English";
-  if (field === "aLevelSoc") return "Social";
-  if (field === "aLevelThai") return "Thai";
-  return "All";
-}
-
-const numberFromInput = (v: unknown) =>
-  v === "" || v === null || v === undefined ? undefined : Number(v);
 
 export function TcasCalculator({ initialPrograms, initialDeadlines }: Props) {
   const programsQuery = useQuery({
@@ -78,23 +64,41 @@ export function TcasCalculator({ initialPrograms, initialDeadlines }: Props) {
   const programs = programsQuery.data ?? [];
   const deadlines = deadlinesQuery.data ?? [];
 
-  const [target, setTarget] = useState<TcasProgram | null>(
-    programs[0] ?? null,
+  // Round filter — show whichever rounds appear in seed/imported data.
+  const availableRounds = useMemo(() => {
+    const set = new Set<TcasRound>();
+    programs.forEach((p) => set.add(p.round));
+    return Array.from(set);
+  }, [programs]);
+
+  const [round, setRound] = useState<TcasRound>(
+    availableRounds[0] ?? "r3_admission",
   );
   const [search, setSearch] = useState("");
-  const [round, setRound] = useState<"3" | "4">("3");
 
-  const form = useForm<TcasScores>({
-    resolver: zodResolver(tcasScoresSchema),
-    defaultValues: { gpax: 3.5 },
-    mode: "onChange",
-  });
-  const { register } = form;
-  const scores = useWatch({ control: form.control }) as TcasScores;
+  const filtered = useMemo(
+    () =>
+      programs.filter(
+        (p) =>
+          p.round === round &&
+          (p.university.toLowerCase().includes(search.toLowerCase()) ||
+            p.major.toLowerCase().includes(search.toLowerCase())),
+      ),
+    [programs, round, search],
+  );
 
-  const [debouncedScores, setDebouncedScores] = useState<TcasScores>({
-    gpax: 3.5,
-  });
+  const [target, setTarget] = useState<TcasProgram | null>(
+    filtered[0] ?? programs[0] ?? null,
+  );
+  useEffect(() => {
+    if (!target && filtered[0]) setTarget(filtered[0]);
+  }, [filtered, target]);
+
+  // Scores live in a single record keyed by `${system}:${code}` (or `gpax`).
+  // We keep ALL scores the user has typed, even across program switches, so
+  // that flipping between programs preserves context.
+  const [scores, setScores] = useState<TcasScores>({ gpax: 3.5 });
+  const [debouncedScores, setDebouncedScores] = useState<TcasScores>(scores);
   useEffect(() => {
     const handle = setTimeout(() => setDebouncedScores(scores), 200);
     return () => clearTimeout(handle);
@@ -111,21 +115,31 @@ export function TcasCalculator({ initialPrograms, initialDeadlines }: Props) {
     placeholderData: (prev) => prev,
   });
   const result = whatIf.data ?? null;
-
-  const filtered = useMemo(
-    () =>
-      programs.filter(
-        (u) =>
-          u.round === round &&
-          (u.university.toLowerCase().includes(search.toLowerCase()) ||
-            u.major.toLowerCase().includes(search.toLowerCase())),
-      ),
-    [programs, round, search],
-  );
-
   const isSafe = result?.isOnTrack ?? false;
-  const myScore = result?.weightedAverage ?? 0;
-  const gap = result?.gap ?? 0;
+
+  const groupedExams = useMemo(() => {
+    if (!target) return [] as Array<{ system: ExamSystem; items: TcasProgram["components"]["exams"] }>;
+    const groups = new Map<ExamSystem, TcasProgram["components"]["exams"]>();
+    for (const c of target.components.exams) {
+      const arr = groups.get(c.system) ?? [];
+      arr.push(c);
+      groups.set(c.system, arr);
+    }
+    return Array.from(groups.entries()).map(([system, items]) => ({ system, items }));
+  }, [target]);
+
+  function updateScore(key: string, raw: string) {
+    const value = raw === "" ? undefined : Number(raw);
+    setScores((prev) => {
+      const next = { ...prev };
+      if (value === undefined || Number.isNaN(value)) {
+        delete next[key];
+      } else {
+        next[key] = value;
+      }
+      return next;
+    });
+  }
 
   return (
     <div className="space-y-8">
@@ -140,84 +154,114 @@ export function TcasCalculator({ initialPrograms, initialDeadlines }: Props) {
                 <Calculator size={24} />
               </div>
               <h3 className="text-xl font-bold text-slate-800">
-                Input Your Scores
+                กรอกคะแนนของคุณ
               </h3>
             </div>
 
+            {/* GPAX is always visible — it's a gate, not a weighted component. */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-              <div className="space-y-1.5 p-3 bg-slate-50/50 rounded-2xl border border-slate-100">
-                <label className="text-[9px] font-bold uppercase text-slate-400 tracking-wider">
-                  GPAX (x.xx)
-                </label>
+              <div
+                className={cn(
+                  "space-y-1.5 p-3 rounded-2xl border",
+                  target?.components.gpaxMin !== null && target?.components.gpaxMin !== undefined
+                    ? "bg-amber-50 border-amber-200"
+                    : "bg-slate-50/50 border-slate-100",
+                )}
+              >
+                <div className="flex justify-between items-center">
+                  <label className="text-[9px] font-bold uppercase text-slate-500 tracking-wider">
+                    GPAX
+                  </label>
+                  {target?.components.gpaxMin !== null && target?.components.gpaxMin !== undefined && (
+                    <span className="text-[9px] font-bold text-amber-600">
+                      ≥ {target.components.gpaxMin.toFixed(2)}
+                    </span>
+                  )}
+                </div>
                 <input
                   type="number"
                   step="0.01"
                   min="0"
                   max="4"
+                  value={scores["gpax"] ?? ""}
+                  onChange={(e) => updateScore("gpax", e.target.value)}
                   className="w-full bg-transparent text-sm font-bold focus:outline-none placeholder:text-slate-300"
                   placeholder="3.50"
-                  {...register("gpax", { setValueAs: numberFromInput })}
                 />
               </div>
-              {FIELDS.map((field) => {
-                const weight = target?.weights[field.name];
-                return (
-                  <div
-                    key={field.name}
-                    className={cn(
-                      "space-y-1.5 p-3 rounded-2xl border transition-all",
-                      weight
-                        ? "bg-indigo-50/50 border-indigo-100"
-                        : "bg-slate-50/50 border-slate-100 grayscale-[0.5] opacity-60",
-                    )}
-                  >
-                    <div className="flex justify-between items-center">
-                      <label
-                        className={cn(
-                          "text-[9px] font-bold uppercase tracking-wider",
-                          weight ? "text-indigo-600" : "text-slate-400",
-                        )}
-                      >
-                        {field.label}
-                      </label>
-                      {weight && (
-                        <span className="text-[9px] font-bold text-indigo-400">
-                          {weight}%
-                        </span>
-                      )}
-                    </div>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      className="w-full bg-transparent text-sm font-bold focus:outline-none placeholder:text-slate-300"
-                      placeholder="0"
-                      {...register(field.name, {
-                        setValueAs: numberFromInput,
-                      })}
-                    />
-                  </div>
-                );
-              })}
             </div>
-            <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-              <p className="text-xs text-slate-500 font-medium">
-                ✨ Updated for TCAS Round {round} Criteria
+
+            {target ? (
+              <div className="space-y-5">
+                {groupedExams.map((group) => (
+                  <div key={group.system} className="space-y-2">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-600">
+                      {SYSTEM_LABELS[group.system]}
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                      {group.items.map((c) => {
+                        const key = componentKey(c.system, c.code);
+                        return (
+                          <div
+                            key={key}
+                            className="space-y-1.5 p-3 rounded-2xl border bg-indigo-50/50 border-indigo-100"
+                          >
+                            <div className="flex justify-between items-start gap-2">
+                              <label
+                                className="text-[9px] font-bold text-indigo-600 leading-tight line-clamp-2"
+                                title={c.name}
+                              >
+                                {c.name}
+                              </label>
+                              <span className="text-[9px] font-bold text-indigo-400 shrink-0">
+                                {c.weight}%
+                              </span>
+                            </div>
+                            {c.min !== null && (
+                              <p className="text-[8px] font-bold text-rose-500">
+                                ขั้นต่ำ {c.min}
+                              </p>
+                            )}
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={scores[key] ?? ""}
+                              onChange={(e) => updateScore(key, e.target.value)}
+                              className="w-full bg-transparent text-sm font-bold focus:outline-none placeholder:text-slate-300"
+                              placeholder="0"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">
+                เลือกสาขาทางขวาเพื่อดูช่องคะแนนที่ต้องกรอก
               </p>
-              <div className="flex bg-slate-100 rounded-lg p-1">
-                {(["3", "4"] as const).map((r) => (
+            )}
+
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-between flex-wrap gap-3">
+              <p className="text-xs text-slate-500 font-medium">
+                ✨ TCAS {target?.admissionYear ?? "2569"} ({ROUND_LABELS[round]})
+              </p>
+              <div className="flex bg-slate-100 rounded-lg p-1 flex-wrap">
+                {availableRounds.map((r) => (
                   <button
                     key={r}
                     type="button"
                     onClick={() => setRound(r)}
                     className={cn(
-                      "px-4 py-1 text-[10px] font-bold rounded-md transition-all",
+                      "px-3 py-1 text-[10px] font-bold rounded-md transition-all",
                       round === r
                         ? "bg-white shadow-sm text-indigo-600"
                         : "text-slate-500",
                     )}
                   >
-                    Round {r}
+                    {ROUND_LABELS[r]}
                   </button>
                 ))}
               </div>
@@ -243,10 +287,8 @@ export function TcasCalculator({ initialPrograms, initialDeadlines }: Props) {
                     ) : (
                       <AlertCircle size={16} className="text-rose-600" />
                     )}
-                    <span
-                      className={isSafe ? "text-emerald-600" : "text-rose-600"}
-                    >
-                      {isSafe ? "Safe Zone" : "Risk Zone"}
+                    <span className={isSafe ? "text-emerald-600" : "text-rose-600"}>
+                      {isSafe ? "ผ่านเกณฑ์" : "ยังไม่ผ่านเกณฑ์"}
                     </span>
                   </div>
                   <h3 className="text-2xl font-bold text-slate-800">
@@ -254,13 +296,14 @@ export function TcasCalculator({ initialPrograms, initialDeadlines }: Props) {
                   </h3>
                   <p className="text-slate-500 font-medium">
                     {target.faculty} • {target.major}
+                    {target.programType ? ` (${target.programType})` : ""}
                   </p>
                 </div>
 
                 <div className="flex gap-4 items-center">
                   <div className="text-center">
                     <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">
-                      Weighted Avg
+                      คะแนนถ่วงน้ำหนัก
                     </p>
                     <p
                       className={cn(
@@ -268,25 +311,76 @@ export function TcasCalculator({ initialPrograms, initialDeadlines }: Props) {
                         isSafe ? "text-emerald-600" : "text-rose-600",
                       )}
                     >
-                      {myScore.toFixed(2)}%
+                      {result.weightedAverage.toFixed(2)}
                     </p>
                   </div>
-                  <div className="w-px h-10 bg-slate-200" />
-                  <div className="text-center">
-                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">
-                      Target Gap
-                    </p>
-                    <p
-                      className={cn(
-                        "text-2xl font-bold",
-                        isSafe ? "text-emerald-600" : "text-rose-600",
-                      )}
-                    >
-                      {gap > 0 ? `+${gap.toFixed(2)}` : gap.toFixed(2)}%
-                    </p>
-                  </div>
+                  {target.totalMinScore !== null && (
+                    <>
+                      <div className="w-px h-10 bg-slate-200" />
+                      <div className="text-center">
+                        <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">
+                          ต่ำสุดที่รับ
+                        </p>
+                        <p className="text-2xl font-bold text-slate-700">
+                          {target.totalMinScore}
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
               </motion.div>
+
+              {/* The three gates, surfaced independently per FR-TC-03. */}
+              <div className="grid sm:grid-cols-3 gap-3">
+                <GateChip
+                  label="GPAX"
+                  ok={result.meetsGpax}
+                  detail={
+                    target.components.gpaxMin === null
+                      ? "ไม่กำหนดขั้นต่ำ"
+                      : `ต้อง ≥ ${target.components.gpaxMin.toFixed(2)}`
+                  }
+                />
+                <GateChip
+                  label="คะแนนรวมขั้นต่ำ"
+                  ok={result.meetsTotalMin}
+                  detail={
+                    target.totalMinScore === null
+                      ? "ไม่กำหนดขั้นต่ำ"
+                      : `ต้อง ≥ ${target.totalMinScore}`
+                  }
+                />
+                <GateChip
+                  label="คะแนนแต่ละวิชา"
+                  ok={result.failedPerSubjectMins.length === 0}
+                  detail={
+                    result.failedPerSubjectMins.length === 0
+                      ? "ผ่านทุกวิชา"
+                      : `ขาด ${result.failedPerSubjectMins.length} วิชา`
+                  }
+                />
+              </div>
+
+              {result.failedPerSubjectMins.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-bold text-slate-700">
+                    วิชาที่ยังไม่ผ่านขั้นต่ำ
+                  </h4>
+                  <div className="grid sm:grid-cols-2 gap-2">
+                    {result.failedPerSubjectMins.map((f) => (
+                      <div
+                        key={`${f.system}:${f.code}`}
+                        className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs"
+                      >
+                        <p className="font-bold text-rose-700">{f.name}</p>
+                        <p className="text-rose-600">
+                          มี {f.have} • ต้องได้ {f.need} (ขาด {f.need - f.have})
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {!isSafe && result.subjectGaps.length > 0 && (
                 <div className="space-y-3">
@@ -296,12 +390,12 @@ export function TcasCalculator({ initialPrograms, initialDeadlines }: Props) {
                   <div className="grid sm:grid-cols-2 gap-3">
                     {result.subjectGaps.map((s) => (
                       <div
-                        key={s.field}
+                        key={`${s.system}:${s.code}`}
                         className="p-4 bg-white border border-slate-200 rounded-2xl flex items-center justify-between gap-3"
                       >
                         <div>
                           <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-wide">
-                            {fieldLabel(s.field)} ({s.weightPct}%)
+                            {s.name} ({s.weightPct}%)
                           </p>
                           <p className="text-xs text-slate-500">
                             ต้องการอีก{" "}
@@ -312,10 +406,10 @@ export function TcasCalculator({ initialPrograms, initialDeadlines }: Props) {
                           </p>
                         </div>
                         <Link
-                          href={`/tutors?subject=${subjectFromField(s.field)}`}
+                          href={`/tutors?subject=${deeplinkSubject(s.name)}`}
                           className={buttonVariants({ size: "compact" })}
                         >
-                          Find Tutor
+                          หาติวเตอร์
                         </Link>
                       </div>
                     ))}
@@ -327,7 +421,7 @@ export function TcasCalculator({ initialPrograms, initialDeadlines }: Props) {
                 <div className="space-y-3">
                   <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
                     <ArrowRight size={16} className="text-indigo-600" />
-                    Plan B: Recommended Nearby Programs
+                    Plan B: สาขาใกล้เคียงที่น่าสมัคร
                   </h4>
                   <div className="grid grid-cols-2 gap-4">
                     {result.planB.map((p) => (
@@ -335,9 +429,7 @@ export function TcasCalculator({ initialPrograms, initialDeadlines }: Props) {
                         key={p.id}
                         type="button"
                         onClick={() =>
-                          setTarget(
-                            programs.find((x) => x.id === p.id) ?? target,
-                          )
+                          setTarget(programs.find((x) => x.id === p.id) ?? target)
                         }
                         className="p-4 bg-white border border-slate-200 rounded-2xl text-left hover:border-indigo-600 transition-all"
                       >
@@ -347,9 +439,7 @@ export function TcasCalculator({ initialPrograms, initialDeadlines }: Props) {
                         <p className="text-xs font-bold text-slate-800 line-clamp-1">
                           {p.university}
                         </p>
-                        <p className="text-[10px] text-slate-500">
-                          Cut-off: {p.minScore}%
-                        </p>
+                        <p className="text-[10px] text-slate-500">{p.faculty}</p>
                       </button>
                     ))}
                   </div>
@@ -365,15 +455,13 @@ export function TcasCalculator({ initialPrograms, initialDeadlines }: Props) {
               <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white">
                 <Search size={24} />
               </div>
-              <h3 className="text-xl font-bold text-slate-800">
-                Target Programs
-              </h3>
+              <h3 className="text-xl font-bold text-slate-800">เลือกสาขา</h3>
             </div>
 
             <div className="relative">
               <input
                 type="text"
-                placeholder="Search university or major..."
+                placeholder="ค้นหามหาวิทยาลัยหรือสาขา..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
@@ -398,25 +486,32 @@ export function TcasCalculator({ initialPrograms, initialDeadlines }: Props) {
                   )}
                 >
                   <div className="flex justify-between items-start mb-2">
-                    <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-wide">
+                    <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-wide line-clamp-1">
                       {u.major}
                     </p>
-                    <Info size={14} className="text-slate-300" />
+                    <Info size={14} className="text-slate-300 shrink-0" />
                   </div>
-                  <h4 className="font-bold text-sm mb-1 text-slate-800">
+                  <h4 className="font-bold text-sm mb-1 text-slate-800 line-clamp-1">
                     {u.university}
                   </h4>
-                  <div className="flex justify-between items-end">
-                    <p className="text-[10px] text-slate-500 font-medium">
+                  <div className="flex justify-between items-end gap-2">
+                    <p className="text-[10px] text-slate-500 font-medium line-clamp-1">
                       {u.faculty}
                     </p>
-                    <p className="text-xs font-bold text-slate-700">
-                      Cut-off:{" "}
-                      <span className="text-indigo-600">{u.minScore}%</span>
-                    </p>
+                    {u.totalMinScore !== null && (
+                      <p className="text-xs font-bold text-slate-700 shrink-0">
+                        ต่ำสุด{" "}
+                        <span className="text-indigo-600">{u.totalMinScore}</span>
+                      </p>
+                    )}
                   </div>
                 </button>
               ))}
+              {filtered.length === 0 && (
+                <p className="text-xs text-slate-400 text-center py-8">
+                  ยังไม่มีสาขาในรอบนี้
+                </p>
+              )}
             </div>
           </div>
 
@@ -425,7 +520,7 @@ export function TcasCalculator({ initialPrograms, initialDeadlines }: Props) {
               <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white">
                 <AlertCircle size={24} />
               </div>
-              <h3 className="text-xl font-bold text-slate-800">Deadlines</h3>
+              <h3 className="text-xl font-bold text-slate-800">วันสำคัญ</h3>
             </div>
             <div className="space-y-4">
               {deadlines.map((d) => (
@@ -462,6 +557,49 @@ export function TcasCalculator({ initialPrograms, initialDeadlines }: Props) {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function GateChip({
+  label,
+  ok,
+  detail,
+}: {
+  label: string;
+  ok: boolean;
+  detail: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "p-3 rounded-xl border flex items-start gap-2",
+        ok ? "bg-emerald-50 border-emerald-200" : "bg-rose-50 border-rose-200",
+      )}
+    >
+      {ok ? (
+        <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+      ) : (
+        <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+      )}
+      <div>
+        <p
+          className={cn(
+            "text-xs font-bold",
+            ok ? "text-emerald-700" : "text-rose-700",
+          )}
+        >
+          {label}
+        </p>
+        <p
+          className={cn(
+            "text-[10px] font-medium",
+            ok ? "text-emerald-600" : "text-rose-600",
+          )}
+        >
+          {detail}
+        </p>
       </div>
     </div>
   );
