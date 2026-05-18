@@ -186,6 +186,32 @@ async function main() {
   console.log(
     `\n${failed === 0 ? "✓ All checks pass" : `✗ ${failed}/${results.length} checks failed`}`,
   );
+
+  // Diagnostic: surface the most common low-confidence reasons so we can
+  // sharpen the prompt iteratively without another full Gemini call.
+  if (bands.low > 0) {
+    console.log("\n═══ Low-confidence sample (first 5) ═══");
+    const lowSamples = result.rows
+      .filter((r) => r.confidence < 0.5)
+      .slice(0, 5);
+    for (const r of lowSamples) {
+      const sum = r.components.exams.reduce((a, e) => a + e.weight, 0);
+      console.log(
+        `  [#${r.orderNumber ?? "?"}] ${r.faculty.slice(0, 30)} / ${r.major.slice(0, 30)}`,
+      );
+      console.log(`    weightSum=${sum.toFixed(2)}  notes: ${r.notes ?? "-"}`);
+      console.log(
+        `    exams: ${r.components.exams
+          .map((e) =>
+            e.type === "single"
+              ? `${e.system}:${e.code || "_"}=${e.weight}${e.name ? "" : "(NO_NAME)"}`
+              : `[chooseHighest:${e.weight}*${e.options.length}]`,
+          )
+          .join(" ")}`,
+      );
+    }
+  }
+
   process.exit(failed === 0 ? 0 : 1);
 }
 

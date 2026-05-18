@@ -23,7 +23,13 @@ const DEFAULT_PRIMARY_MODEL = "gemini-2.0-flash";
 const DEFAULT_FALLBACK_MODEL = "gemini-2.5-pro";
 const DEFAULT_MAX_PDF_PAGES = 20;
 const DEFAULT_MAX_PDF_MB = 20;
-const PARSE_TIMEOUT_MS = 60_000;
+// Default 180s — Gemini Flash-tier latency on a 7-page criteria PDF with
+// ~140 programs hovers around 60-120s. Override via GEMINI_TIMEOUT_MS for
+// slower keys or larger PDFs.
+const DEFAULT_TIMEOUT_MS = 180_000;
+const PARSE_TIMEOUT_MS = Number(
+  process.env.GEMINI_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS,
+);
 const LOW_CONFIDENCE_THRESHOLD = 0.7;
 const LOW_CONFIDENCE_FALLBACK_RATIO = 0.3;
 
@@ -35,6 +41,10 @@ const MODEL_PRICING: Record<string, { inputPerM: number; outputPerM: number }> =
     "gemini-2.0-flash": { inputPerM: 0.1, outputPerM: 0.4 },
     "gemini-2.5-pro": { inputPerM: 1.25, outputPerM: 5.0 },
     "gemini-2.5-flash": { inputPerM: 0.3, outputPerM: 2.5 },
+    // Cheaper Flash variant. Free-tier keys often have allocation here
+    // when 2.0-flash / 2.5-pro show limit:0 — it's the practical default
+    // for development on free-tier API keys.
+    "gemini-2.5-flash-lite": { inputPerM: 0.1, outputPerM: 0.4 },
   };
 
 // ─── Public contract ─────────────────────────────────────────────────────
@@ -241,11 +251,15 @@ export class TcasAiParserService {
   // and a failure demotes confidence so the admin sees it in red.
   private toRow(raw: unknown, idx: number): ParsedProgramRow {
     const entry = (raw ?? {}) as Record<string, unknown>;
+    const examsRaw = Array.isArray(entry.exams) ? entry.exams : [];
     const candidate: ProgramComponents = {
       gpaxMin: numOrNull(entry.gpaxMin),
-      exams: Array.isArray(entry.exams)
-        ? (entry.exams as ProgramComponents["exams"])
-        : [],
+      // Backfill missing string fields on single components — Gemini will
+      // occasionally drop `code` or `name`. Empty strings are valid for
+      // zod and let the admin fix the row in the UI rather than losing it.
+      exams: examsRaw.map((c) =>
+        normalizeComponent(c),
+      ) as ProgramComponents["exams"],
     };
     const parsed = programComponentsSchema.safeParse(candidate);
     let confidence =
@@ -328,6 +342,44 @@ export function costFor(
     (promptTokens * rates.inputPerM) / 1_000_000 +
     (completionTokens * rates.outputPerM) / 1_000_000;
   return Number(usd.toFixed(6));
+}
+
+// Repair a component as it came off the wire from Gemini. The LLM
+// sometimes drops code/name/system on single components (despite the
+// prompt's CRITICAL note); we fill them with "" so the row survives
+// the per-row zod gate and lands in the admin's review screen rather
+// than getting dumped wholesale.
+function normalizeComponent(raw: unknown): Record<string, unknown> {
+  if (!raw || typeof raw !== "object") return {};
+  const c = raw as Record<string, unknown>;
+  if (c.type === "single") {
+    return {
+      type: "single",
+      system: typeof c.system === "string" ? c.system : "aLevel",
+      code: typeof c.code === "string" ? c.code : "",
+      name: typeof c.name === "string" ? c.name : "",
+      weight: typeof c.weight === "number" ? c.weight : 0,
+      min: numOrNull(c.min),
+    };
+  }
+  if (c.type === "chooseHighest") {
+    const options = Array.isArray(c.options) ? c.options : [];
+    return {
+      type: "chooseHighest",
+      weight: typeof c.weight === "number" ? c.weight : 0,
+      min: numOrNull(c.min),
+      options: options.map((o) => {
+        const opt = (o ?? {}) as Record<string, unknown>;
+        return {
+          system: typeof opt.system === "string" ? opt.system : "aLevel",
+          code: typeof opt.code === "string" ? opt.code : "",
+          name: typeof opt.name === "string" ? opt.name : "",
+        };
+      }),
+    };
+  }
+  // Unknown type — pass through; zod will reject and demote confidence.
+  return c;
 }
 
 function numOrNull(v: unknown): number | null {

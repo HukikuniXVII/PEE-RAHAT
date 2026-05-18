@@ -31,11 +31,13 @@ For EVERY program row in the PDF, output one object with:
   0-100, null if blank.
 - exams: array of components, each one of two SHAPES:
 
-    SINGLE component:
+    SINGLE component — ALWAYS include system, code, name. If the subject
+    is "TGAT" with no subpart, use code "" (empty string), NEVER omit it.
+    Same with name — never omit, use the Thai subject label.
       { "type": "single",
         "system": "tgat" | "tpat" | "aLevel" | "netsat",
-        "code": string,
-        "name": string,
+        "code": string,            ← required, use "" for TGAT generic
+        "name": string,            ← required, Thai display label
         "weight": number,
         "min": number | null }
 
@@ -44,6 +46,12 @@ For EVERY program row in the PDF, output one object with:
         "weight": number,
         "min": number | null,
         "options": [{ "system", "code", "name" }, ...] }
+      Do NOT emit system/code/name at the top level for chooseHighest —
+      those live ONLY inside options[].
+
+CRITICAL: For type="single", you MUST emit system AND code AND name.
+Even when the value would be "" or repetitive. Skipping these fields
+breaks the importer. The schema layer can't enforce this — it's on you.
 
 Code mapping rules:
 - TGAT (no subpart shown) → system "tgat", code "" (empty string).
@@ -90,22 +98,23 @@ fences. The schema is enforced server-side via responseSchema.
 
 const COMPONENT_SCHEMA: Schema = {
   type: Type.OBJECT,
-  // Permissive — both component shapes share `weight` and `min`; the rest
-  // is union-dependent and validated by zod afterward.
+  // Both shapes share `weight`; the rest is union-dependent and validated
+  // by zod afterward. We drop `nullable: true` from system/code/name —
+  // empirically, Gemini treats nullable as "feel free to skip", which
+  // wipes out single-component rows. They're optional via the absent
+  // `required` entry, but if present must be strings.
   properties: {
     type: { type: Type.STRING, enum: ["single", "chooseHighest"] },
     system: {
       type: Type.STRING,
       enum: ["tgat", "tpat", "aLevel", "netsat"],
-      nullable: true,
     },
-    code: { type: Type.STRING, nullable: true },
-    name: { type: Type.STRING, nullable: true },
+    code: { type: Type.STRING },
+    name: { type: Type.STRING },
     weight: { type: Type.NUMBER },
     min: { type: Type.NUMBER, nullable: true },
     options: {
       type: Type.ARRAY,
-      nullable: true,
       items: {
         type: Type.OBJECT,
         properties: {
