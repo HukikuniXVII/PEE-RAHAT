@@ -288,6 +288,40 @@ model TcasProgram {
   @@index([courseCode])
 }
 
+model TcasImportAudit {
+  id         String   @id @default(uuid())
+  kind       String   // "criteria-ai" | "criteria-csv" — set by the importer
+  filename   String
+  fileHash   String?
+  inserted   Int      @default(0)
+  updated    Int      @default(0)
+  skipped    Int      @default(0)
+  importedBy String?
+  importedAt DateTime @default(now())
+
+  @@index([importedAt])
+}
+
+// Per-call cost + token accounting for the Gemini PDF parser (and any
+// future AI services). Powers the admin dashboard's monthly usage tile
+// and gives us a paper trail if a parse goes wrong.
+model AiUsageLog {
+  id               String   @id @default(uuid())
+  adminId          String
+  service          String   // "tcas-parse"
+  model            String
+  promptTokens     Int
+  completionTokens Int
+  estimatedCostUsd Float
+  durationMs       Int
+  fileName         String?
+  rowCount         Int?
+  createdAt        DateTime @default(now())
+
+  @@index([service, createdAt])
+  @@index([adminId, createdAt])
+}
+
 model TcasDeadline {
   id    String   @id @default(uuid())
   title String
