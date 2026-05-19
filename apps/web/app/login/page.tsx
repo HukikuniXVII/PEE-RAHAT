@@ -20,7 +20,7 @@ export default async function LoginPage({ searchParams }: Props) {
   return (
     <>
       <PageBackground />
-      <div className="flex min-h-screen items-center justify-center p-4 md:p-12">
+      <div className="flex h-screen items-center justify-center overflow-hidden">
         <AuthCard
           mascot={
             <Image
@@ -29,7 +29,7 @@ export default async function LoginPage({ searchParams }: Props) {
               width={880}
               height={880}
               priority
-              className="h-full w-full object-contain"
+              className="h-full w-full object-contain object-bottom"
             />
           }
         >

@@ -80,52 +80,46 @@ export function LoginForm() {
   const busy = form.formState.isSubmitting;
 
   return (
-    <div className="flex flex-col gap-4">
-      <header className="space-y-1.5">
-        <h1 className="thai text-2xl font-semibold text-violet-700">
+    <div className="flex flex-col gap-5">
+      <header className="space-y-2">
+        <h1 className="thai text-4xl font-semibold text-violet-700">
           ยินดีต้อนรับกลับมา
         </h1>
-        <p className="thai text-sm text-neutral-500">
+        <p className="thai text-lg text-neutral-500">
           เข้าสู่ระบบเพื่อจองคลาส แชทกับพี่ติว และจัดการบุ๊กกิ้ง
         </p>
       </header>
 
-      <form onSubmit={onSubmit} className="flex flex-col gap-3" noValidate>
-        <div className="space-y-1">
-          <label htmlFor="login-email" className="sr-only">
-            Email
-          </label>
+      <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
+        <div className="space-y-1.5">
+          <label htmlFor="login-email" className="sr-only">Email</label>
           <Input
             id="login-email"
             type="email"
             autoComplete="email"
             placeholder="Email"
             invalid={!!form.formState.errors.email}
+            className="h-[52px] text-lg"
             {...form.register("email")}
           />
           {form.formState.errors.email && (
-            <p className="text-xs text-rose-600">
-              {form.formState.errors.email.message}
-            </p>
+            <p className="text-base text-rose-600">{form.formState.errors.email.message}</p>
           )}
         </div>
 
-        <div className="space-y-1">
-          <label htmlFor="login-password" className="sr-only">
-            Password
-          </label>
+        <div className="space-y-1.5">
+          <label htmlFor="login-password" className="sr-only">Password</label>
           <Input
             id="login-password"
             type="password"
             autoComplete="current-password"
             placeholder="Password"
             invalid={!!form.formState.errors.password}
+            className="h-[52px] text-lg"
             {...form.register("password")}
           />
           {form.formState.errors.password && (
-            <p className="text-xs text-rose-600">
-              {form.formState.errors.password.message}
-            </p>
+            <p className="text-base text-rose-600">{form.formState.errors.password.message}</p>
           )}
         </div>
 
@@ -133,7 +127,7 @@ export function LoginForm() {
           <Link
             href={"/login" as Route}
             aria-disabled
-            className="text-xs text-accent-700 hover:underline pointer-events-none opacity-70"
+            className="text-base text-accent-700 hover:underline pointer-events-none opacity-70"
           >
             Forget Password?
           </Link>
@@ -145,14 +139,14 @@ export function LoginForm() {
           size="brand-lg"
           fullWidth
           disabled={!form.formState.isValid || busy}
-          className="mt-2"
+          className="mt-1 h-[52px] text-lg"
         >
-          {busy && <Loader2 size={16} className="animate-spin" />}
+          {busy && <Loader2 size={18} className="animate-spin" />}
           Login
         </Button>
       </form>
 
-      <div className="mt-2 flex justify-center gap-4">
+      <div className="flex justify-center gap-5">
         <SocialLoginButton
           label="Sign in with Google"
           onClick={onGoogleSignIn}
@@ -206,23 +200,21 @@ export function LoginForm() {
         />
       </div>
 
-      <div className="mt-2 flex items-center gap-3">
+      <div className="flex items-center gap-3">
         <span className="h-px flex-1 bg-neutral-200" />
-        <span className="text-xs text-neutral-500">
-          Don&rsquo;t have an account?
-        </span>
+        <span className="text-base text-neutral-500">Don&rsquo;t have an account?</span>
         <span className="h-px flex-1 bg-neutral-200" />
       </div>
 
       <Link
         href={"/signup" as Route}
-        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border-[1.5px] border-violet-500 text-sm font-medium text-violet-700 transition-all hover:bg-violet-500 hover:text-white active:bg-violet-600 focus-visible:outline-none focus-visible:shadow-focus"
+        className="inline-flex h-[52px] w-full items-center justify-center gap-2 rounded-md border-[1.5px] border-violet-500 text-lg font-medium text-violet-700 transition-all hover:bg-violet-500 hover:text-white active:bg-violet-600 focus-visible:outline-none focus-visible:shadow-focus"
       >
         Sign Up
       </Link>
 
       {error && (
-        <p className="thai text-sm text-rose-600 font-medium text-center">
+        <p className="thai text-base text-rose-600 font-medium text-center">
           {error}
         </p>
       )}
