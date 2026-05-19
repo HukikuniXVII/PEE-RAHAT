@@ -1,0 +1,52 @@
+# ─── Dependencies ─────────────────────────────────────────────────────
+node_modules
+**/node_modules
+.pnpm-store
+**/.pnpm-store
+
+# ─── Build outputs ────────────────────────────────────────────────────
+**/dist
+**/.next
+**/.turbo
+**/coverage
+**/*.tsbuildinfo
+
+# ─── Local env / secrets — must NEVER leak into an image ─────────────
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
+# ─── VCS / editor / OS ───────────────────────────────────────────────
+.git
+.gitignore
+.gitattributes
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# ─── Tooling state not needed in the image ───────────────────────────
+.claude
+.skill
+.cursor
+docs
+*.log
+**/*.log
+**/npm-debug.log*
+**/pnpm-debug.log*
+
+# ─── Docker artifacts (avoid recursive copy) ─────────────────────────
+Dockerfile
+**/Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# ─── Loose screenshots / scratch files at repo root ───────────────────
+*.png
+*.jpg
+*.jpeg
+*.gif
+setup.md

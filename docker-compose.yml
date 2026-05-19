@@ -75,6 +75,67 @@ services:
         mc mb --ignore-existing local/peerahat-kyc-archive
         echo 'Buckets ready: peerahat-kyc, peerahat-sheets, peerahat-kyc-archive'
 
+  # ─── Application services ──────────────────────────────────────────────
+  # Optional. The infra-only flow (`docker compose up -d postgres redis
+  # minio minio-init`) still works for local `pnpm dev`. To run the full
+  # stack in containers, use `docker compose --profile app up -d`.
+
+  # NestJS API. Runs `prisma migrate deploy` on boot so a fresh DB volume
+  # gets the schema before main.js starts listening. Loads secrets from
+  # apps/api/.env, then overrides the infra URLs so they resolve against
+  # the compose network rather than localhost on the host.
+  api:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: peerahat-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    env_file:
+      - apps/api/.env
+    environment:
+      PORT: "3001"
+      WEB_ORIGIN: http://localhost:3000
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/peerahat?schema=public
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: http://minio:9000
+    ports:
+      - "3001:3001"
+    command:
+      - sh
+      - -c
+      - |
+        apps/api/node_modules/.bin/prisma migrate deploy --schema apps/api/prisma/schema.prisma
+        exec node apps/api/dist/src/main.js
+
+  # Next.js web. NEXT_PUBLIC_* are baked at build time, so they're passed
+  # via build args (interpolated from a repo-root .env or your shell env).
+  # The browser still talks to the API on http://localhost:3001/api — the
+  # `api` service publishes that port to the host.
+  web:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:3001/api}
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+        NEXT_PUBLIC_SUPABASE_GOOGLE_ENABLED: ${NEXT_PUBLIC_SUPABASE_GOOGLE_ENABLED:-true}
+        NEXT_PUBLIC_BOOKING_DAY_START_HOUR: ${NEXT_PUBLIC_BOOKING_DAY_START_HOUR:-9}
+        NEXT_PUBLIC_BOOKING_DAY_END_HOUR: ${NEXT_PUBLIC_BOOKING_DAY_END_HOUR:-21}
+    container_name: peerahat-web
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+
 volumes:
   peerahat-pg:
   peerahat-redis:

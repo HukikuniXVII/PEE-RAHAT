@@ -1,0 +1,174 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Pee Rahat — Render blueprint.
+# Both services build from the workspace Dockerfiles. Render passes every
+# envVar to `docker build` as --build-arg automatically, so NEXT_PUBLIC_*
+# values get baked into the web bundle at build time.
+#
+# First deploy:
+#   1. Push this file + commit.
+#   2. In Render: New → Blueprint → point at this repo.
+#   3. Render reads this file, creates both services, and prompts you for
+#      every envVar marked `sync: false`.
+#   4. After the first build, copy the public URLs Render assigns and
+#      paste them into WEB_ORIGIN (api) and NEXT_PUBLIC_API_BASE_URL (web),
+#      then redeploy. Render doesn't expand cross-service URL templates,
+#      so this manual round-trip is unavoidable unless you use custom
+#      domains from day one.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  # ─── API ───────────────────────────────────────────────────────────────────
+  - type: web
+    name: peerahat-api
+    runtime: docker
+    plan: starter            # adjust to standard/pro as load grows
+    region: singapore        # closest Render region to Supabase ap-northeast-2
+    dockerfilePath: apps/api/Dockerfile
+    dockerContext: .
+    # Override the image's CMD to run migrations on every boot before
+    # the server starts. Same pattern as docker-compose.yml.
+    dockerCommand: sh -c "apps/api/node_modules/.bin/prisma migrate deploy --schema apps/api/prisma/schema.prisma && exec node apps/api/dist/src/main.js"
+    healthCheckPath: /api/docs
+    autoDeploy: true
+    # Render only rebuilds when these paths change. Keep this list in
+    # sync with the api Dockerfile's COPY scope.
+    buildFilter:
+      paths:
+        - apps/api/**
+        - packages/types/**
+        - packages/config/**
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        - turbo.json
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # PORT is injected by Render; main.ts already respects process.env.PORT.
+
+      # ── CORS allow-list for the web origin. Set to the public URL of
+      # ── peerahat-web after first deploy (e.g. https://peerahat-web.onrender.com).
+      - key: WEB_ORIGIN
+        sync: false
+
+      # ── Database + cache (Supabase + Upstash) ─────────────────────────────
+      - key: DATABASE_URL
+        sync: false          # session-pooler URL (port 5432, *.pooler.supabase.com)
+      - key: REDIS_URL
+        sync: false          # rediss:// from Upstash
+
+      # ── Supabase auth ─────────────────────────────────────────────────────
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+
+      # ── Object storage (R2 / S3 / B2). Leave blank to keep the
+      # ── https://storage.local dev stub; signing throws in prod when unset
+      # ── per project_storage_stubbed.md.
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_REGION
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: S3_BUCKET_KYC
+        sync: false
+      - key: S3_BUCKET_SHEETS
+        sync: false
+      - key: S3_BUCKET_KYC_ARCHIVE
+        sync: false
+
+      # ── Payments (Phase 1 manual; SlipOK key needed once SlipOkClient is real)
+      - key: SLIPOK_API_KEY
+        sync: false
+      - key: PROMPTPAY_MERCHANT_ID
+        sync: false
+
+      # ── Notifications / observability ─────────────────────────────────────
+      - key: RESEND_API_KEY
+        sync: false
+      - key: ONESIGNAL_APP_ID
+        sync: false
+      - key: ONESIGNAL_API_KEY
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+
+      # ── Google OAuth (FR-TH-17 — per-tutor Gmail OAuth for Meet links) ────
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      # MUST match the redirect URI registered in Google Cloud Console.
+      # Set to https://<api-render-url>/api/auth/google/callback after first deploy.
+      - key: GOOGLE_OAUTH_REDIRECT_URI
+        sync: false
+      - key: GOOGLE_TOKEN_ENCRYPTION_KEY
+        sync: false
+      - key: GOOGLE_OAUTH_STATE_JWT_SECRET
+        sync: false
+
+      # ── Gemini AI parser (FR-TC-02 — TCAS criteria PDF importer) ──────────
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_PRIMARY_MODEL
+        value: gemini-2.5-flash-lite
+      - key: GEMINI_FALLBACK_MODEL
+        value: gemini-2.5-flash-lite
+      - key: GEMINI_MAX_PDF_PAGES
+        value: "20"
+      - key: GEMINI_MAX_PDF_MB
+        value: "20"
+      - key: GEMINI_TIMEOUT_MS
+        value: "240000"
+      # Kill-switch: flip to "false" to make /admin/tcas/criteria/parse-ai
+      # return 503 without touching code.
+      - key: TCAS_AI_IMPORT_ENABLED
+        value: "true"
+
+  # ─── Web ───────────────────────────────────────────────────────────────────
+  - type: web
+    name: peerahat-web
+    runtime: docker
+    plan: starter
+    region: singapore
+    dockerfilePath: apps/web/Dockerfile
+    dockerContext: .
+    healthCheckPath: /
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - apps/web/**
+        - packages/types/**
+        - packages/ui/**
+        - packages/config/**
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        - turbo.json
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # ── NEXT_PUBLIC_* are baked into the client bundle at build time.
+      # ── Render forwards every envVar as --build-arg to docker build, so
+      # ── listing them here is enough — no separate dockerBuildArgs block.
+
+      # Set to https://<api-render-url>/api after the api service's first deploy.
+      - key: NEXT_PUBLIC_API_BASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_GOOGLE_ENABLED
+        value: "true"
+      - key: NEXT_PUBLIC_BOOKING_DAY_START_HOUR
+        value: "9"
+      - key: NEXT_PUBLIC_BOOKING_DAY_END_HOUR
+        value: "21"
