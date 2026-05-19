@@ -1,8 +1,19 @@
+"use client";
+
 import { GraduationCap } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export function SiteFooter() {
+  const pathname = usePathname();
+  // Landing + auth routes paint their own full-screen layouts.
+  if (
+    pathname === "/" ||
+    pathname === "/login" ||
+    pathname === "/signup"
+  )
+    return null;
   return (
     <footer className="bg-slate-50 border-t border-slate-100 py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">

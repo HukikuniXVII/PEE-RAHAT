@@ -5,13 +5,13 @@ import { redirect } from "next/navigation";
 import { sanitizeNextPath } from "@/lib/auth";
 import { getServerAccessToken } from "@/lib/supabase/server";
 
-import { LoginForm } from "./_components/login-form";
+import { SignupForm } from "./_components/signup-form";
 
 interface Props {
   searchParams: { next?: string };
 }
 
-export default async function LoginPage({ searchParams }: Props) {
+export default async function SignupPage({ searchParams }: Props) {
   const token = await getServerAccessToken();
   if (token) {
     redirect(sanitizeNextPath(searchParams.next));
@@ -33,7 +33,7 @@ export default async function LoginPage({ searchParams }: Props) {
             />
           }
         >
-          <LoginForm />
+          <SignupForm />
         </AuthCard>
       </div>
     </>

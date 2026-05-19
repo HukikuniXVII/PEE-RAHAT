@@ -8,6 +8,14 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
+        // ---- design-system.md §8 ----
+        primary:
+          "bg-violet-500 text-neutral-50 rounded-md font-medium hover:bg-accent-500 hover:text-neutral-800 active:bg-violet-700 active:text-neutral-50 active:scale-[0.98] focus-visible:ring-0 focus-visible:shadow-focus disabled:bg-neutral-200 disabled:text-neutral-400",
+        "outline-brand":
+          "bg-transparent rounded-md font-medium border-[1.5px] border-violet-500 text-violet-700 hover:bg-violet-50 active:bg-violet-100 focus-visible:ring-0 focus-visible:shadow-focus",
+        "ghost-brand":
+          "bg-transparent rounded-md font-medium text-neutral-700 hover:bg-neutral-100 focus-visible:ring-0 focus-visible:shadow-focus",
+        // ---- legacy variants (kept for admin + existing consumers) ----
         default: "bg-indigo-600 text-white hover:bg-indigo-700",
         secondary: "bg-slate-900 text-white hover:bg-black",
         success: "bg-emerald-600 text-white hover:bg-emerald-700",
@@ -24,9 +32,17 @@ export const buttonVariants = cva(
         lg: "px-6 py-4 text-base",
         compact: "px-3 py-2 text-[10px] gap-1 rounded-xl",
         icon: "w-10 h-10",
+        // ---- design-system.md §8 sizes (use with primary/outline-brand/ghost-brand) ----
+        "brand-sm": "h-8 px-3 text-xs",
+        "brand-md": "h-9 px-4 text-[13px]",
+        "brand-lg": "h-11 px-6 text-sm",
+      },
+      fullWidth: {
+        true: "w-full",
+        false: "",
       },
     },
-    defaultVariants: { variant: "default", size: "default" },
+    defaultVariants: { variant: "default", size: "default", fullWidth: false },
   },
 );
 
@@ -35,11 +51,14 @@ export interface ButtonProps
     VariantProps<typeof buttonVariants> {}
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, type = "button", ...props }, ref) => (
+  (
+    { className, variant, size, fullWidth, type = "button", ...props },
+    ref,
+  ) => (
     <button
       ref={ref}
       type={type}
-      className={cn(buttonVariants({ variant, size }), className)}
+      className={cn(buttonVariants({ variant, size, fullWidth }), className)}
       {...props}
     />
   ),
