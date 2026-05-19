@@ -4,3 +4,4 @@
 - Use Thai for user-facing copy, English for code/comments
 - Reference FR-IDs from requirements.md in every commit
 - Phase 1 only — do not implement Phase 2 features
+

@@ -216,7 +216,7 @@ export function LoginForm() {
 
       <Link
         href={"/signup" as Route}
-        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border-[1.5px] border-violet-500 text-sm font-medium text-violet-700 transition-colors hover:bg-violet-50 active:bg-violet-100 focus-visible:outline-none focus-visible:shadow-focus"
+        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border-[1.5px] border-violet-500 text-sm font-medium text-violet-700 transition-all hover:bg-violet-500 hover:text-white active:bg-violet-600 focus-visible:outline-none focus-visible:shadow-focus"
       >
         Sign Up
       </Link>

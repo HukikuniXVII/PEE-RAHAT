@@ -1,8 +1,9 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { type SignUpDto, signUpSchema } from "@peerahat/types";
+import { signUpSchema } from "@peerahat/types";
 import { Button, Input } from "@peerahat/ui";
+import { z } from "zod";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
@@ -15,6 +16,19 @@ import { sanitizeNextPath } from "@/lib/auth-utils";
 import { supabaseAuthErrorMessage } from "@/lib/error-message";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
+// Extends the DTO schema with a client-only confirmPassword field.
+// confirmPassword is never sent to the backend.
+const signUpFormSchema = signUpSchema
+  .extend({
+    confirmPassword: z.string().min(1, "กรุณายืนยันรหัสผ่าน"),
+  })
+  .refine((d) => d.password === d.confirmPassword, {
+    message: "รหัสผ่านไม่ตรงกัน",
+    path: ["confirmPassword"],
+  });
+
+type SignUpFormValues = z.infer<typeof signUpFormSchema>;
+
 export function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -24,13 +38,13 @@ export function SignupForm() {
   const [emailSent, setEmailSent] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-  const form = useForm<SignUpDto>({
-    resolver: zodResolver(signUpSchema),
-    defaultValues: { email: "", password: "", displayName: "" },
+  const form = useForm<SignUpFormValues>({
+    resolver: zodResolver(signUpFormSchema),
+    defaultValues: { email: "", password: "", confirmPassword: "", displayName: "" },
     mode: "onChange",
   });
 
-  const onSubmit = form.handleSubmit(async (values) => {
+  const onSubmit = form.handleSubmit(async ({ email, password, displayName }) => {
     setError(null);
     if (!acceptedTerms) {
       setError("กรุณายอมรับข้อกำหนดและเงื่อนไขก่อน");
@@ -38,10 +52,10 @@ export function SignupForm() {
     }
     const supabase = createSupabaseBrowserClient();
     const { data, error: e } = await supabase.auth.signUp({
-      email: values.email,
-      password: values.password,
+      email,
+      password,
       options: {
-        data: { displayName: values.displayName },
+        data: { displayName },
       },
     });
     if (e) {
@@ -158,6 +172,25 @@ export function SignupForm() {
           {form.formState.errors.password && (
             <p className="text-xs text-rose-600">
               {form.formState.errors.password.message}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-1">
+          <label htmlFor="signup-confirm-password" className="sr-only">
+            Confirm Password
+          </label>
+          <Input
+            id="signup-confirm-password"
+            type="password"
+            autoComplete="new-password"
+            placeholder="Confirm Password"
+            invalid={!!form.formState.errors.confirmPassword}
+            {...form.register("confirmPassword")}
+          />
+          {form.formState.errors.confirmPassword && (
+            <p className="text-xs text-rose-600">
+              {form.formState.errors.confirmPassword.message}
             </p>
           )}
         </div>
