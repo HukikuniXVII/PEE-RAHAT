@@ -155,7 +155,7 @@ export function SheetGrid({ initial, initialSubject, initialQuery }: Props) {
                     className="text-[10px] font-bold text-slate-300 hover:text-red-400 flex items-center gap-1 transition-colors disabled:opacity-50"
                   >
                     <AlertTriangle size={12} />
-                    Report
+                    แจ้งปัญหา
                   </button>
                 </div>
                 <Link
@@ -226,7 +226,7 @@ export function SheetGrid({ initial, initialSubject, initialQuery }: Props) {
           <div>
             <p className="font-bold text-slate-800">100% Genuine Protection</p>
             <p className="text-xs text-slate-500">
-              ระบบ Escrow ของเราจะระงับยอดเงินไว้ 24 ชม. เพื่อความปลอดภัย
+              เราจะพักยอดเงินไว้ตัวกลาง 24 ชม. เพื่อความปลอดภัย
             </p>
           </div>
         </div>

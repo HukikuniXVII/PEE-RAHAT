@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import type { Route } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -129,22 +130,20 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
     <nav className="sticky top-0 z-50 bg-white/75 backdrop-blur-xl border-b border-white/40 shadow-[0_1px_0_rgba(85,65,139,0.06)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
-          {/* Logo — Josefin Sans, dusty grape, matches landing Nav */}
+          {/* Logo — uses /logo.png (1000×400 wordmark) instead of the
+              icon+text composition. Click navigates home. */}
           <Link
             href="/"
-            className="flex items-center gap-3 hover:opacity-90 transition-opacity"
+            className="flex items-center hover:opacity-90 transition-opacity"
           >
-            <div className="w-9 h-9 bg-violet-500 rounded-xl flex items-center justify-center text-white shadow-[0_8px_18px_-8px_rgba(85,65,139,0.55)]">
-              <GraduationCap size={20} />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-josefin font-bold text-[20px] text-dusty-grape leading-none tracking-tight">
-                Pee Rahat
-              </span>
-              <span className="text-[9px] font-bold text-ink-mute uppercase tracking-widest mt-0.5">
-                Verified EdTech
-              </span>
-            </div>
+            <Image
+              src="/logo.png"
+              alt="Pee Rahat"
+              width={1000}
+              height={400}
+              priority
+              className="h-14 w-auto"
+            />
           </Link>
 
           {/* Desktop nav */}
@@ -209,14 +208,25 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
                       role="menu"
                       className="absolute right-0 top-full mt-2 w-64 bg-white/95 backdrop-blur-md rounded-2xl border border-white shadow-[0_18px_40px_-22px_rgba(85,65,139,0.4)] p-2 space-y-1"
                     >
-                      <div className="px-3 py-2">
+                      {/* Click the name/email header to open the
+                          Profile edit page. Visual: subtle hover tint
+                          + grape-soft active, so it reads as a target
+                          instead of a static label. */}
+                      <Link
+                        href={"/profile" as Route}
+                        onClick={() => setAccountOpen(false)}
+                        className="block px-3 py-2 rounded-xl hover:bg-grape-soft transition-colors"
+                      >
                         <p className="text-xs font-semibold text-violet-700 truncate">
                           {user.displayName}
                         </p>
                         <p className="text-[10px] text-ink-mute truncate">
                           {user.email}
                         </p>
-                      </div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-dusty-grape mt-1">
+                          แก้ไขโปรไฟล์ →
+                        </p>
+                      </Link>
                       <div className="h-px bg-violet-100 mx-1" />
                       <Link
                         href={"/bookings" as Route}
@@ -338,19 +348,26 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
             <div className="h-px bg-violet-100 my-2" />
             {user ? (
               <>
-                <div className="px-5 py-3 flex items-center gap-3">
+                <Link
+                  href={"/profile" as Route}
+                  onClick={() => setIsMenuOpen(false)}
+                  className="px-5 py-3 rounded-2xl flex items-center gap-3 hover:bg-grape-soft transition-colors"
+                >
                   <span className="w-10 h-10 rounded-xl bg-violet-500 text-white text-sm font-bold flex items-center justify-center shadow-[0_6px_14px_-6px_rgba(85,65,139,0.5)]">
                     {initialsOf(user.displayName)}
                   </span>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-violet-700 truncate">
                       {user.displayName}
                     </p>
                     <p className="text-[10px] text-ink-mute truncate">
                       {user.email}
                     </p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-dusty-grape mt-0.5">
+                      แก้ไขโปรไฟล์ →
+                    </p>
                   </div>
-                </div>
+                </Link>
                 {isAdmin && (
                   <Link
                     href={"/admin/kyc" as Route}

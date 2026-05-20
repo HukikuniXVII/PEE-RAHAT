@@ -52,8 +52,8 @@ export default async function SheetsPage({ searchParams }: Props) {
               <span className="text-dusty-grape"> รุ่นพี่ตัวจริง</span>
             </h1>
             <p className="thai text-[15px] text-ink-soft leading-relaxed max-w-2xl">
-              แหล่งรวมชีทสรุปคุณภาพจากพี่ๆ มหาวิทยาลัยชั้นนำ มั่นใจด้วยระบบ{" "}
-              <span className="text-dusty-grape font-semibold">Escrow</span>{" "}
+              แหล่งรวมชีทสรุปคุณภาพจากพี่ๆ มหาวิทยาลัยชั้นนำ มั่นใจด้วย{" "}
+              <span className="text-dusty-grape font-semibold">ระบบพักเงินตัวกลาง</span>{" "}
               เงินถึงมือผู้ขายเมื่อคุณได้รับไฟล์แล้วเท่านั้น
             </p>
           </div>

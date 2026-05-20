@@ -96,7 +96,7 @@ export default async function TutorProfilePage({ params }: Props) {
                   )}
                   <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-50 rounded-full text-xs font-bold text-emerald-700">
                     <ShieldCheck size={12} />
-                    Escrow Payment
+                    จ่ายเงินปลอดภัย
                   </span>
                 </div>
               </div>
@@ -171,7 +171,7 @@ export default async function TutorProfilePage({ params }: Props) {
                   className="text-emerald-600 mt-0.5 shrink-0"
                 />
                 <span>
-                  เงินจะอยู่ใน Escrow จนกว่าคลาสจะเสร็จและไม่มี Report
+                  เงินจะถูกพักไว้กับเราจนกว่าคลาสจะเสร็จและไม่มีการร้องเรียน
                   ภายใน 24 ชม. ปลอดภัย 100%
                 </span>
               </div>

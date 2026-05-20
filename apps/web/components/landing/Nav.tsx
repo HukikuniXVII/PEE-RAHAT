@@ -1,11 +1,11 @@
-import { ArrowRight, GraduationCap } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import type { Route } from "next";
+import Image from "next/image";
 import Link from "next/link";
 
 // Chrome mirrors apps/web/components/site-nav.tsx so the landing and
 // authenticated headers share the same look: sticky h-16 frosted glass
-// row, GraduationCap tile + "Pee Rahat" + "Verified EdTech" tagline,
-// Josefin Bold 15px hover-tinted anchor links.
+// row, /logo.png wordmark, Josefin Bold 15px anchor links.
 //
 // The CTA matches the Hero "เริ่มต้นใช้งาน" button (filled grape ➜
 // gold on hover) instead of the smaller .brand-nav-pill so the nav
@@ -21,22 +21,19 @@ export function Nav() {
     <nav className="sticky top-0 z-50 bg-white/75 backdrop-blur-xl border-b border-white/40 shadow-[0_1px_0_rgba(85,65,139,0.06)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
-          {/* Logo */}
+          {/* Logo — uses /logo.png (1000×400 wordmark). */}
           <Link
             href="/"
-            className="flex items-center gap-3 hover:opacity-90 transition-opacity"
+            className="flex items-center hover:opacity-90 transition-opacity"
           >
-            <div className="w-9 h-9 bg-violet-500 rounded-xl flex items-center justify-center text-white shadow-[0_8px_18px_-8px_rgba(85,65,139,0.55)]">
-              <GraduationCap size={20} />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-josefin font-bold text-[20px] text-dusty-grape leading-none tracking-tight">
-                Pee Rahat
-              </span>
-              <span className="text-[9px] font-bold text-ink-mute uppercase tracking-widest mt-0.5">
-                Verified EdTech
-              </span>
-            </div>
+            <Image
+              src="/logo.png"
+              alt="Pee Rahat"
+              width={1000}
+              height={400}
+              priority
+              className="h-14 w-auto"
+            />
           </Link>
 
           {/* Anchor links + CTA */}
@@ -53,13 +50,13 @@ export function Nav() {
 
             <div className="w-px h-5 bg-violet-200/60 mx-3" />
 
-            {/* CTA — same look as Hero's primary CTA */}
+            {/* CTA — compact nav variant of the Hero filled-grape CTA */}
             <Link
               href={"/login" as Route}
-              className="thai inline-flex items-center gap-2 rounded-[16px] bg-dusty-grape px-6 py-3 text-[15px] font-bold text-white-smoke shadow-lg transition-all hover:bg-accent-500 hover:text-neutral-800 hover:shadow-lg hover:shadow-accent-500/30"
+              className="thai inline-flex items-center gap-1.5 rounded-[12px] bg-dusty-grape px-4 py-2 text-[13px] font-bold text-white-smoke shadow-md transition-all hover:bg-accent-500 hover:text-neutral-800 hover:shadow-accent-500/30"
             >
               เริ่มต้นใช้งาน
-              <ArrowRight size={16} strokeWidth={2.5} />
+              <ArrowRight size={14} strokeWidth={2.5} />
             </Link>
           </div>
         </div>

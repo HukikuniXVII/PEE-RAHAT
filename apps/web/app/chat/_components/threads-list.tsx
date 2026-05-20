@@ -224,7 +224,7 @@ export function ThreadsList({ initialThreads }: Props) {
 
       <p className="pt-4 text-[10px] text-slate-400 text-center font-medium flex items-center justify-center gap-1.5">
         <ShieldCheck size={12} className="text-emerald-500" />
-        ทุกข้อความถูกกรองช่องทางติดต่อนอกแพลตฟอร์มอัตโนมัติ (FR-PM-08)
+        ทุกข้อความถูกกรองช่องทางติดต่อนอกแพลตฟอร์มอัตโนมัติ
       </p>
     </div>
   );

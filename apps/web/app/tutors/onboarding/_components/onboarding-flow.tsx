@@ -43,9 +43,9 @@ const COPY: Record<Exclude<KycField, "passbook">, { title: string; description: 
       "เพื่อความปลอดภัยสูงสุด กรุณาถ่ายเซลฟี่คู่กับบัตรประชาชนของคุณให้เห็นใบหน้าและตัวอักษรบนบัตรชัดเจน",
   },
   transcript: {
-    title: "ขั้นตอนที่ 3: ใบแสดงผลการเรียน (Transcript)",
+    title: "ขั้นตอนที่ 3: ใบแสดงผลการเรียน",
     description:
-      "เพื่อยืนยันวุฒิการศึกษาและคณะที่คุณเรียนอยู่ กรุณาอัปโหลดใบ Transcript หรือหน้าโปรไฟล์นิสิตที่ระบุชื่อและคณะชัดเจน",
+      "เพื่อยืนยันวุฒิการศึกษาและคณะที่คุณเรียนอยู่ กรุณาอัปโหลดใบแสดงผลการเรียนหรือหน้าโปรไฟล์นิสิตที่ระบุชื่อและคณะชัดเจน",
   },
 };
 
@@ -162,7 +162,7 @@ export function OnboardingFlow() {
           กำลังตรวจสอบข้อมูล
         </h2>
         <p className="text-slate-500 leading-relaxed">
-          เจ้าหน้าที่กำลังตรวจสอบหลักฐานการสมัครของคุณ (National ID & Transcript)
+          ทีมงานกำลังตรวจสอบหลักฐานการสมัครของคุณ (บัตรประชาชน และใบแสดงผลการเรียน)
           <br />
           โดยปกติจะใช้เวลาไม่เกิน 24 ชั่วโมง คุณจะได้รับการแจ้งเตือนเมื่อบัญชีได้รับ Badge{" "}
           <span className="font-bold text-indigo-600">&quot;Verified&quot;</span>
@@ -266,7 +266,7 @@ export function OnboardingFlow() {
                   <p className="text-xs text-indigo-700 leading-relaxed">
                     <span className="font-bold">นโยบายความสะอาด:</span>
                     <br />
-                    Pee Rahat เข้ารหัสข้อมูล KYC ทุกไฟล์ และจะย้ายไฟล์ไปยัง Cold Storage
+                    Pee Rahat เข้ารหัสเอกสารยืนยันตัวตนทุกไฟล์ และจะย้ายไฟล์ไปเก็บถาวร
                     ภายใน 24 ชม. หลังจากตรวจสอบเสร็จ
                   </p>
                 </div>
@@ -298,7 +298,7 @@ export function OnboardingFlow() {
                   JPG, PNG, PDF (ไม่เกิน 5MB)
                 </p>
                 <span className="mt-2 px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">
-                  {upload.isPending ? "Uploading..." : "เลือกไฟล์"}
+                  {upload.isPending ? "กำลังอัปโหลด..." : "เลือกไฟล์"}
                 </span>
               </label>
             </div>
@@ -329,7 +329,7 @@ export function OnboardingFlow() {
               className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-800"
             >
               <ArrowLeft size={14} />
-              ย้อนกลับไปแก้ Transcript
+              ย้อนกลับไปแก้ใบรับรองผลการเรียน
             </button>
           </div>
         ) : (
@@ -341,7 +341,7 @@ export function OnboardingFlow() {
                 {...form.register("consentPdpaAccepted")}
               />
               <span>
-                ฉันยอมรับนโยบายการเก็บข้อมูลส่วนบุคคลตาม PDPA และอนุญาตให้ Pee Rahat
+                ฉันยอมรับนโยบายการเก็บข้อมูลส่วนบุคคล และอนุญาตให้ Pee Rahat
                 ใช้เอกสารเหล่านี้เพื่อการยืนยันตัวตนเท่านั้น
               </span>
             </label>

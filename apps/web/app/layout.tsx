@@ -12,7 +12,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Pee Rahat — Verified EdTech Thailand",
   description:
-    "เชื่อมต่อเด็ก ม.ปลาย กับพี่รหัสมหาวิทยาลัยชั้นนำ ด้วยระบบ Escrow ที่ปลอดภัย",
+    "เชื่อมต่อเด็ก ม.ปลาย กับพี่รหัสมหาวิทยาลัยชั้นนำ ด้วยระบบพักเงินตัวกลางที่ปลอดภัย",
   manifest: "/manifest.json",
 };
 

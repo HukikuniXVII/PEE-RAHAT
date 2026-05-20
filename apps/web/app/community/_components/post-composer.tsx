@@ -87,7 +87,7 @@ export function PostComposer() {
               {...form.register("consentPdpaAccepted")}
             />
             <span>
-              ข้าพเจ้าได้ตรวจสอบแล้วว่าเนื้อหาไม่มีข้อมูลส่วนบุคคล (PDPA) และยอมรับข้อกำหนดของ Pee Rahat
+              ข้าพเจ้าได้ตรวจสอบแล้วว่าเนื้อหาไม่มีข้อมูลส่วนบุคคล และยอมรับข้อกำหนดของ Pee Rahat
             </span>
           </label>
           <div className="flex justify-end">

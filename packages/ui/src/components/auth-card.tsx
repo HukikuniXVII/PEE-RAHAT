@@ -27,7 +27,7 @@ export function AuthCard({ mascot, children, className }: AuthCardProps) {
     >
       {/* Mascot — flex-col so flex-1 child correctly respects the p-5 padding */}
       <div className="h-full p-5 flex flex-col">
-        <div className="flex-1 rounded-2xl overflow-hidden flex items-end justify-center bg-violet-50/40">
+        <div className="flex-1 rounded-2xl overflow-hidden flex items-end justify-center bg-white">
           {mascot}
         </div>
       </div>

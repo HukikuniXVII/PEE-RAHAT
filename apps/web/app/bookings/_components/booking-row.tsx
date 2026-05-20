@@ -209,13 +209,13 @@ export function BookingRow({ booking }: Props) {
               className="px-4 py-2.5 bg-rose-50 text-rose-600 rounded-xl font-bold text-sm hover:bg-rose-100 transition-all flex items-center gap-2"
             >
               <AlertTriangle size={14} />
-              Report Issue
+              แจ้งปัญหา
             </button>
           )}
           {booking.status === "paid" && (
             <span className="text-[11px] font-bold text-emerald-600 inline-flex items-center gap-1.5">
               <CheckCircle2 size={14} />
-              Held in Escrow
+              พักเงินไว้แล้ว
             </span>
           )}
           {postponable && (

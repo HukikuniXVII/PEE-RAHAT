@@ -503,7 +503,7 @@ function StepThree({
       <section className="bg-emerald-50 rounded-2xl border border-emerald-100 p-4 flex items-start gap-3">
         <ShieldCheck size={18} className="text-emerald-600 mt-0.5 shrink-0" />
         <p className="text-xs text-emerald-800 leading-relaxed">
-          เงินของคุณจะถูกพักในระบบ Escrow จนกว่าคลาสจะเสร็จสิ้น
+          เงินของคุณจะถูกพักไว้กับเราจนกว่าคลาสจะเสร็จสิ้น
           คุณสามารถขอคืนเงินได้ภายใน 24 ชม. หากไม่พอใจ
         </p>
       </section>
@@ -516,7 +516,7 @@ function StepThree({
           onChange={(e) => onConsent(e.target.checked)}
         />
         <span>
-          ฉันยอมรับนโยบายการเก็บข้อมูลส่วนบุคคลตาม PDPA
+          ฉันยอมรับนโยบายการเก็บข้อมูลส่วนบุคคล
           และยินยอมให้ Pee Rahat ใช้ข้อมูลของฉันเพื่อดำเนินการจองคลาสนี้
         </span>
       </label>
@@ -592,7 +592,7 @@ function StepFour({ tutor, booking }: { tutor: Tutor; booking: Booking }) {
       <div className="bg-emerald-50 rounded-2xl border border-emerald-100 p-4 flex items-start gap-3 text-left">
         <ShieldCheck size={18} className="text-emerald-600 mt-0.5 shrink-0" />
         <p className="text-xs text-emerald-800 leading-relaxed">
-          เงินของคุณจะถูกพักไว้ในระบบ Escrow ปลอดภัย 100%
+          เงินของคุณจะถูกพักไว้กับเรา ปลอดภัย 100%
           จะโอนให้พี่รหัสก็ต่อเมื่อคลาสเสร็จสิ้นเรียบร้อย
         </p>
       </div>

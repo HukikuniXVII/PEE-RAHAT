@@ -175,12 +175,12 @@
 /* Nav pill — compact filled CTA used in headers. */
 .brand-nav-pill,
 .landing-nav-pill {
-  padding: 12px 22px;
+  padding: 8px 16px;
   border-radius: 12px;
   background: #55418b;
   color: #fff;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13px;
   transition:
     background 0.2s ease,
     transform 0.2s ease;
