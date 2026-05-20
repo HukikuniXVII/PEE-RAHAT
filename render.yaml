@@ -65,9 +65,11 @@ services:
       - key: SUPABASE_JWT_SECRET
         sync: false
 
-      # ── Object storage (R2 / S3 / B2). Leave blank to keep the
-      # ── https://storage.local dev stub; signing throws in prod when unset
-      # ── per project_storage_stubbed.md.
+      # ── Object storage (S3-compatible: R2 / AWS S3 / Supabase / B2).
+      # ── REQUIRED in production: StorageService throws at boot when
+      # ── NODE_ENV=production and any S3_* var below is missing. The
+      # ── https://storage.local dev stub only applies at
+      # ── NODE_ENV=development — leaving these blank here crashes the API.
       - key: S3_ENDPOINT
         sync: false
       - key: S3_REGION
@@ -81,6 +83,13 @@ services:
       - key: S3_BUCKET_SHEETS
         sync: false
       - key: S3_BUCKET_KYC_ARCHIVE
+        sync: false
+      # Avatars need their own PUBLIC bucket. S3_AVATAR_PUBLIC_BASE_URL is
+      # its public URL prefix — required for Supabase Storage, whose public
+      # object path differs from its S3 API path.
+      - key: S3_BUCKET_AVATARS
+        sync: false
+      - key: S3_AVATAR_PUBLIC_BASE_URL
         sync: false
 
       # ── Payments (Phase 1 manual; SlipOK key needed once SlipOkClient is real)

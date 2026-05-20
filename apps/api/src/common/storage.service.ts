@@ -32,14 +32,18 @@ interface S3Config {
   kycBucket: string;
   kycArchiveBucket?: string;
   sheetsBucket: string;
+  /** Dedicated PUBLIC bucket for avatars. Falls back to sheetsBucket. */
+  avatarsBucket?: string;
+  /** Public URL prefix for the avatars bucket — required for Supabase. */
+  avatarPublicBaseUrl?: string;
 }
 
 const SIGNED_URL_TTL_SECONDS = 5 * 60;
 
 /**
  * S3-compatible storage abstraction. Works against AWS S3, Cloudflare R2,
- * and MinIO via the same SDK. KYC and sheet PDFs live in private buckets
- * (NFR-03 — encryption at rest, signed-URL access only).
+ * Supabase Storage, and MinIO via the same SDK. KYC and sheet PDFs live
+ * in private buckets (NFR-03 — encryption at rest, signed-URL access only).
  *
  * If the S3_* env vars aren't fully set in dev, falls back to the legacy
  * `https://storage.local/...` placeholder URLs so localhost flows still
@@ -91,10 +95,13 @@ export class StorageService {
   }
 
   /**
-   * Avatar uploads share the sheets bucket but live under `avatars/`.
-   * Unlike KYC/sheet PDFs these must be publicly fetchable, so the
-   * caller writes the returned publicUrl to User.avatarUrl. In dev with
-   * stubbed storage, publicUrl points at the local stub host.
+   * Avatar objects live under `avatars/`. Unlike KYC/sheet PDFs these
+   * must be publicly fetchable, so the caller writes the returned
+   * publicUrl to User.avatarUrl. They go in a dedicated public bucket
+   * (S3_BUCKET_AVATARS) when configured; otherwise they fall back to the
+   * sheets bucket — the legacy R2/MinIO layout where an `avatars/`
+   * prefix-level public-read policy made that bucket serve them.
+   * In dev with stubbed storage, publicUrl points at the local stub host.
    */
   async signAvatarUpload(
     userId: string,
@@ -102,15 +109,35 @@ export class StorageService {
   ): Promise<SignedAvatarUpload> {
     const ext = contentType.split("/")[1]?.split("+")[0] ?? "bin";
     const objectKey = `avatars/${userId}/${Date.now()}.${ext}`;
-    const signed = await this.signPut(
-      this.config?.sheetsBucket,
-      objectKey,
-      contentType,
-    );
-    const publicUrl = this.config
-      ? `${this.config.endpoint ?? `https://${this.config.sheetsBucket}.s3.${this.config.region}.amazonaws.com`}${this.config.endpoint ? `/${this.config.sheetsBucket}` : ""}/${objectKey}`
-      : `https://storage.local/${objectKey}`;
+    const bucket = this.config?.avatarsBucket ?? this.config?.sheetsBucket;
+    const signed = await this.signPut(bucket, objectKey, contentType);
+    const publicUrl = this.buildAvatarPublicUrl(bucket, objectKey);
     return { ...signed, publicUrl };
+  }
+
+  /**
+   * The public, query-string-free URL for an avatar object.
+   *  - Supabase Storage: its S3 API path (`/storage/v1/s3/...`) differs
+   *    from its public object path, so an explicit S3_AVATAR_PUBLIC_BASE_URL
+   *    must be set — there's no way to derive it from the S3 endpoint.
+   *  - AWS S3 / R2 / MinIO: derived from the endpoint + bucket as before.
+   *  - Stubbed dev storage: the legacy storage.local host.
+   */
+  private buildAvatarPublicUrl(
+    bucket: string | undefined,
+    objectKey: string,
+  ): string {
+    if (!this.config || !bucket) {
+      return `https://storage.local/${objectKey}`;
+    }
+    if (this.config.avatarPublicBaseUrl) {
+      return `${this.config.avatarPublicBaseUrl.replace(/\/+$/, "")}/${objectKey}`;
+    }
+    const base =
+      this.config.endpoint ??
+      `https://${bucket}.s3.${this.config.region}.amazonaws.com`;
+    const path = this.config.endpoint ? `/${bucket}` : "";
+    return `${base}${path}/${objectKey}`;
   }
 
   /**
@@ -235,6 +262,8 @@ export class StorageService {
       kycBucket,
       kycArchiveBucket: process.env.S3_BUCKET_KYC_ARCHIVE,
       sheetsBucket,
+      avatarsBucket: process.env.S3_BUCKET_AVATARS,
+      avatarPublicBaseUrl: process.env.S3_AVATAR_PUBLIC_BASE_URL,
     };
   }
 }
