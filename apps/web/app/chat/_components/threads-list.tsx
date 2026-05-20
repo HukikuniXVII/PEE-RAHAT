@@ -3,8 +3,9 @@
 import type { ChatThread } from "@peerahat/types";
 import { cn } from "@peerahat/ui";
 import { useQuery } from "@tanstack/react-query";
-import { MessagesSquare, Search, ShieldCheck } from "lucide-react";
+import { ArrowRight, MessagesSquare, Search, ShieldCheck } from "lucide-react";
 import type { Route } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -67,23 +68,55 @@ export function ThreadsList({ initialThreads }: Props) {
   }, [allThreads, search]);
 
   if (allThreads.length === 0) {
+    // Future layout will be split-screen: contacts list on the left,
+    // active chat on the right. Render the empty state in the right
+    // column already so the first thread doesn't trigger a layout jump.
     return (
-      <div className="bg-white p-12 rounded-[32px] border border-slate-200 shadow-sm text-center space-y-4">
-        <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-2xl flex items-center justify-center mx-auto">
-          <MessagesSquare size={32} />
+      <div className="grid lg:grid-cols-[280px_1fr] gap-6">
+        {/* Left — placeholder for the contacts list */}
+        <aside className="hidden lg:block">
+          <div className="bg-white/50 border border-dashed border-violet-200 rounded-[28px] p-6 min-h-[420px] flex items-center justify-center">
+            <div className="text-center space-y-2">
+              <MessagesSquare
+                size={24}
+                className="text-violet-300 mx-auto"
+                strokeWidth={1.8}
+              />
+              <p className="thai text-[11px] font-semibold text-ink-mute leading-relaxed">
+                รายชื่อบทสนทนา
+                <br />
+                จะอยู่ตรงนี้
+              </p>
+            </div>
+          </div>
+        </aside>
+
+        {/* Right — empty state with brand CTA */}
+        <div className="bg-white p-10 rounded-[32px] border border-violet-100 shadow-[0_8px_24px_-16px_rgba(85,65,139,0.25)] text-center flex flex-col items-center gap-5 min-h-[420px] justify-center">
+          <Image
+            src="/mascot.png"
+            alt=""
+            width={220}
+            height={220}
+            className="w-40 h-40 sm:w-44 sm:h-44 object-contain"
+            priority={false}
+          />
+          <div className="space-y-2">
+            <h3 className="thai text-xl font-bold text-grape-deep">
+              ยังไม่มีบทสนทนา
+            </h3>
+            <p className="thai text-sm text-ink-soft leading-relaxed max-w-sm">
+              เริ่มสนทนาด้วยการเข้าไปที่โปรไฟล์พี่รหัส แล้วกดปุ่ม Chat
+            </p>
+          </div>
+          <Link
+            href="/tutors"
+            className="thai inline-flex items-center gap-2 rounded-[16px] bg-dusty-grape px-8 py-4 text-[16px] font-bold text-white-smoke shadow-lg transition-all hover:bg-accent-500 hover:text-neutral-800 hover:shadow-lg hover:shadow-accent-500/30"
+          >
+            ค้นหาพี่รหัสเลย
+            <ArrowRight size={16} strokeWidth={2.5} />
+          </Link>
         </div>
-        <h3 className="text-xl font-bold text-slate-800">
-          ยังไม่มีบทสนทนา
-        </h3>
-        <p className="text-sm text-slate-500">
-          เริ่มสนทนาด้วยการเข้าไปที่โปรไฟล์พี่ติว แล้วกดปุ่ม Chat
-        </p>
-        <Link
-          href="/tutors"
-          className="inline-block px-6 py-3 bg-slate-900 text-white rounded-2xl font-bold text-sm hover:bg-black transition-all"
-        >
-          เริ่มต้นที่ Tutor Hub
-        </Link>
       </div>
     );
   }

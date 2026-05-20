@@ -1,4 +1,4 @@
-import type { Subject } from "@peerahat/types";
+import { SUBJECT_LABELS } from "@peerahat/types";
 import {
   HydrationBoundary,
   QueryClient,
@@ -19,15 +19,7 @@ interface Props {
   params: { id: string };
 }
 
-const SUBJECT_LABEL: Record<Subject, string> = {
-  Math: "คณิตศาสตร์",
-  Physics: "ฟิสิกส์",
-  Chemistry: "เคมี",
-  Biology: "ชีววิทยา",
-  English: "อังกฤษ",
-  Social: "สังคม",
-  Thai: "ภาษาไทย",
-};
+const SUBJECT_LABEL = SUBJECT_LABELS;
 
 export default async function TutorProfilePage({ params }: Props) {
   const token = await getServerAccessToken();
@@ -115,7 +107,7 @@ export default async function TutorProfilePage({ params }: Props) {
                 แนะนำตัว
               </h2>
               <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">
-                {tutor.bio || "พี่ติวยังไม่ได้ใส่คำแนะนำตัว"}
+                {tutor.bio || "พี่รหัสยังไม่ได้ใส่คำแนะนำตัว"}
               </p>
             </div>
           </header>

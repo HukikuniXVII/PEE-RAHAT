@@ -57,7 +57,7 @@ export function PostponePanel({ booking, request }: Props) {
   const hasProposal = !!request.proposedAt;
   const countdown = useCountdown(request.chatExpiresAt);
   const initiatorLabel =
-    request.initiatorRole === "student" ? "น้องขอเลื่อน" : "พี่ติวขอเลื่อน";
+    request.initiatorRole === "student" ? "น้องขอเลื่อน" : "พี่รหัสขอเลื่อน";
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["bookings", "byId", booking.id] });
@@ -106,7 +106,7 @@ export function PostponePanel({ booking, request }: Props) {
         <div className="flex items-start gap-2 text-[11px] text-rose-700 bg-rose-50 border border-rose-100 rounded-2xl px-3 py-2">
           <AlertTriangle size={14} className="text-rose-500 mt-0.5 shrink-0" />
           <span>
-            กระชั้นชิด (น้อยกว่า 12 ชม.) — ถ้าไม่ตกลงเวลาใหม่ ระบบจะแบ่ง 50% ให้พี่ติว / 10% ค่าธรรมเนียม / คืนน้อง 40%
+            กระชั้นชิด (น้อยกว่า 12 ชม.) — ถ้าไม่ตกลงเวลาใหม่ ระบบจะแบ่ง 50% ให้พี่รหัส / 10% ค่าธรรมเนียม / คืนน้อง 40%
           </span>
         </div>
       )}

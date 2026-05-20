@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  SUBJECT_LABELS,
   type Booking,
   type BusySlot,
   type CreateBookingDto,
@@ -42,15 +43,7 @@ interface Props {
 const DURATION_PRESETS = [60, 90, 120] as const;
 type DurationMinutes = (typeof DURATION_PRESETS)[number];
 
-const SUBJECT_LABEL: Record<Subject, string> = {
-  Math: "คณิตศาสตร์",
-  Physics: "ฟิสิกส์",
-  Chemistry: "เคมี",
-  Biology: "ชีววิทยา",
-  English: "อังกฤษ",
-  Social: "สังคม",
-  Thai: "ภาษาไทย",
-};
+const SUBJECT_LABEL = SUBJECT_LABELS;
 
 const STEP_LABELS = [
   "วิชาและความยาว",
@@ -492,7 +485,7 @@ function StepThree({
           สรุปการจอง
         </h2>
         <dl className="space-y-3 text-sm">
-          <SummaryRow label="พี่ติว" value={tutor.displayName} />
+          <SummaryRow label="พี่รหัส" value={tutor.displayName} />
           <SummaryRow label="วิชา" value={SUBJECT_LABEL[subject] ?? subject} />
           <SummaryRow label="วันและเวลา" value={formatScheduledAt(scheduledAt)} />
           <SummaryRow label="ความยาว" value={`${duration} นาที`} />
@@ -570,7 +563,7 @@ function StepFour({ tutor, booking }: { tutor: Tutor; booking: Booking }) {
         </div>
         <dl className="space-y-3 text-sm">
           <SummaryRow label="หมายเลขการจอง" value={booking.id} />
-          <SummaryRow label="พี่ติว" value={tutor.displayName} />
+          <SummaryRow label="พี่รหัส" value={tutor.displayName} />
           <SummaryRow
             label="วิชา"
             value={SUBJECT_LABEL[booking.subject] ?? booking.subject}
@@ -591,7 +584,7 @@ function StepFour({ tutor, booking }: { tutor: Tutor; booking: Booking }) {
         <div className="pt-4 border-t border-slate-200 flex items-center gap-2">
           <CalendarCheck size={16} className="text-amber-600 shrink-0" />
           <p className="text-xs font-bold text-amber-700">
-            สถานะ: รอพี่ติวรับงาน (ภายใน 24 ชม.)
+            สถานะ: รอพี่รหัสรับงาน (ภายใน 24 ชม.)
           </p>
         </div>
       </section>
@@ -600,7 +593,7 @@ function StepFour({ tutor, booking }: { tutor: Tutor; booking: Booking }) {
         <ShieldCheck size={18} className="text-emerald-600 mt-0.5 shrink-0" />
         <p className="text-xs text-emerald-800 leading-relaxed">
           เงินของคุณจะถูกพักไว้ในระบบ Escrow ปลอดภัย 100%
-          จะโอนให้พี่ติวก็ต่อเมื่อคลาสเสร็จสิ้นเรียบร้อย
+          จะโอนให้พี่รหัสก็ต่อเมื่อคลาสเสร็จสิ้นเรียบร้อย
         </p>
       </div>
 
@@ -615,7 +608,7 @@ function StepFour({ tutor, booking }: { tutor: Tutor; booking: Booking }) {
           href="/tutors"
           className="flex-1 px-6 py-4 bg-slate-100 text-slate-700 rounded-2xl font-bold text-sm hover:bg-slate-200 transition-all text-center"
         >
-          กลับไปดูพี่ติวคนอื่น
+          กลับไปดูพี่รหัสคนอื่น
         </Link>
       </div>
     </div>

@@ -206,7 +206,7 @@ export class TutorsService {
       where: { userId: user.id },
     });
     if (existing) {
-      throw new ConflictException("คุณได้สมัครเป็นพี่ติวไว้แล้ว");
+      throw new ConflictException("คุณได้สมัครเป็นพี่รหัสไว้แล้ว");
     }
 
     const created = await this.prisma.tutorProfile.create({

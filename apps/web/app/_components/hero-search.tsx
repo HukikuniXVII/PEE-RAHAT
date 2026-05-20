@@ -25,7 +25,7 @@ export function HeroSearch() {
           type="text"
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder="ค้นหาวิชา, มหาวิทยาลัย, หรือชื่อพี่ติว..."
+          placeholder="ค้นหาวิชา, มหาวิทยาลัย, หรือชื่อพี่รหัส..."
           className="flex-1 py-3 bg-transparent text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none min-w-0"
         />
       </div>

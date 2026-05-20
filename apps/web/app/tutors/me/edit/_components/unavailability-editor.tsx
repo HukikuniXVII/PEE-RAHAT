@@ -128,7 +128,7 @@ export function UnavailabilityEditor() {
         </h3>
         <p className="text-[12px] text-slate-500 leading-relaxed">
           เช่น "พักกลางวัน จันทร์ 12:00–13:00" — น้อง ๆ จะไม่สามารถจองเวลานี้ได้
-          และตารางสอนของพี่ติวจะมีแถบสีเทาในช่วงเวลานี้ทุกสัปดาห์
+          และตารางสอนของพี่รหัสจะมีแถบสีเทาในช่วงเวลานี้ทุกสัปดาห์
         </p>
       </div>
 
@@ -141,7 +141,7 @@ export function UnavailabilityEditor() {
         )}
         {list.data && list.data.length === 0 && (
           <li className="text-[12px] text-slate-400 italic">
-            ยังไม่ได้ตั้งเวลาไม่ว่าง — พี่ติวพร้อมรับงานทุกเวลาในตอนนี้
+            ยังไม่ได้ตั้งเวลาไม่ว่าง — พี่รหัสพร้อมรับงานทุกเวลาในตอนนี้
           </li>
         )}
         {list.data?.map((rule) => (

@@ -50,8 +50,6 @@ export default async function TutorsPage({ searchParams }: Props) {
               }}
             >
               ค้นหาพี่รหัสที่ใช่
-              <br />
-              <span className="text-dusty-grape">ยืนยันตัวตน 100%</span>
             </h1>
             <p className="thai text-[15px] text-ink-soft leading-relaxed">
               พี่รหัสทุกคนผ่านการยืนยันตัวตน • ปลอดภัย ไร้กังวล

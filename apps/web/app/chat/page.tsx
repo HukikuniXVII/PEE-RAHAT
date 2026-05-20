@@ -15,7 +15,7 @@ export default async function ChatThreadsPage() {
     <>
       <PageBackground photo={false} sparkles="sparse" />
 
-      <div className="max-w-2xl mx-auto space-y-8 pb-20">
+      <div className="max-w-5xl mx-auto space-y-8 pb-20">
         <header className="space-y-3">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-grape-soft rounded-full text-[10px] font-bold uppercase tracking-widest text-dusty-grape">
             <MessagesSquare size={12} />
@@ -28,10 +28,10 @@ export default async function ChatThreadsPage() {
               letterSpacing: "-0.02em",
             }}
           >
-            พูดคุยกับพี่ติว
+            พูดคุยกับพี่รหัส
           </h1>
           <p className="thai text-[15px] text-ink-soft leading-relaxed">
-            คุยกับพี่ติวที่คุณจองคลาสไว้ หรือสอบถามก่อนตัดสินใจ
+            คุยกับพี่รหัสที่คุณจองคลาสไว้ หรือสอบถามก่อนตัดสินใจ
           </p>
         </header>
 

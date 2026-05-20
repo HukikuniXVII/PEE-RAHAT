@@ -7,7 +7,7 @@ const FEATURES = [
     n: "01",
     href: "/tutors" as Route,
     title: "Tutor Match",
-    thai: "ระบบจับคู่พี่ติวอัตโนมัติ",
+    thai: "ระบบจับคู่พี่รหัสอัตโนมัติ",
     body: "แนะนำพี่ที่ติดคณะตรงเป้า ในงบที่น้องไหว",
     taupe: false,
   },
@@ -63,7 +63,7 @@ export function AboutFeatures() {
           <div className="grid grid-cols-2 gap-3 pt-2">
             <div className="rounded-2xl p-4 bg-white/60 border border-dusty-grape/10 backdrop-blur-sm shadow-card">
               <p className="thai text-[13px] font-bold text-dusty-grape mb-1">
-                พี่ติวรุ่นจริง
+                พี่รหัสรุ่นจริง
               </p>
               <p className="thai text-[12px] text-ink-soft leading-relaxed">
                 เพิ่งติดคณะที่น้องเล็ง

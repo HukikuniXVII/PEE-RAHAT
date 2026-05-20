@@ -253,7 +253,7 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
                             className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-ink-soft hover:bg-grape-soft hover:text-violet-700 transition-colors"
                           >
                             <GraduationCap size={14} />
-                            <span className="thai">เป็นพี่ติว (KYC)</span>
+                            <span className="thai">เป็นพี่รหัส (KYC)</span>
                           </Link>
                         )
                       )}
