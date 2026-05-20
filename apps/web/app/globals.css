@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Sarabun:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@700&family=Prompt:wght@300;400;500;600;700&family=Sarabun:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -204,4 +204,24 @@
 /* Soft 1px hairline border used inside dense info cards */
 .landing-hairline {
   border: 1px solid rgba(85, 65, 139, 0.1);
+}
+
+/* ---------- Cloud blob drift animations (landing page backgrounds) ---------- */
+@keyframes cloud-drift-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%       { transform: translate(30px, -22px) scale(1.07); }
+}
+@keyframes cloud-drift-2 {
+  0%, 100% { transform: translate(0, 0) scale(1.02); }
+  50%       { transform: translate(-28px, 26px) scale(0.94); }
+}
+@keyframes cloud-drift-3 {
+  0%, 100% { transform: translate(0, 0) scale(0.97); }
+  33%       { transform: translate(22px, 18px) scale(1.05); }
+  66%       { transform: translate(-18px, -14px) scale(0.95); }
+}
+@keyframes cloud-drift-4 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25%       { transform: translate(-32px, 14px) scale(1.09); }
+  75%       { transform: translate(24px, -28px) scale(0.92); }
 }

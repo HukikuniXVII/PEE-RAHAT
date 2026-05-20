@@ -12,15 +12,22 @@ export function AuthCard({ mascot, children, className }: AuthCardProps) {
   return (
     <div
       className={cn(
-        "w-full max-w-[1800px] overflow-hidden rounded-xl bg-white shadow-lg",
-        "grid min-h-[920px] grid-cols-1 md:grid-cols-2",
+        // 10% smaller than 90/88 → 81vw / 79vh
+        "w-[81vw] h-[79vh] overflow-hidden",
+        "rounded-3xl bg-white shadow-2xl",
+        "grid grid-cols-[54.5%_45.5%]",
         className,
       )}
     >
-      <div className="flex items-stretch justify-stretch bg-white p-[20px]">
-        {mascot}
+      {/* Mascot — flex-col so flex-1 child correctly respects the p-5 padding */}
+      <div className="h-full p-5 bg-white flex flex-col">
+        <div className="flex-1 rounded-2xl overflow-hidden flex items-end justify-center bg-violet-50/40">
+          {mascot}
+        </div>
       </div>
-      <div className="flex flex-col justify-center gap-4 p-8 md:px-12 md:py-14">
+
+      {/* Form panel */}
+      <div className="flex flex-col justify-center gap-5 px-14 py-10 overflow-y-auto">
         {children}
       </div>
     </div>

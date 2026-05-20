@@ -37,7 +37,8 @@
       "Bash(curl -sI http://localhost:3000/quiz)",
       "Bash(curl -sI http://localhost:3000/tutors/onboarding)",
       "Bash(curl -s -o /dev/null -w \"web :3000 → %{http_code}\\\\n\" --max-time 2 http://localhost:3000)",
-      "Bash(curl -s -o /dev/null -w \"api :3001 → %{http_code}\\\\n\" --max-time 2 http://localhost:3001/api/tutors)"
+      "Bash(curl -s -o /dev/null -w \"api :3001 → %{http_code}\\\\n\" --max-time 2 http://localhost:3001/api/tutors)",
+      "Bash(pnpm *)"
     ]
   }
 }

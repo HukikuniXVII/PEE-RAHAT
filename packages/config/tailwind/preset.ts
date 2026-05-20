@@ -16,6 +16,8 @@ const preset: Partial<Config> = {
           "Segoe UI Symbol",
           "Noto Color Emoji",
         ],
+        // Figma: logo, nav items, and CTA buttons use Josefin Sans Bold
+        josefin: ['"Josefin Sans"', "sans-serif"],
       },
       colors: {
         brand: {

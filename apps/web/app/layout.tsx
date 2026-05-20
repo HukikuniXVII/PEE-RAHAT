@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 
+import { MainWrapper } from "@/components/main-wrapper";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteNav } from "@/components/site-nav";
@@ -38,9 +39,7 @@ export default async function RootLayout({
             initialUser={initialUser}
             initialThreads={initialThreads}
           />
-          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-            {children}
-          </main>
+          <MainWrapper>{children}</MainWrapper>
           <SiteFooter />
           <ServiceWorkerRegister />
         </Providers>
