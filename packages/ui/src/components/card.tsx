@@ -1,15 +1,36 @@
+import { cva, type VariantProps } from "class-variance-authority";
 import { forwardRef, type HTMLAttributes } from "react";
 
 import { cn } from "../lib/utils";
 
-export const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
+// Three card looks aligned with the landing visual language:
+//   - default → solid white, neutral border, shadow-card (admin tables,
+//               dashboards, anywhere the card sits on neutral surface).
+//   - glass   → mirrors `.glass-card` in globals.css — small frosted
+//               feature tile with a soft hover lift. Use on warm
+//               surfaces (PageBackground, .brand-page).
+//   - frosted → mirrors `.frosted-card` in globals.css — large section
+//               shell with extra radius + softer shadow.
+const cardVariants = cva("transition-shadow", {
+  variants: {
+    variant: {
+      default: "bg-white rounded-lg border border-neutral-200 shadow-card",
+      glass:
+        "bg-white/[0.78] backdrop-blur-md rounded-[22px] border border-white/90 shadow-[0_12px_28px_-18px_rgba(85,65,139,0.35)] transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-[0_20px_36px_-18px_rgba(85,65,139,0.45)]",
+      frosted:
+        "bg-white/[0.85] backdrop-blur-sm rounded-[28px] border border-white shadow-[0_18px_40px_-22px_rgba(85,65,139,0.25)]",
+    },
+  },
+  defaultVariants: { variant: "default" },
+});
+
+type CardProps = HTMLAttributes<HTMLDivElement> & VariantProps<typeof cardVariants>;
+
+export const Card = forwardRef<HTMLDivElement, CardProps>(
+  ({ className, variant, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn(
-        "bg-white rounded-lg border border-neutral-200 shadow-card",
-        className,
-      )}
+      className={cn(cardVariants({ variant }), className)}
       {...props}
     />
   ),

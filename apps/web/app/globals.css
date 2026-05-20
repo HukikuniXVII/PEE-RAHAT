@@ -5,6 +5,16 @@
 @tailwind utilities;
 
 @layer base {
+  /* Shared surface gradient stops — consumed by .landing-page below and by
+     the `surface-cream / surface-mist / surface-dusk` Tailwind tokens in
+     packages/config/tailwind/preset.ts (which alias these vars). Edit
+     here and every backdrop (landing + auth) updates together. */
+  :root {
+    --pee-surface-cream: #faf6f5;
+    --pee-surface-mist: #f2eef6;
+    --pee-surface-dusk: #ece2e5;
+  }
+
   html,
   body {
     font-family: "Prompt", "Sarabun", ui-sans-serif, system-ui, sans-serif;
@@ -47,8 +57,24 @@
   }
 }
 
-/* ---------- Landing page (route `/`) ---------- */
+/* ============================================================
+   Shared visual language
+   ----------------------------------------------------------------
+   These rules are the canonical "Pee Rahat warm-violet" look. Every
+   class is defined under two names:
 
+     .brand-*        — page-agnostic, use anywhere in the app.
+     .landing-*      — original landing names, kept as aliases so
+                       existing markup (Hero, AboutFeatures, etc.)
+                       keeps working untouched.
+
+   Prefer the .brand-* names in new code.
+   ============================================================ */
+
+/* Full-bleed gradient + radial blob backdrop. Wraps the route node
+   on the landing page; can also be applied to any app section that
+   wants the warm-violet aesthetic. */
+.brand-page,
 .landing-page {
   position: relative;
   color: #2a2240;
@@ -58,22 +84,30 @@
     radial-gradient(40% 35% at 95% 35%, rgba(187, 160, 160, 0.3) 0%, rgba(187, 160, 160, 0) 60%),
     radial-gradient(45% 40% at 90% 10%, rgba(229, 219, 230, 0.55) 0%, rgba(229, 219, 230, 0) 60%),
     radial-gradient(70% 60% at 20% 0%, rgba(85, 65, 139, 0.06) 0%, rgba(85, 65, 139, 0) 60%),
-    linear-gradient(180deg, #faf6f5 0%, #f2eef6 55%, #ece2e5 100%);
+    linear-gradient(
+      180deg,
+      var(--pee-surface-cream) 0%,
+      var(--pee-surface-mist) 55%,
+      var(--pee-surface-dusk) 100%
+    );
   overflow: hidden;
 }
 
+.brand-page ::selection,
 .landing-page ::selection {
   background: rgba(125, 128, 218, 0.35);
   color: #3f2f6b;
 }
 
-/* Decorative sparkles, positioned absolutely by the SparkleField component. */
+/* Decorative sparkle slot — absolutely positioned by SparkleField. */
+.brand-sparkle,
 .landing-sparkle {
   position: absolute;
   pointer-events: none;
 }
 
-/* Pill / chip */
+/* Pill / chip — periwinkle by default, taupe modifier for secondary. */
+.brand-chip,
 .landing-chip {
   display: inline-flex;
   align-items: center;
@@ -85,12 +119,14 @@
   font-size: 12.5px;
   font-weight: 500;
 }
+.brand-chip--taupe,
 .landing-chip--taupe {
   background: rgba(187, 160, 160, 0.22);
   color: #8e7373;
 }
 
-/* Solid + outline CTAs */
+/* Primary CTA — filled grape. */
+.brand-btn-primary,
 .landing-btn-grape {
   background: #55418b;
   color: #fff;
@@ -107,10 +143,14 @@
   align-items: center;
   gap: 10px;
 }
+.brand-btn-primary:hover,
 .landing-btn-grape:hover {
   background: #3f2f6b;
   transform: translateY(-1px);
 }
+
+/* Secondary CTA — white card with grape border. */
+.brand-btn-soft,
 .landing-btn-soft {
   background: #ffffff;
   color: #55418b;
@@ -126,12 +166,14 @@
   align-items: center;
   gap: 10px;
 }
+.brand-btn-soft:hover,
 .landing-btn-soft:hover {
   background: #ede8f7;
   transform: translateY(-1px);
 }
 
-/* Nav pill (primary CTA in header) */
+/* Nav pill — compact filled CTA used in headers. */
+.brand-nav-pill,
 .landing-nav-pill {
   padding: 12px 22px;
   border-radius: 12px;
@@ -143,21 +185,29 @@
     background 0.2s ease,
     transform 0.2s ease;
 }
+.brand-nav-pill:hover,
 .landing-nav-pill:hover {
   background: #3f2f6b;
   transform: translateY(-1px);
 }
+
+/* Nav text link — ink-soft, grape on hover. */
+.brand-nav-link,
 .landing-nav-link {
   color: #5b5176;
   font-weight: 500;
   font-size: 14.5px;
   transition: color 0.2s ease;
 }
+.brand-nav-link:hover,
 .landing-nav-link:hover {
   color: #55418b;
 }
 
-/* Hero feature card (glassy white) */
+/* Glassy white card — frosted small surface with subtle hover lift.
+   Use for feature tiles, stat cards, anywhere a 2-3 column grid of
+   short cards sits on the warm backdrop. */
+.glass-card,
 .landing-feature-card {
   background: rgba(255, 255, 255, 0.78);
   backdrop-filter: blur(8px);
@@ -173,12 +223,16 @@
     transform 0.25s ease,
     box-shadow 0.25s ease;
 }
+.glass-card:hover,
 .landing-feature-card:hover {
   transform: translateY(-3px);
   box-shadow:
     0 20px 36px -18px rgba(85, 65, 139, 0.45),
     inset 0 0 0 1px rgba(85, 65, 139, 0.06);
 }
+
+/* 56px grape icon tile — pairs with .glass-card. */
+.brand-icon-tile,
 .landing-feature-icon {
   width: 56px;
   height: 56px;
@@ -192,7 +246,9 @@
   box-shadow: 0 8px 18px -8px rgba(85, 65, 139, 0.55);
 }
 
-/* Section card (used by About / Features / How / Testimonials / Bottom CTA shells) */
+/* Frosted section shell — bigger radius, softer blur. Use for
+   page-section wrappers (About / Features / How / hero CTAs). */
+.frosted-card,
 .landing-section-card {
   background: rgba(255, 255, 255, 0.85);
   border: 1px solid rgba(255, 255, 255, 1);
@@ -201,7 +257,8 @@
   backdrop-filter: blur(6px);
 }
 
-/* Soft 1px hairline border used inside dense info cards */
+/* Soft 1px grape-tinted hairline. Use inside dense info cards. */
+.brand-hairline,
 .landing-hairline {
   border: 1px solid rgba(85, 65, 139, 0.1);
 }

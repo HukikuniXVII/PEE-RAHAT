@@ -1,3 +1,4 @@
+import { Card, PageBackground } from "@peerahat/ui";
 import {
   AlertTriangle,
   GraduationCap,
@@ -37,43 +38,54 @@ const FAQ = [
 
 export default function HelpPage() {
   return (
-    <div className="max-w-3xl mx-auto space-y-8">
-      <header className="space-y-3 text-center">
-        <div className="inline-flex w-12 h-12 bg-grape-soft text-violet-500 rounded-xl items-center justify-center mx-auto">
-          <HelpCircle size={24} />
-        </div>
-        <h1 className="text-3xl font-bold text-violet-700 thai">ศูนย์ช่วยเหลือ</h1>
-        <p className="text-sm text-neutral-500 thai">
-          คำถามที่พบบ่อย — หากไม่เจอคำตอบ ทักทีมงานได้ที่{" "}
-          <Link
-            href={"/contact" as Route}
-            className="text-violet-500 font-semibold hover:underline"
-          >
-            หน้าติดต่อ
-          </Link>
-        </p>
-      </header>
+    <>
+      <PageBackground photo={false} sparkles="sparse" />
 
-      <ul className="space-y-4">
-        {FAQ.map((item) => (
-          <li
-            key={item.question}
-            className="bg-white p-6 rounded-xl border border-neutral-200 shadow-card flex gap-4"
+      <div className="max-w-3xl mx-auto space-y-10">
+        <header className="space-y-4 text-center">
+          <div className="inline-flex w-14 h-14 bg-violet-500 text-white rounded-2xl items-center justify-center mx-auto shadow-[0_8px_18px_-8px_rgba(85,65,139,0.55)]">
+            <HelpCircle size={26} />
+          </div>
+          <h1
+            className="thai font-bold text-grape-deep"
+            style={{
+              fontSize: "clamp(32px, 3vw, 44px)",
+              letterSpacing: "-0.02em",
+            }}
           >
-            <div className="w-10 h-10 bg-grape-soft text-violet-500 rounded-xl flex items-center justify-center shrink-0">
-              <item.icon size={18} />
-            </div>
-            <div className="space-y-1.5">
-              <h3 className="font-semibold text-neutral-800 text-base thai">
-                {item.question}
-              </h3>
-              <p className="text-sm text-neutral-500 leading-relaxed thai">
-                {item.answer}
-              </p>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
+            ศูนย์ช่วยเหลือ
+          </h1>
+          <p className="thai text-[15px] text-ink-soft leading-relaxed max-w-xl mx-auto">
+            คำถามที่พบบ่อย — หากไม่เจอคำตอบ ทักทีมงานได้ที่{" "}
+            <Link
+              href={"/contact" as Route}
+              className="text-dusty-grape font-semibold hover:text-accent-700 transition-colors"
+            >
+              หน้าติดต่อ
+            </Link>
+          </p>
+        </header>
+
+        <ul className="space-y-4">
+          {FAQ.map((item) => (
+            <li key={item.question}>
+              <Card variant="glass" className="p-6 flex gap-4">
+                <div className="w-11 h-11 bg-grape-soft text-violet-500 rounded-xl flex items-center justify-center shrink-0 shadow-[0_6px_14px_-6px_rgba(85,65,139,0.35)]">
+                  <item.icon size={18} />
+                </div>
+                <div className="space-y-1.5">
+                  <h3 className="font-semibold text-grape-deep text-base thai">
+                    {item.question}
+                  </h3>
+                  <p className="text-sm text-ink-soft leading-relaxed thai">
+                    {item.answer}
+                  </p>
+                </div>
+              </Card>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </>
   );
 }

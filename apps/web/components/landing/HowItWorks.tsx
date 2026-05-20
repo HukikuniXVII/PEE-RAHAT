@@ -70,7 +70,7 @@ export function HowItWorks() {
               <div
                 className={`mb-5 flex h-14 w-14 items-center justify-center rounded-full text-[15px] font-bold text-white transition-transform hover:scale-105 ${
                   s.taupe
-                    ? "bg-[#BBA0A0] shadow-[0_14px_32px_-10px_rgba(187,160,160,0.65)]"
+                    ? "bg-rosy-taupe shadow-[0_14px_32px_-10px_rgba(187,160,160,0.65)]"
                     : "bg-dusty-grape shadow-[0_14px_32px_-10px_rgba(85,65,139,0.45)]"
                 }`}
               >
@@ -80,7 +80,7 @@ export function HowItWorks() {
               {/* Step content */}
               <h3
                 className={`thai font-bold text-[16px] mb-2 leading-tight ${
-                  s.taupe ? "text-[#8E7373]" : "text-grape-deep"
+                  s.taupe ? "text-taupe-deep" : "text-grape-deep"
                 }`}
               >
                 {s.title}

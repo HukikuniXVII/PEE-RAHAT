@@ -1,74 +1,90 @@
+import { Card, PageBackground } from "@peerahat/ui";
 import { Mail, MessageSquare, Phone } from "lucide-react";
+
+const CHANNELS = [
+  {
+    icon: Mail,
+    label: "อีเมลทั่วไป",
+    value: "hello@peerahat.com",
+    href: "mailto:hello@peerahat.com",
+  },
+  {
+    icon: MessageSquare,
+    label: "ช่วยเหลือผู้ใช้",
+    value: "support@peerahat.com",
+    href: "mailto:support@peerahat.com",
+  },
+  {
+    icon: Phone,
+    label: "โทรศัพท์",
+    value: "02-000-0000",
+    href: "tel:+6620000000",
+  },
+] as const;
 
 export default function ContactPage() {
   return (
-    <div className="max-w-3xl mx-auto space-y-8">
-      <header className="space-y-2 text-center">
-        <h1 className="text-3xl font-bold text-violet-700 thai">ติดต่อทีมงาน</h1>
-        <p className="text-sm text-neutral-500 thai">
-          ทีม Pee Rahat ตอบกลับภายใน 24 ชั่วโมงในเวลาทำการ (จ.-ศ. 9:00-18:00)
-        </p>
-      </header>
+    <>
+      <PageBackground photo={false} sparkles="sparse" />
 
-      <div className="grid md:grid-cols-3 gap-5">
-        <a
-          href="mailto:hello@peerahat.com"
-          className="bg-white p-8 rounded-xl border border-neutral-200 shadow-card space-y-4 hover:border-violet-300 hover:shadow-lg transition-all group"
-        >
-          <div className="w-12 h-12 bg-grape-soft text-violet-500 rounded-xl flex items-center justify-center group-hover:bg-violet-500 group-hover:text-white transition-all">
-            <Mail size={22} />
+      <div className="max-w-3xl mx-auto space-y-10">
+        <header className="space-y-3 text-center">
+          <div className="inline-flex items-center gap-2 thai text-[12px] font-semibold text-dusty-grape border border-dusty-grape/25 rounded-full px-4 py-1.5 bg-white/60 backdrop-blur-sm">
+            ติดต่อ
           </div>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 thai">
-              อีเมลทั่วไป
-            </p>
-            <p className="font-semibold text-neutral-800 mt-1 break-all text-sm">
-              hello@peerahat.com
-            </p>
-          </div>
-        </a>
+          <h1
+            className="thai font-bold text-grape-deep"
+            style={{
+              fontSize: "clamp(32px, 3vw, 44px)",
+              letterSpacing: "-0.02em",
+            }}
+          >
+            ติดต่อทีมงาน
+          </h1>
+          <p className="thai text-[15px] text-ink-soft leading-relaxed max-w-xl mx-auto">
+            ทีม Pee Rahat ตอบกลับภายใน 24 ชั่วโมงในเวลาทำการ
+            (จ.-ศ. 9:00-18:00)
+          </p>
+        </header>
 
-        <a
-          href="mailto:support@peerahat.com"
-          className="bg-white p-8 rounded-xl border border-neutral-200 shadow-card space-y-4 hover:border-violet-300 hover:shadow-lg transition-all group"
-        >
-          <div className="w-12 h-12 bg-grape-soft text-violet-500 rounded-xl flex items-center justify-center group-hover:bg-violet-500 group-hover:text-white transition-all">
-            <MessageSquare size={22} />
-          </div>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 thai">
-              ช่วยเหลือผู้ใช้
-            </p>
-            <p className="font-semibold text-neutral-800 mt-1 break-all text-sm">
-              support@peerahat.com
-            </p>
-          </div>
-        </a>
+        <div className="grid md:grid-cols-3 gap-5">
+          {CHANNELS.map((c) => (
+            <a
+              key={c.value}
+              href={c.href}
+              className="group block"
+            >
+              <Card
+                variant="glass"
+                className="p-7 h-full space-y-4 group-hover:-translate-y-0.5"
+              >
+                <div className="w-12 h-12 rounded-xl bg-grape-soft text-violet-500 flex items-center justify-center shadow-[0_8px_18px_-8px_rgba(85,65,139,0.35)] group-hover:bg-violet-500 group-hover:text-white transition-all">
+                  <c.icon size={22} />
+                </div>
+                <div>
+                  <p className="thai text-[10px] font-bold uppercase tracking-widest text-ink-mute">
+                    {c.label}
+                  </p>
+                  <p className="font-semibold text-violet-700 mt-1 break-all text-[14px]">
+                    {c.value}
+                  </p>
+                </div>
+              </Card>
+            </a>
+          ))}
+        </div>
 
-        <a
-          href="tel:+6620000000"
-          className="bg-white p-8 rounded-xl border border-neutral-200 shadow-card space-y-4 hover:border-violet-300 hover:shadow-lg transition-all group"
-        >
-          <div className="w-12 h-12 bg-grape-soft text-violet-500 rounded-xl flex items-center justify-center group-hover:bg-violet-500 group-hover:text-white transition-all">
-            <Phone size={22} />
-          </div>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 thai">
-              โทรศัพท์
-            </p>
-            <p className="font-semibold text-neutral-800 mt-1 text-sm">02-000-0000</p>
-          </div>
-        </a>
+        <Card variant="frosted" className="p-8 space-y-3">
+          <h2 className="thai text-[12px] font-bold uppercase tracking-widest text-dusty-grape">
+            สำนักงาน
+          </h2>
+          <p className="thai text-sm text-ink-soft leading-relaxed">
+            Pee Rahat (Thailand) Co., Ltd. <br />
+            เลขทะเบียนพาณิชย์ DBD: xxxxxxxxxx <br />
+            อาคาร xxx ชั้น xx ถนน xxx แขวง xxx เขต xxx กรุงเทพฯ 10xxx
+          </p>
+        </Card>
       </div>
-
-      <section className="bg-neutral-50 p-8 rounded-xl border border-neutral-100 space-y-3">
-        <h2 className="text-sm font-bold text-neutral-700 thai">สำนักงาน</h2>
-        <p className="text-sm text-neutral-500 leading-relaxed thai">
-          Pee Rahat (Thailand) Co., Ltd. <br />
-          เลขทะเบียนพาณิชย์ DBD: xxxxxxxxxx <br />
-          อาคาร xxx ชั้น xx ถนน xxx แขวง xxx เขต xxx กรุงเทพฯ 10xxx
-        </p>
-      </section>
-    </div>
+    </>
   );
 }

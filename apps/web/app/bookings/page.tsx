@@ -1,3 +1,6 @@
+import { PageBackground } from "@peerahat/ui";
+import { CalendarCheck } from "lucide-react";
+
 import { createApiClient } from "@/lib/api-client";
 import { requireAuth } from "@/lib/auth";
 
@@ -24,21 +27,40 @@ export default async function BookingsPage({ searchParams }: Props) {
   const subtitle = isTutor
     ? "ดูคลาสที่นักเรียนจองและคลาสที่กำลังจะสอน"
     : "ดูคลาสที่จองและประวัติการเรียน";
+  const chip = isTutor ? "Tutor Schedule" : "My Bookings";
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 pb-20">
-      <div className="space-y-1.5">
-        <h2 className="text-3xl font-bold text-violet-700 thai">{heading}</h2>
-        <p className="text-neutral-500 font-medium thai">{subtitle}</p>
+    <>
+      <PageBackground photo={false} sparkles="sparse" />
+
+      <div className="max-w-5xl mx-auto space-y-8 pb-20">
+        <header className="space-y-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-grape-soft rounded-full text-[10px] font-bold uppercase tracking-widest text-dusty-grape">
+            <CalendarCheck size={12} />
+            {chip}
+          </div>
+          <h1
+            className="thai font-bold text-grape-deep leading-[1.15]"
+            style={{
+              fontSize: "clamp(28px, 2.6vw, 40px)",
+              letterSpacing: "-0.02em",
+            }}
+          >
+            {heading}
+          </h1>
+          <p className="thai text-[15px] text-ink-soft leading-relaxed">
+            {subtitle}
+          </p>
+        </header>
+
+        <ViewToggle current={view} />
+
+        {view === "schedule" ? (
+          <ScheduleView initialBookings={initial} />
+        ) : (
+          <BookingsList initialBookings={initial} />
+        )}
       </div>
-
-      <ViewToggle current={view} />
-
-      {view === "schedule" ? (
-        <ScheduleView initialBookings={initial} />
-      ) : (
-        <BookingsList initialBookings={initial} />
-      )}
-    </div>
+    </>
   );
 }
