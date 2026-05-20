@@ -1,0 +1,87 @@
+# ─────────────────────────────────────────────────────────────────────────
+# Pee Rahat — PRODUCTION compose for the self-hosted VPS (103.253.72.189).
+#
+# The VPS PULLS pre-built images from ghcr.io — it never builds. Images are
+# produced by .github/workflows/publish-images.yml on every push to main.
+#
+# Postgres + Redis run on the VPS host; MinIO runs at zsh.ltd. Those are
+# EXTERNAL services — not defined here. All connection details + the image
+# tags come from .env.production (git-ignored — create it on the VPS).
+#
+# First deploy:
+#   1. Copy .env.production onto the VPS next to this file.
+#   2. If the ghcr packages are private:  docker login ghcr.io
+#   3. One-time MinIO buckets:
+#        docker compose --env-file .env.production -f docker-compose.prod.yml \
+#          --profile setup run --rm minio-init
+#   4. Pull + start (api runs `prisma migrate deploy` on boot):
+#        docker compose --env-file .env.production -f docker-compose.prod.yml up -d
+#
+# Redeploy a new build:  same `up -d` command — pull_policy:always re-pulls.
+# Logs:   docker compose -f docker-compose.prod.yml logs -f
+# Stop:   docker compose -f docker-compose.prod.yml down
+# ─────────────────────────────────────────────────────────────────────────
+
+services:
+  # ─── API — NestJS + Prisma ───────────────────────────────────────────────
+  api:
+    image: ${API_IMAGE:-ghcr.io/hukikunixvii/peerahat-api:latest}
+    container_name: peerahat-api
+    restart: unless-stopped
+    pull_policy: always
+    env_file:
+      - .env.production
+    ports:
+      - "3001:3001"
+    # Apply DB migrations on every boot, then start the server. On the
+    # fresh VPS database this creates the whole schema before main.js
+    # starts listening.
+    command:
+      - sh
+      - -c
+      - |
+        apps/api/node_modules/.bin/prisma migrate deploy --schema apps/api/prisma/schema.prisma
+        exec node apps/api/dist/src/main.js
+    healthcheck:
+      test: "wget -q -O /dev/null http://localhost:3001/api/docs || exit 1"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
+  # ─── Web — Next.js (standalone) ──────────────────────────────────────────
+  # NEXT_PUBLIC_* are already baked into this image at CI build time
+  # (see publish-images.yml) — nothing to pass here.
+  web:
+    image: ${WEB_IMAGE:-ghcr.io/hukikunixvii/peerahat-web:latest}
+    container_name: peerahat-web
+    restart: unless-stopped
+    pull_policy: always
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+
+  # ─── One-shot MinIO bucket provisioning (profile: setup) ─────────────────
+  # Not started by a normal `up`. Run once on first deploy — idempotent.
+  # Creates the four buckets and makes peerahat-avatars publicly readable
+  # so StorageService's S3_AVATAR_PUBLIC_BASE_URL resolves to live images.
+  minio-init:
+    profiles: ["setup"]
+    image: minio/mc:latest
+    env_file:
+      - .env.production
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        until mc alias set pr "$$S3_ENDPOINT" "$$S3_ACCESS_KEY_ID" "$$S3_SECRET_ACCESS_KEY" >/dev/null 2>&1; do
+          echo 'waiting for minio...'; sleep 2;
+        done
+        mc mb --ignore-existing pr/"$$S3_BUCKET_KYC"
+        mc mb --ignore-existing pr/"$$S3_BUCKET_SHEETS"
+        mc mb --ignore-existing pr/"$$S3_BUCKET_KYC_ARCHIVE"
+        mc mb --ignore-existing pr/"$$S3_BUCKET_AVATARS"
+        mc anonymous set download pr/"$$S3_BUCKET_AVATARS"
+        echo "Buckets ready. $$S3_BUCKET_AVATARS = public download; others private."
