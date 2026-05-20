@@ -10,9 +10,9 @@ export default async function ChatThreadsPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-8 pb-20">
-      <div className="space-y-2">
-        <h2 className="text-4xl font-black text-slate-900">My Conversations</h2>
-        <p className="text-slate-500 font-medium tracking-tight">
+      <div className="space-y-1.5">
+        <h2 className="text-3xl font-bold text-violet-700">My Conversations</h2>
+        <p className="text-neutral-500 font-medium thai">
           คุยกับพี่ติวที่คุณจองคลาสไว้ หรือสอบถามก่อนตัดสินใจ
         </p>
       </div>

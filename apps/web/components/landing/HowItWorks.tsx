@@ -1,33 +1,29 @@
-import { Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
+import type { Route } from "next";
+import Link from "next/link";
 
 const STEPS = [
   {
     n: "01",
     taupe: false,
-    title: "ทำแบบทดสอบสั้น ๆ",
-    body: "20 ข้อต่อวิชา 3 นาที เรามองออกว่าควรเริ่มซ่อมตรงไหน",
+    title: "เลือกพี่ที่เข้าใจ",
+    body: "ระบบเรียงพี่ติวให้ตามวิชา และงบของน้อง",
   },
   {
     n: "02",
     taupe: true,
-    title: "เลือกพี่ที่เข้าใจ",
-    body: "ระบบเรียงพี่ติวให้ตามจุดอ่อน วิชา และงบของน้อง",
-  },
-  {
-    n: "03",
-    taupe: false,
     title: "นัดคาบและรับลิงก์",
     body: "พี่ยืนยันภายใน 24 ชม. พร้อมลิงก์ Google Meet อัตโนมัติ",
   },
   {
-    n: "04",
-    taupe: true,
+    n: "03",
+    taupe: false,
     title: "จ่ายผ่าน PromptPay",
     body: "เงินถูก Escrow ไว้ ปล่อยให้พี่เมื่อเรียนจบจริงเท่านั้น",
   },
   {
-    n: "05",
-    taupe: false,
+    n: "04",
+    taupe: true,
     title: "ให้รีวิวหลังเรียน",
     body: "5 ดาวพร้อมคอมเมนต์สั้น ๆ ส่งต่อให้รุ่นน้องคนถัดไป",
   },
@@ -48,12 +44,12 @@ export function HowItWorks() {
             className="thai font-bold text-grape-deep leading-tight"
             style={{ fontSize: "clamp(28px, 2.8vw, 44px)", letterSpacing: "-0.02em" }}
           >
-            ห้าขั้นตอน จากแบบทดสอบ ถึงห้องสอบ
+            สี่ขั้นตอน จากการค้นหา ถึงห้องสอบ
           </h2>
         </div>
 
         {/* Steps */}
-        <div className="relative grid grid-cols-5 gap-0">
+        <div className="relative grid grid-cols-4 gap-0">
 
           {/* Gradient connector line */}
           <div
@@ -94,6 +90,17 @@ export function HowItWorks() {
               </p>
             </div>
           ))}
+        </div>
+
+        {/* CTA */}
+        <div className="flex justify-center mt-14">
+          <Link
+            href={"/login" as Route}
+            className="thai inline-flex items-center gap-2 rounded-[16px] bg-dusty-grape px-10 py-4 text-[16px] font-bold text-white-smoke transition-all hover:bg-accent-500 hover:text-neutral-800 hover:shadow-lg hover:shadow-accent-500/30 shadow-lg"
+          >
+            เริ่มต้นใช้งาน
+            <ArrowRight size={18} strokeWidth={2.5} />
+          </Link>
         </div>
       </div>
     </div>

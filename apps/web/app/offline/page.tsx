@@ -9,13 +9,13 @@ export const metadata = {
 
 export default function OfflinePage() {
   return (
-    <div className="max-w-md mx-auto text-center space-y-6 py-12">
-      <div className="inline-flex w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl items-center justify-center mx-auto">
-        <WifiOff size={32} />
+    <div className="max-w-md mx-auto text-center space-y-6 py-16">
+      <div className="inline-flex w-16 h-16 bg-grape-soft text-violet-500 rounded-2xl items-center justify-center mx-auto">
+        <WifiOff size={28} />
       </div>
       <div className="space-y-2">
-        <h1 className="text-3xl font-black text-slate-900">คุณกำลังออฟไลน์</h1>
-        <p className="text-sm text-slate-500 leading-relaxed">
+        <h1 className="text-3xl font-bold text-violet-700 thai">คุณกำลังออฟไลน์</h1>
+        <p className="text-sm text-neutral-500 leading-relaxed thai">
           ดูเหมือนว่าตอนนี้ไม่มีอินเทอร์เน็ต ลองเชื่อมต่อใหม่แล้วรีเฟรชหน้านี้ —
           ข้อมูลของคุณยังอยู่ครบ ไม่หายไปไหน
         </p>

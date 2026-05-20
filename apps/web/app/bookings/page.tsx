@@ -27,9 +27,9 @@ export default async function BookingsPage({ searchParams }: Props) {
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-20">
-      <div className="space-y-2">
-        <h2 className="text-4xl font-black text-slate-900">{heading}</h2>
-        <p className="text-slate-500 font-medium tracking-tight">{subtitle}</p>
+      <div className="space-y-1.5">
+        <h2 className="text-3xl font-bold text-violet-700 thai">{heading}</h2>
+        <p className="text-neutral-500 font-medium thai">{subtitle}</p>
       </div>
 
       <ViewToggle current={view} />

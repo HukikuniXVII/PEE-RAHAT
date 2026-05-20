@@ -31,39 +31,41 @@ export default async function SheetsPage({ searchParams }: Props) {
 
   return (
     <div className="space-y-8">
-      <div className="grid md:grid-cols-4 gap-6">
-        <div className="md:col-span-2 space-y-4">
-          <h2 className="text-4xl font-bold tracking-tight text-slate-900">
+      <div className="grid md:grid-cols-4 gap-5">
+        <div className="md:col-span-2 space-y-3">
+          <h2 className="text-3xl font-bold tracking-tight text-violet-700">
             Sheet Marketplace
           </h2>
-          <p className="text-slate-500 max-w-2xl font-medium leading-relaxed">
+          <p className="text-neutral-500 max-w-2xl font-medium leading-relaxed thai">
             แหล่งรวมชีทสรุปคุณภาพจากพี่ๆ มหาวิทยาลัยชั้นนำ <br />
             มั่นใจด้วยระบบ{" "}
-            <span className="text-indigo-600 font-bold">Escrow</span>{" "}
+            <span className="text-violet-500 font-bold">Escrow</span>{" "}
             เงินจะถึงมือผู้ขายเมื่อคุณได้รับไฟล์แล้วเท่านั้น
           </p>
         </div>
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
+
+        <div className="bg-white p-6 rounded-xl border border-neutral-200 shadow-card flex items-center justify-between">
           <div className="space-y-1">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+            <p className="text-xs font-bold text-neutral-400 uppercase tracking-wider">
               Sheet Library
             </p>
-            <p className="text-2xl font-bold text-slate-800 tracking-tight">
+            <p className="text-2xl font-bold text-neutral-800 tracking-tight">
               {initial.total.toLocaleString()} Items
             </p>
           </div>
-          <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center">
-            <BookOpen size={24} />
+          <div className="w-12 h-12 bg-grape-soft text-violet-500 rounded-xl flex items-center justify-center">
+            <BookOpen size={22} />
           </div>
         </div>
+
         <Link
           href={"/sheets/upload" as Route}
-          className="bg-slate-900 p-6 rounded-3xl text-white shadow-xl shadow-slate-200 flex flex-col justify-center gap-3 group"
+          className="bg-violet-700 p-6 rounded-xl text-white shadow-lg shadow-violet-100 flex flex-col justify-center gap-2 group hover:bg-violet-800 transition-colors"
         >
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+          <p className="text-xs font-bold text-white/50 uppercase tracking-wider">
             Tutor Hub
           </p>
-          <span className="flex items-center gap-2 text-sm font-black hover:text-indigo-300 transition-colors">
+          <span className="flex items-center gap-2 text-sm font-bold group-hover:text-accent-500 transition-colors thai">
             อยากเป็นผู้ขายชีท?
             <ChevronRight
               size={16}

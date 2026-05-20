@@ -5,35 +5,27 @@ import Link from "next/link";
 const FEATURES = [
   {
     n: "01",
-    href: "/tcas" as Route,
-    title: "Diagnostic Quiz",
-    thai: "แบบทดสอบหาจุดอ่อน",
-    body: "ตอบ 20 ข้อต่อวิชา รู้ทันทีว่าควรซ่อมบทไหนก่อน",
-    taupe: false,
-  },
-  {
-    n: "02",
     href: "/tutors" as Route,
     title: "Tutor Match",
     thai: "ระบบจับคู่พี่ติวอัตโนมัติ",
     body: "แนะนำพี่ที่ติดคณะตรงเป้า ในงบที่น้องไหว",
-    taupe: true,
+    taupe: false,
   },
   {
-    n: "03",
+    n: "02",
     href: "/sheets" as Route,
     title: "Sheet Market",
     thai: "ตลาดชีทสรุปจากรุ่นพี่ตัวจริง",
     body: "PDF พรีวิวได้ก่อนซื้อ พิมพ์อ่านได้เลยไม่ต้องสรุปเอง",
-    taupe: false,
+    taupe: true,
   },
   {
-    n: "04",
+    n: "03",
     href: "/tcas" as Route,
     title: "TCAS Calc",
     thai: "คำนวณคะแนนแบบ What-If",
     body: "บอกชัด ๆ ว่ายังขาดอีกกี่คะแนนต่อวิชา ถึงจะติดเป้า",
-    taupe: true,
+    taupe: false,
   },
 ];
 
@@ -100,7 +92,7 @@ export function AboutFeatures() {
             ฟีเจอร์
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             {FEATURES.map((it) => (
               <Link
                 key={it.n}

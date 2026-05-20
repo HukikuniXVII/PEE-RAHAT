@@ -28,30 +28,31 @@ export default async function TutorsPage({ searchParams }: Props) {
 
   return (
     <div className="space-y-8">
-      <section className="rounded-[32px] bg-slate-900 text-white p-6 sm:p-10 flex flex-col sm:flex-row gap-6 sm:items-center sm:justify-between">
+      {/* Hero banner */}
+      <section className="rounded-xl bg-violet-700 text-white p-8 sm:p-10 flex flex-col sm:flex-row gap-6 sm:items-center sm:justify-between">
         <div className="space-y-3 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-[10px] font-black uppercase tracking-widest text-indigo-300">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-[10px] font-bold uppercase tracking-widest text-white/80">
             <ShieldCheck size={12} />
             Verified Tutors
           </div>
-          <h1 className="text-3xl sm:text-4xl font-black leading-tight">
+          <h1 className="text-3xl sm:text-4xl font-bold leading-tight thai">
             ค้นหาพี่ติวที่ใช่
             <br />
-            <span className="text-indigo-300">ยืนยันตัวตน 100% • Escrow</span>
+            <span className="text-accent-500">ยืนยันตัวตน 100% • Escrow</span>
           </h1>
-          <p className="text-sm text-slate-300">
+          <p className="text-sm text-white/70 thai">
             ทุกพี่ติวผ่านการยืนยันบัตรประชาชนและทรานสคริปต์ • คืนเงิน 100% ภายใน 24 ชม.
           </p>
         </div>
-        <div className="flex items-center gap-3 bg-white/10 backdrop-blur-xl px-5 py-4 rounded-[24px] border border-white/15 shrink-0">
-          <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center text-indigo-600">
-            <Sparkles size={20} />
+        <div className="flex items-center gap-3 bg-white/10 backdrop-blur-xl px-5 py-4 rounded-xl border border-white/15 shrink-0">
+          <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center text-white">
+            <Sparkles size={18} />
           </div>
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-white/60">
               Verified
             </p>
-            <p className="text-2xl font-black leading-none mt-0.5">
+            <p className="text-2xl font-bold leading-none mt-0.5">
               {initial.total}
             </p>
           </div>
@@ -59,9 +60,9 @@ export default async function TutorsPage({ searchParams }: Props) {
       </section>
 
       <TutorSearch
-        initialQuery={searchParams.q ?? ""}
-        initialSubject={subject}
         initialResult={initial}
+        initialSubject={subject}
+        initialQuery={searchParams.q ?? ""}
       />
     </div>
   );

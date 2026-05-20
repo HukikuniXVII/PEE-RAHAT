@@ -41,12 +41,14 @@ interface Props {
 }
 
 function initialsOf(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((s) => s[0]?.toUpperCase() ?? "")
-    .join("") || "?";
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((s) => s[0]?.toUpperCase() ?? "")
+      .join("") || "?"
+  );
 }
 
 export function SiteNav({ initialUser, initialThreads }: Props) {
@@ -68,9 +70,6 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
     0,
   );
 
-  // Drives the Admin nav entry. Role lives on the API-side User row, not the
-  // Supabase session cookie, so we read it via /users/me. Failures are
-  // silent — the entry stays hidden for non-admins and on transient errors.
   const meQuery = useQuery({
     queryKey: ["users", "me"],
     queryFn: () => createApiClient().users.me(),
@@ -79,10 +78,6 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
     retry: false,
   });
   const isAdmin = meQuery.data?.role === "admin";
-  // Tutor menus gate on role === "tutor" — having a TutorProfile alone
-  // isn't enough (a user can have a stale profile from an abandoned
-  // onboarding while acting as a student elsewhere). tutorProfileId is
-  // still needed to build the "My Profile" link target.
   const isTutor = meQuery.data?.role === "tutor";
   const tutorProfileId = meQuery.data?.tutorProfileId;
 
@@ -96,7 +91,9 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
         setUser(null);
         return;
       }
-      const meta = (session.user.user_metadata ?? {}) as { displayName?: string };
+      const meta = (session.user.user_metadata ?? {}) as {
+        displayName?: string;
+      };
       const fallback = session.user.email?.split("@")[0] ?? "User";
       setUser({
         displayName: meta.displayName ?? fallback,
@@ -128,32 +125,29 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
     router.refresh();
   };
 
-  // Landing + auth routes paint their own full-screen layouts.
-  if (
-    pathname === "/" ||
-    pathname === "/login" ||
-    pathname === "/signup"
-  )
+  if (pathname === "/" || pathname === "/login" || pathname === "/signup")
     return null;
 
   return (
-    <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100">
+    <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-neutral-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-20 items-center">
+        <div className="flex justify-between h-16 items-center">
+          {/* Logo */}
           <Link href="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-slate-200">
-              <GraduationCap size={24} />
+            <div className="w-9 h-9 bg-violet-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-violet-200">
+              <GraduationCap size={20} />
             </div>
             <div className="flex flex-col">
-              <span className="text-xl font-black tracking-tighter text-slate-900 leading-none">
+              <span className="font-josefin font-bold text-[18px] text-violet-700 leading-none tracking-tight">
                 Pee Rahat
               </span>
-              <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-widest mt-1">
+              <span className="text-[9px] font-bold text-violet-400 uppercase tracking-widest mt-0.5">
                 Verified EdTech
               </span>
             </div>
           </Link>
 
+          {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-1">
             {NAV_ITEMS.map((item) => {
               const showUnread = item.href === "/chat" && totalUnread > 0;
@@ -162,46 +156,49 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
                   key={item.href}
                   href={item.href as Route}
                   className={cn(
-                    "px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2",
+                    "px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center gap-2",
                     isActive(item.href)
-                      ? "text-indigo-600 bg-indigo-50"
-                      : "text-slate-400 hover:text-slate-800 hover:bg-slate-50",
+                      ? "text-violet-500 bg-grape-soft"
+                      : "text-neutral-400 hover:text-violet-700 hover:bg-neutral-50",
                   )}
                 >
-                  <item.icon size={18} />
+                  <item.icon size={16} />
                   {item.label}
                   {showUnread && (
-                    <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-indigo-600 text-white text-[10px] font-black flex items-center justify-center">
+                    <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-violet-500 text-white text-[10px] font-bold flex items-center justify-center">
                       {totalUnread > 99 ? "99+" : totalUnread}
                     </span>
                   )}
                 </Link>
               );
             })}
-            <div className="w-px h-6 bg-slate-100 mx-4" />
+
+            <div className="w-px h-5 bg-neutral-100 mx-3" />
+
             {user ? (
               <div className="relative" ref={accountRef}>
                 <button
                   type="button"
                   onClick={() => setAccountOpen((v) => !v)}
-                  className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-all"
+                  className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-2xl bg-neutral-50 hover:bg-neutral-100 transition-all"
                   aria-haspopup="menu"
                   aria-expanded={accountOpen}
                 >
-                  <span className="w-8 h-8 rounded-xl bg-indigo-600 text-white text-xs font-black flex items-center justify-center">
+                  <span className="w-8 h-8 rounded-xl bg-violet-500 text-white text-xs font-bold flex items-center justify-center">
                     {initialsOf(user.displayName)}
                   </span>
-                  <span className="text-xs font-bold text-slate-700 max-w-[120px] truncate">
+                  <span className="text-xs font-semibold text-neutral-700 max-w-[120px] truncate">
                     {user.displayName}
                   </span>
                   <ChevronDown
                     size={14}
                     className={cn(
-                      "text-slate-400 transition-transform",
+                      "text-neutral-400 transition-transform",
                       accountOpen && "rotate-180",
                     )}
                   />
                 </button>
+
                 <AnimatePresence>
                   {accountOpen && (
                     <motion.div
@@ -209,21 +206,21 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -8 }}
                       role="menu"
-                      className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl border border-slate-100 shadow-xl p-2 space-y-1"
+                      className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl border border-neutral-100 shadow-lg p-2 space-y-1"
                     >
                       <div className="px-3 py-2">
-                        <p className="text-xs font-bold text-slate-700 truncate">
+                        <p className="text-xs font-semibold text-neutral-700 truncate">
                           {user.displayName}
                         </p>
-                        <p className="text-[10px] text-slate-400 truncate">
+                        <p className="text-[10px] text-neutral-400 truncate">
                           {user.email}
                         </p>
                       </div>
-                      <div className="h-px bg-slate-100 mx-1" />
+                      <div className="h-px bg-neutral-100 mx-1" />
                       <Link
                         href={"/bookings" as Route}
                         onClick={() => setAccountOpen(false)}
-                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50"
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-neutral-600 hover:bg-neutral-50 transition-colors"
                       >
                         <CalendarCheck size={14} />
                         My Bookings
@@ -233,7 +230,7 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
                           <Link
                             href={`/tutors/${tutorProfileId}` as Route}
                             onClick={() => setAccountOpen(false)}
-                            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50"
+                            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-neutral-600 hover:bg-neutral-50 transition-colors"
                           >
                             <GraduationCap size={14} />
                             My Profile
@@ -241,10 +238,10 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
                           <Link
                             href={"/tutors/me/bank" as Route}
                             onClick={() => setAccountOpen(false)}
-                            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50"
+                            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-neutral-600 hover:bg-neutral-50 transition-colors"
                           >
                             <Wallet size={14} />
-                            บัญชีรับเงิน
+                            <span className="thai">บัญชีรับเงิน</span>
                           </Link>
                         </>
                       ) : (
@@ -252,10 +249,10 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
                           <Link
                             href={"/tutors/onboarding" as Route}
                             onClick={() => setAccountOpen(false)}
-                            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50"
+                            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-neutral-600 hover:bg-neutral-50 transition-colors"
                           >
                             <GraduationCap size={14} />
-                            เป็นพี่ติว (KYC)
+                            <span className="thai">เป็นพี่ติว (KYC)</span>
                           </Link>
                         )
                       )}
@@ -263,7 +260,7 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
                         <Link
                           href={"/admin/kyc" as Route}
                           onClick={() => setAccountOpen(false)}
-                          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-emerald-600 hover:bg-emerald-50"
+                          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-emerald-600 hover:bg-emerald-50 transition-colors"
                         >
                           <ShieldCheck size={14} />
                           Admin
@@ -272,7 +269,7 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
                       <button
                         type="button"
                         onClick={handleSignOut}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50"
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors"
                       >
                         <LogOut size={14} />
                         Sign Out
@@ -284,17 +281,18 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
             ) : (
               <Link
                 href={"/login" as Route}
-                className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-black hover:bg-black shadow-xl shadow-slate-200 transition-all uppercase tracking-widest"
+                className="px-5 py-2 bg-violet-500 text-white rounded-xl text-xs font-bold hover:bg-accent-500 hover:text-neutral-800 shadow-lg shadow-violet-100 transition-all"
               >
                 Login
               </Link>
             )}
           </div>
 
+          {/* Mobile menu toggle */}
           <div className="md:hidden">
             <button
               onClick={() => setIsMenuOpen((v) => !v)}
-              className="p-2 text-slate-800"
+              className="p-2 text-neutral-700"
               aria-label="Toggle menu"
             >
               {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -303,13 +301,14 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
         </div>
       </div>
 
+      {/* Mobile menu */}
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="md:hidden bg-white border-b border-slate-100 px-4 py-6 space-y-2 shadow-2xl"
+            className="md:hidden bg-white border-b border-neutral-100 px-4 py-6 space-y-2 shadow-lg"
           >
             {NAV_ITEMS.map((item) => {
               const showUnread = item.href === "/chat" && totalUnread > 0;
@@ -319,34 +318,34 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
                   href={item.href as Route}
                   onClick={() => setIsMenuOpen(false)}
                   className={cn(
-                    "w-full text-left px-5 py-4 rounded-2xl text-base font-bold flex items-center gap-4 transition-all",
+                    "w-full text-left px-5 py-4 rounded-2xl text-base font-semibold flex items-center gap-4 transition-all",
                     isActive(item.href)
-                      ? "bg-indigo-50 text-indigo-700"
-                      : "text-slate-600 hover:bg-slate-50",
+                      ? "bg-grape-soft text-violet-700"
+                      : "text-neutral-600 hover:bg-neutral-50",
                   )}
                 >
-                  <item.icon size={22} />
+                  <item.icon size={20} />
                   <span className="flex-1">{item.label}</span>
                   {showUnread && (
-                    <span className="min-w-[22px] h-[22px] px-2 rounded-full bg-indigo-600 text-white text-xs font-black flex items-center justify-center">
+                    <span className="min-w-[22px] h-[22px] px-2 rounded-full bg-violet-500 text-white text-xs font-bold flex items-center justify-center">
                       {totalUnread > 99 ? "99+" : totalUnread}
                     </span>
                   )}
                 </Link>
               );
             })}
-            <div className="h-px bg-slate-100 my-2" />
+            <div className="h-px bg-neutral-100 my-2" />
             {user ? (
               <>
                 <div className="px-5 py-3 flex items-center gap-3">
-                  <span className="w-10 h-10 rounded-xl bg-indigo-600 text-white text-xs font-black flex items-center justify-center">
+                  <span className="w-10 h-10 rounded-xl bg-violet-500 text-white text-sm font-bold flex items-center justify-center">
                     {initialsOf(user.displayName)}
                   </span>
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-slate-700 truncate">
+                    <p className="text-sm font-semibold text-neutral-700 truncate">
                       {user.displayName}
                     </p>
-                    <p className="text-[10px] text-slate-400 truncate">
+                    <p className="text-[10px] text-neutral-400 truncate">
                       {user.email}
                     </p>
                   </div>
@@ -355,7 +354,7 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
                   <Link
                     href={"/admin/kyc" as Route}
                     onClick={() => setIsMenuOpen(false)}
-                    className="w-full text-left px-5 py-4 rounded-2xl text-base font-bold flex items-center gap-4 text-emerald-600 hover:bg-emerald-50"
+                    className="w-full text-left px-5 py-4 rounded-2xl text-base font-semibold flex items-center gap-4 text-emerald-600 hover:bg-emerald-50 transition-colors"
                   >
                     <ShieldCheck size={20} />
                     Admin
@@ -367,7 +366,7 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
                     setIsMenuOpen(false);
                     void handleSignOut();
                   }}
-                  className="w-full text-left px-5 py-4 rounded-2xl text-base font-bold flex items-center gap-4 text-rose-600 hover:bg-rose-50"
+                  className="w-full text-left px-5 py-4 rounded-2xl text-base font-semibold flex items-center gap-4 text-rose-600 hover:bg-rose-50 transition-colors"
                 >
                   <LogOut size={20} />
                   Sign Out
@@ -377,7 +376,7 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
               <Link
                 href={"/login" as Route}
                 onClick={() => setIsMenuOpen(false)}
-                className="w-full text-left px-5 py-4 rounded-2xl text-base font-bold flex items-center gap-4 bg-slate-900 text-white"
+                className="w-full text-left px-5 py-4 rounded-2xl text-base font-semibold flex items-center gap-4 bg-violet-500 text-white transition-colors"
               >
                 <LogOut size={20} className="rotate-180" />
                 Login
