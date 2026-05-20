@@ -32,7 +32,7 @@ services:
     env_file:
       - .env.production
     ports:
-      - "3001:3001"
+      - "23001:3001"
     # Apply DB migrations on every boot, then start the server. On the
     # fresh VPS database this creates the whole schema before main.js
     # starts listening.
@@ -61,7 +61,7 @@ services:
       api:
         condition: service_healthy
     ports:
-      - "3000:3000"
+      - "23000:3000"
 
   # ─── One-shot MinIO bucket provisioning (profile: setup) ─────────────────
   # Not started by a normal `up`. Run once on first deploy — idempotent.
