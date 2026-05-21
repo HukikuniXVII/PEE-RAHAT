@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TCAS Calculator — Data Browser</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --border: #e3e6eb;
+    --text: #1c1f24; --muted: #6b7280;
+    --accent: #b91c1c; --accent-soft: #fde8e8;
+    --chip: #eef2f7;
+    --ok: #047857; --warn: #b45309;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", "Sarabun",
+                    "Noto Sans Thai", system-ui, sans-serif;
+  }
+  .container { max-width: 1200px; margin: 0 auto; padding: 20px 16px 60px; }
+  header { margin-bottom: 14px; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  h1 { margin: 0; font-size: 20px; }
+  .meta { color: var(--muted); font-size: 12.5px; }
+  .meta a { color: var(--muted); }
+
+  /* tabs */
+  .tabs {
+    display: flex; gap: 4px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 14px;
+  }
+  .tab {
+    background: transparent; border: 0;
+    padding: 9px 14px;
+    font: inherit; cursor: pointer;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+  .tab .count { color: var(--muted); font-size: 11px; margin-left: 4px; font-weight: 400; }
+  .tab.active .count { color: var(--accent); }
+
+  /* controls */
+  .controls {
+    position: sticky; top: 0; z-index: 5; background: var(--bg);
+    padding: 8px 0 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .controls input[type="search"], .controls select {
+    padding: 8px 10px;
+    border: 1px solid var(--border); border-radius: 6px;
+    background: #fff; font: inherit;
+  }
+  .controls input[type="search"] { flex: 1; min-width: 220px; }
+  .controls select { min-width: 140px; }
+  .controls .count { color: var(--muted); font-size: 12.5px; margin-left: auto; }
+  .controls input[type="search"]:focus, .controls select:focus {
+    outline: 2px solid var(--accent); outline-offset: -1px;
+  }
+
+  /* lists */
+  .grid { display: grid; gap: 10px; margin-top: 14px; }
+  @media (min-width: 760px) { .grid { grid-template-columns: 1fr 1fr; } }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .faculty { color: var(--accent); font-size: 12px; font-weight: 600; }
+  .pname { font-weight: 600; margin: 3px 0 6px; }
+  .row { display: flex; flex-wrap: wrap; gap: 5px 8px; margin-bottom: 8px; }
+  .chip {
+    background: var(--chip); border-radius: 999px; padding: 2px 8px;
+    font-size: 11.5px; color: var(--muted);
+  }
+  .chip.min { background: var(--accent-soft); color: var(--accent); }
+  .chip.score { background: #eef9f1; color: var(--ok); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .src { font-size: 11.5px; margin-top: 6px; }
+  .src a { color: var(--muted); }
+
+  .empty { text-align: center; padding: 40px; color: var(--muted); }
+  .truncated { text-align: center; padding: 14px; color: var(--warn); font-size: 12.5px; }
+  .error {
+    background: #fef2f2; color: #991b1b; border: 1px solid #fecaca;
+    padding: 12px 14px; border-radius: 8px; margin-top: 14px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.5px; white-space: pre-wrap;
+  }
+
+  /* calendar */
+  .cal-round { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
+  .cal-round h3 { margin: 0 0 8px; font-size: 14px; color: var(--accent); }
+  .cal-event { display: grid; grid-template-columns: 110px 110px 1fr; gap: 8px; padding: 4px 0; font-size: 13px; border-bottom: 1px dashed var(--border); }
+  .cal-event:last-child { border-bottom: 0; }
+  .cal-event .et { color: var(--muted); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+
+  /* hidden helper */
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>TCAS Calculator — Data Browser</h1>
+    <div class="meta" id="hdr-meta">Loading…</div>
+  </header>
+
+  <div class="tabs" id="tabs"></div>
+
+  <section id="view-kkuQuota" class="view">
+    <div class="controls">
+      <input id="kq-q" type="search" placeholder="ค้นหาคณะ / สาขา / รหัส / รหัสวิชา">
+      <select id="kq-faculty"><option value="">ทุกคณะ</option></select>
+      <span class="count" id="kq-count"></span>
+    </div>
+    <div id="kq-list" class="grid"></div>
+  </section>
+
+  <section id="view-kkuStat" class="view hidden">
+    <div class="controls">
+      <input id="ks-q" type="search" placeholder="ค้นหาคณะ / สาขา / รหัส">
+      <select id="ks-faculty"><option value="">ทุกคณะ</option></select>
+      <select id="ks-sort">
+        <option value="default">เรียงตามต้นฉบับ</option>
+        <option value="min-desc">คะแนนต่ำสุด ↓</option>
+        <option value="min-asc">คะแนนต่ำสุด ↑</option>
+        <option value="mean-desc">คะแนนเฉลี่ย ↓</option>
+        <option value="max-desc">คะแนนสูงสุด ↓</option>
+      </select>
+      <span class="count" id="ks-count"></span>
+    </div>
+    <div id="ks-list" class="grid"></div>
+  </section>
+
+  <section id="view-tcasCalendar" class="view hidden">
+    <div id="cal-content"></div>
+  </section>
+
+  <section id="view-tcasQuota" class="view hidden">
+    <div class="controls">
+      <input id="tq-q" type="search" placeholder="ค้นหามหาวิทยาลัย / คณะ / สาขา / รหัส (พิมพ์อย่างน้อย 2 ตัวอักษร)">
+      <select id="tq-university"><option value="">ทุกมหาวิทยาลัย</option></select>
+      <span class="count" id="tq-count"></span>
+    </div>
+    <div id="tq-list" class="grid"></div>
+  </section>
+
+  <section id="view-tcasStat" class="view hidden">
+    <div class="controls">
+      <input id="ts-q" type="search" placeholder="ค้นหามหาวิทยาลัย / คณะ / สาขา / รหัส">
+      <select id="ts-university"><option value="">ทุกมหาวิทยาลัย</option></select>
+      <select id="ts-sort">
+        <option value="default">เรียงตามต้นฉบับ</option>
+        <option value="min-desc">คะแนนต่ำสุด ↓</option>
+        <option value="min-asc">คะแนนต่ำสุด ↑</option>
+        <option value="max-desc">คะแนนสูงสุด ↓</option>
+      </select>
+      <span class="count" id="ts-count"></span>
+    </div>
+    <div id="ts-list" class="grid"></div>
+  </section>
+
+  <div id="error" class="error hidden"></div>
+</div>
+
+<script>
+const FILES = [
+  { key: "kkuQuota",     path: "data/kku-quota-69.json",     label: "KKU Quota R2" },
+  { key: "kkuStat",      path: "data/kku-stat-68.json",      label: "KKU Stat" },
+  { key: "tcasCalendar", path: "data/tcas-calendar-69.json", label: "Calendar" },
+  { key: "tcasQuota",    path: "data/tcas-quota-69.json",    label: "TCAS Quota R3" },
+  { key: "tcasStat",     path: "data/tcas-stat-68.json",     label: "TCAS Stat" },
+];
+const RENDER_CAP = 500;   // never DOM-render more than this at once
+
+const $ = id => document.getElementById(id);
+const data = {};
+
+const escape = s => String(s ?? "").replace(/[&<>"]/g,
+  c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+const tnum = v => v == null ? "—" : (typeof v === "number" ? v.toFixed(2).replace(/\.?0+$/, "") : v);
+
+// ───────── tabs ─────────
+function buildTabs(counts) {
+  $("tabs").innerHTML = FILES.map((f, i) =>
+    `<button class="tab ${i===0?"active":""}" data-key="${f.key}">${f.label}<span class="count">${counts[f.key] ?? "?"}</span></button>`
+  ).join("");
+  for (const btn of document.querySelectorAll(".tab")) {
+    btn.onclick = () => {
+      document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t === btn));
+      document.querySelectorAll(".view").forEach(v => v.classList.add("hidden"));
+      $("view-" + btn.dataset.key).classList.remove("hidden");
+    };
+  }
+}
+
+// ───────── KKU Quota ─────────
+function kqCard(p) {
+  const weights = (p.weights || []).map(w => {
+    const min = w.min_subject_score != null ? w.min_subject_score : "";
+    return `<tr><td>${escape(w.exam_code)}</td>
+            <td>${escape(w.raw_subject_name || "")}</td>
+            <td class="num">${w.weight_percent}%</td>
+            <td class="num">${escape(String(min))}</td></tr>`;
+  }).join("");
+  const sum = (p.weights || []).reduce((s, w) => s + (+w.weight_percent || 0), 0);
+  return `<div class="card">
+    <div class="faculty">${escape(p.faculty)}</div>
+    <div class="pname">${escape(p.program_name || "(ไม่ระบุชื่อ)")}</div>
+    <div class="row">
+      <span class="chip">#${p.id}</span>
+      <span class="chip min">ขั้นต่ำรวม ${p.min_total_percent}%</span>
+      <span class="chip">น้ำหนักรวม ${sum}%</span>
+      <span class="chip">${(p.weights||[]).length} วิชา</span>
+    </div>
+    <table><thead><tr><th>รหัส</th><th>วิชา</th><th class="num">น้ำหนัก</th><th class="num">ขั้นต่ำ</th></tr></thead>
+    <tbody>${weights}</tbody></table>
+    <div class="src"><a href="${escape(p.source_url)}" target="_blank" rel="noopener">source ↗</a></div>
+  </div>`;
+}
+
+function setupKkuQuota(d) {
+  const programs = d.programs || [];
+  const facSet = new Set(programs.map(p => p.faculty).filter(Boolean));
+  const sel = $("kq-faculty");
+  for (const f of [...facSet].sort((a,b)=>a.localeCompare(b,"th"))) {
+    sel.insertAdjacentHTML("beforeend", `<option value="${escape(f)}">${escape(f)}</option>`);
+  }
+  const render = () => {
+    const q = $("kq-q").value.trim().toLowerCase();
+    const fac = sel.value;
+    const out = programs.filter(p => {
+      if (fac && p.faculty !== fac) return false;
+      if (!q) return true;
+      return (p.faculty || "").toLowerCase().includes(q)
+          || (p.program_name || "").toLowerCase().includes(q)
+          || String(p.id).includes(q)
+          || (p.weights || []).some(w =>
+              w.exam_code.toLowerCase().includes(q) ||
+              (w.raw_subject_name || "").toLowerCase().includes(q) ||
+              String(w.raw_subject_code).includes(q));
+    });
+    $("kq-count").textContent = `${out.length} / ${programs.length} สาขา`;
+    $("kq-list").innerHTML = out.map(kqCard).join("") || `<div class="empty">ไม่พบ</div>`;
+  };
+  $("kq-q").addEventListener("input", debounce(render, 120));
+  sel.addEventListener("change", render);
+  render();
+}
+
+// ───────── KKU Stat ─────────
+function ksCard(r) {
+  return `<div class="card">
+    <div class="faculty">${escape(r.faculty)}</div>
+    <div class="pname">${escape(r.program_name)}</div>
+    <div class="row">
+      <span class="chip">#${escape(r.external_id)}</span>
+      <span class="chip score">ต่ำสุด ${tnum(r.min_score)}</span>
+      <span class="chip">เฉลี่ย ${tnum(r.mean_score)}</span>
+      <span class="chip">สูงสุด ${tnum(r.max_score)}</span>
+    </div>
+    <div class="src">ปี ${r.year} · รอบ ${escape(r.round)} · ที่มา ${escape(r.source)}</div>
+  </div>`;
+}
+
+function setupKkuStat(d) {
+  const recs = d.records || [];
+  const facSet = new Set(recs.map(r => r.faculty).filter(Boolean));
+  const sel = $("ks-faculty");
+  for (const f of [...facSet].sort((a,b)=>a.localeCompare(b,"th"))) {
+    sel.insertAdjacentHTML("beforeend", `<option value="${escape(f)}">${escape(f)}</option>`);
+  }
+  const sort = $("ks-sort");
+  const render = () => {
+    const q = $("ks-q").value.trim().toLowerCase();
+    const fac = sel.value;
+    let out = recs.filter(r => {
+      if (fac && r.faculty !== fac) return false;
+      if (!q) return true;
+      return (r.faculty || "").toLowerCase().includes(q)
+          || (r.program_name || "").toLowerCase().includes(q)
+          || String(r.external_id).includes(q);
+    });
+    const s = sort.value;
+    const key = { "min-desc": r => -r.min_score, "min-asc": r => r.min_score,
+                  "mean-desc": r => -(r.mean_score ?? -1), "max-desc": r => -(r.max_score ?? -1) }[s];
+    if (key) out = [...out].sort((a, b) => (key(a) ?? Infinity) - (key(b) ?? Infinity));
+    $("ks-count").textContent = `${out.length} / ${recs.length} record`;
+    $("ks-list").innerHTML = out.map(ksCard).join("") || `<div class="empty">ไม่พบ</div>`;
+  };
+  $("ks-q").addEventListener("input", debounce(render, 120));
+  sel.addEventListener("change", render);
+  sort.addEventListener("change", render);
+  render();
+}
+
+// ───────── Calendar ─────────
+function setupCalendar(d) {
+  const rounds = d.rounds || [];
+  const exams = d.exam_events || [];
+  const eventRow = (e, codeLabel) => `
+    <div class="cal-event">
+      <div class="et">${escape(e.event_type)}</div>
+      <div>${escape(e.date_start ?? "—")}${e.date_end && e.date_end !== e.date_start ? " → " + escape(e.date_end) : ""}</div>
+      <div>${escape((codeLabel ? codeLabel + " — " : "") + (e.title_th || ""))}${e.note ? ` <span class="chip">${escape(e.note)}</span>` : ""}</div>
+    </div>`;
+  let html = "";
+  for (const r of rounds) {
+    html += `<div class="cal-round">
+      <h3>${escape(r.round_name_th)} <span class="chip">${escape(r.round_code)}</span></h3>
+      ${r.events.map(e => eventRow(e)).join("")}
+    </div>`;
+  }
+  if (exams.length) {
+    html += `<div class="cal-round">
+      <h3>การสอบ (Exam events)</h3>
+      ${exams.map(e => eventRow(e, e.exam_code)).join("")}
+    </div>`;
+  }
+  html += `<div class="meta" style="margin-top:10px;">ปี ${d.academic_year} (TCAS${d.year}) · source <a href="${escape(d.source)}" target="_blank" rel="noopener">${escape(d.source)}</a></div>`;
+  if (d.note) html += `<div class="meta">${escape(d.note)}</div>`;
+  $("cal-content").innerHTML = html;
+}
+
+// ───────── TCAS Quota R3 ─────────
+function tqCard(p) {
+  const weights = (p.weights || []).map(w =>
+    `<tr><td>${escape(w.exam_code)}</td><td>${escape(w.raw_subject_code)}</td><td class="num">${w.weight_percent}</td></tr>`
+  ).join("");
+  const sum = (p.weights || []).reduce((s, w) => s + (+w.weight_percent || 0), 0);
+  return `<div class="card">
+    <div class="faculty">${escape(p.university)} · ${escape(p.faculty)}</div>
+    <div class="pname">${escape(p.program_name)}</div>
+    <div class="row">
+      <span class="chip">#${escape(p.external_id)}</span>
+      <span class="chip">${escape(p.project_id || "—")}</span>
+      ${p.min_gpax ? `<span class="chip min">GPAX ≥ ${p.min_gpax}</span>` : ""}
+      ${p.receive_student_number ? `<span class="chip">รับ ${p.receive_student_number}</span>` : ""}
+      <span class="chip">น้ำหนักรวม ${sum}</span>
+      <span class="chip">${(p.weights||[]).length} วิชา</span>
+    </div>
+    ${p.project_name_th ? `<div class="meta" style="margin-bottom:6px;">โครงการ: ${escape(p.project_name_th)}</div>` : ""}
+    <table><thead><tr><th>exam_code</th><th>raw</th><th class="num">weight</th></tr></thead>
+    <tbody>${weights || `<tr><td colspan="3" class="empty" style="padding:8px;">ไม่มี weights</td></tr>`}</tbody></table>
+    <div class="src"><a href="${escape(p.source_url)}" target="_blank" rel="noopener">source ↗</a></div>
+  </div>`;
+}
+
+function setupTcasQuota(d) {
+  const programs = d.programs || [];
+  const uniSet = new Set(programs.map(p => p.university).filter(Boolean));
+  const sel = $("tq-university");
+  for (const u of [...uniSet].sort((a,b)=>a.localeCompare(b,"th"))) {
+    sel.insertAdjacentHTML("beforeend", `<option value="${escape(u)}">${escape(u)}</option>`);
+  }
+  const render = () => {
+    const q = $("tq-q").value.trim().toLowerCase();
+    const uni = sel.value;
+    let out = programs.filter(p => {
+      if (uni && p.university !== uni) return false;
+      if (!q) return !uni ? false : true;   // require either filter or query to show anything (perf)
+      return (p.university || "").toLowerCase().includes(q)
+          || (p.faculty || "").toLowerCase().includes(q)
+          || (p.program_name || "").toLowerCase().includes(q)
+          || (p.project_name_th || "").toLowerCase().includes(q)
+          || String(p.external_id).includes(q);
+    });
+    const total = out.length;
+    let truncated = false;
+    if (out.length > RENDER_CAP) { out = out.slice(0, RENDER_CAP); truncated = true; }
+    $("tq-count").textContent = (!q && !uni)
+      ? `${programs.length} record (กรุณาค้นหา หรือเลือกมหาวิทยาลัย)`
+      : `${total} / ${programs.length} record${truncated ? ` · แสดง ${RENDER_CAP}` : ""}`;
+    $("tq-list").innerHTML = out.map(tqCard).join("") +
+      (truncated ? `<div class="truncated">⚠️ ผลลัพธ์ ${total} รายการ — แสดงเพียง ${RENDER_CAP} แรก กรุณาค้นหาให้แคบลง</div>` : "")
+      || `<div class="empty">${!q && !uni ? "ใช้ search box หรือเลือกมหาวิทยาลัยเพื่อแสดงข้อมูล" : "ไม่พบ"}</div>`;
+  };
+  $("tq-q").addEventListener("input", debounce(render, 200));
+  sel.addEventListener("change", render);
+  render();
+}
+
+// ───────── TCAS Stat ─────────
+function tsCard(r) {
+  const weights = (r.weights || []).map(w =>
+    `<span class="chip">${escape(w.exam_code)} ${w.weight_percent}</span>`
+  ).join(" ");
+  return `<div class="card">
+    <div class="faculty">${escape(r.university)} · ${escape(r.faculty)}</div>
+    <div class="pname">${escape(r.program_name)}</div>
+    <div class="row">
+      <span class="chip">#${escape(r.external_id)}</span>
+      <span class="chip score">ต่ำสุด ${tnum(r.min_score)}</span>
+      <span class="chip">สูงสุด ${tnum(r.max_score)}</span>
+      ${r.est_min_score_mean != null ? `<span class="chip">est μ ${tnum(r.est_min_score_mean)}</span>` : ""}
+    </div>
+    ${weights ? `<div class="row">${weights}</div>` : ""}
+    <div class="src">ปี ${r.year} · รอบ ${escape(r.round)} · ${escape(r.source)}</div>
+  </div>`;
+}
+
+function setupTcasStat(d) {
+  const recs = d.records || [];
+  const uniSet = new Set(recs.map(r => r.university).filter(Boolean));
+  const sel = $("ts-university");
+  for (const u of [...uniSet].sort((a,b)=>a.localeCompare(b,"th"))) {
+    sel.insertAdjacentHTML("beforeend", `<option value="${escape(u)}">${escape(u)}</option>`);
+  }
+  const sort = $("ts-sort");
+  const render = () => {
+    const q = $("ts-q").value.trim().toLowerCase();
+    const uni = sel.value;
+    let out = recs.filter(r => {
+      if (uni && r.university !== uni) return false;
+      if (!q) return !uni ? false : true;
+      return (r.university || "").toLowerCase().includes(q)
+          || (r.faculty || "").toLowerCase().includes(q)
+          || (r.program_name || "").toLowerCase().includes(q)
+          || String(r.external_id).includes(q);
+    });
+    const s = sort.value;
+    const key = { "min-desc": r => -(r.min_score ?? -1), "min-asc": r => r.min_score ?? Infinity,
+                  "max-desc": r => -(r.max_score ?? -1) }[s];
+    if (key) out = [...out].sort((a, b) => (key(a) ?? Infinity) - (key(b) ?? Infinity));
+    const total = out.length;
+    let truncated = false;
+    if (out.length > RENDER_CAP) { out = out.slice(0, RENDER_CAP); truncated = true; }
+    $("ts-count").textContent = (!q && !uni)
+      ? `${recs.length} record (กรุณาค้นหา หรือเลือกมหาวิทยาลัย)`
+      : `${total} / ${recs.length} record${truncated ? ` · แสดง ${RENDER_CAP}` : ""}`;
+    $("ts-list").innerHTML = out.map(tsCard).join("") +
+      (truncated ? `<div class="truncated">⚠️ ผลลัพธ์ ${total} รายการ — แสดงเพียง ${RENDER_CAP} แรก</div>` : "")
+      || `<div class="empty">${!q && !uni ? "ใช้ search box หรือเลือกมหาวิทยาลัยเพื่อแสดงข้อมูล" : "ไม่พบ"}</div>`;
+  };
+  $("ts-q").addEventListener("input", debounce(render, 200));
+  sel.addEventListener("change", render);
+  sort.addEventListener("change", render);
+  render();
+}
+
+// ───────── boot ─────────
+async function load(spec) {
+  const r = await fetch(spec.path + "?ts=" + Date.now());
+  if (!r.ok) throw new Error(`${spec.path}: HTTP ${r.status}`);
+  return await r.json();
+}
+
+(async function() {
+  try {
+    const loaded = await Promise.all(FILES.map(f => load(f).then(d => [f.key, d])));
+    for (const [k, d] of loaded) data[k] = d;
+
+    const counts = {
+      kkuQuota: (data.kkuQuota.programs || []).length,
+      kkuStat: (data.kkuStat.records || []).length,
+      tcasCalendar: (data.tcasCalendar.rounds || []).length + " rounds",
+      tcasQuota: (data.tcasQuota.programs || []).length,
+      tcasStat: (data.tcasStat.records || []).length,
+    };
+    buildTabs(counts);
+
+    setupKkuQuota(data.kkuQuota);
+    setupKkuStat(data.kkuStat);
+    setupCalendar(data.tcasCalendar);
+    setupTcasQuota(data.tcasQuota);
+    setupTcasStat(data.tcasStat);
+
+    const meta = data.kkuQuota.metadata || {};
+    $("hdr-meta").innerHTML =
+      `KKU ${counts.kkuQuota} · KKU stat ${counts.kkuStat} · TCAS R3 ${counts.tcasQuota} · `
+      + `TCAS stat ${counts.tcasStat} · `
+      + `<a href="./">validator</a>`;
+  } catch (e) {
+    $("error").textContent = e.message;
+    $("error").classList.remove("hidden");
+    $("hdr-meta").textContent = "—";
+  }
+})();
+</script>
+</body>
+</html>

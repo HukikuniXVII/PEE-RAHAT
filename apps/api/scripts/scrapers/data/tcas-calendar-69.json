@@ -1,0 +1,120 @@
+{
+  "year": 69,
+  "academic_year": 2569,
+  "scraped_at": "2026-05-21T00:00:00Z",
+  "source": "https://www.mytcas.com/news/67/",
+  "note": "Manually entered from TO-DO Section 3 template. Verify against the official mytcas.com calendar before importing. KKU-specific Round 2 dates from admissions.kku.ac.th.",
+  "rounds": [
+    {
+      "round_code": "R1_PORTFOLIO",
+      "round_name_th": "รอบที่ 1 Portfolio",
+      "events": [
+        {
+          "event_type": "register",
+          "title_th": "เปิดรับสมัคร",
+          "date_start": null,
+          "date_end": null,
+          "note": "มหาวิทยาลัยกำหนด"
+        },
+        {
+          "event_type": "confirm",
+          "title_th": "ยืนยันสิทธิ์",
+          "date_start": "2026-03-06",
+          "date_end": "2026-03-06"
+        }
+      ]
+    },
+    {
+      "round_code": "R2_QUOTA",
+      "round_name_th": "รอบที่ 2 โควตา",
+      "events": [
+        {
+          "event_type": "register",
+          "title_th": "รับสมัคร (KKU)",
+          "date_start": "2026-02-25",
+          "date_end": "2026-03-12",
+          "note": "ของ มข. — มหาวิทยาลัยอื่นอาจต่างกัน"
+        },
+        {
+          "event_type": "result",
+          "title_th": "ประกาศผลครั้งที่ 1 (KKU)",
+          "date_start": "2026-03-24",
+          "date_end": "2026-03-24"
+        },
+        {
+          "event_type": "confirm",
+          "title_th": "ยืนยันสิทธิ์ Clearing House",
+          "date_start": "2026-05-02",
+          "date_end": "2026-05-04"
+        }
+      ]
+    },
+    {
+      "round_code": "R3_ADMISSION",
+      "round_name_th": "รอบที่ 3 Admission",
+      "events": [
+        {
+          "event_type": "register",
+          "title_th": "รับสมัคร",
+          "date_start": "2026-05-06",
+          "date_end": "2026-05-12"
+        },
+        {
+          "event_type": "confirm",
+          "title_th": "ยืนยันสิทธิ์",
+          "date_start": "2026-05-20",
+          "date_end": "2026-05-21"
+        }
+      ]
+    },
+    {
+      "round_code": "R4_DIRECT",
+      "round_name_th": "รอบที่ 4 รับตรงอิสระ",
+      "events": [
+        {
+          "event_type": "register",
+          "title_th": "รับสมัคร",
+          "date_start": "2026-05-28",
+          "date_end": "2026-06-14"
+        },
+        {
+          "event_type": "confirm",
+          "title_th": "ยืนยันสิทธิ์",
+          "date_start": null,
+          "date_end": null,
+          "note": "มหาวิทยาลัยกำหนด"
+        }
+      ]
+    }
+  ],
+  "exam_events": [
+    {
+      "exam_code": "TGAT_TPAT",
+      "event_type": "register",
+      "title_th": "รับสมัครสอบ TGAT/TPAT",
+      "date_start": "2025-10-30",
+      "date_end": "2025-11-06"
+    },
+    {
+      "exam_code": "TGAT_TPAT",
+      "event_type": "exam",
+      "title_th": "สอบ TGAT/TPAT",
+      "date_start": "2025-12-13",
+      "date_end": "2025-12-15"
+    },
+    {
+      "exam_code": "A_LEVEL",
+      "event_type": "exam",
+      "title_th": "สอบ A-Level",
+      "date_start": "2026-03-07",
+      "date_end": "2026-03-10"
+    },
+    {
+      "exam_code": "NETSAT",
+      "event_type": "exam",
+      "title_th": "สอบ NETSAT",
+      "date_start": "2025-12-20",
+      "date_end": "2025-12-21"
+    }
+  ]
+}

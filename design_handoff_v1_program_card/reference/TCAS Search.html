@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>TCAS Search · 4 Bold Variations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  html, body { background: #f0eee9; }
+  body { font-family: 'Plus Jakarta Sans', 'IBM Plex Sans Thai', system-ui, sans-serif; margin: 0; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- Shared palette, mock data, icons, helpers -->
+<script type="text/babel" data-presets="env,react" src="tcas-search-shared.jsx"></script>
+<!-- 4 bold variations, each exposes a global component -->
+<script type="text/babel" data-presets="env,react" src="tcas-search-v1.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="tcas-search-v2.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="tcas-search-v3.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="tcas-search-v4.jsx"></script>
+<!-- Wireframe direction: Home + Faculty Detail -->
+<script type="text/babel" data-presets="env,react" src="tcas-search-wf.jsx"></script>
+<!-- Design canvas wrapper -->
+<script type="text/babel" data-presets="env,react" src="design-canvas.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+const { useState, useEffect } = React;
+
+// -------- Tweaks panel --------
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "showPostit": true
+}/*EDITMODE-END*/;
+
+function useTweaks() {
+  const [t, setT] = useState(TWEAK_DEFAULTS);
+  const setTweak = (k, v) => {
+    const next = typeof k === 'object' ? { ...t, ...k } : { ...t, [k]: v };
+    setT(next);
+    try { window.parent.postMessage({ type:'__edit_mode_set_keys', edits: next }, '*'); } catch {}
+  };
+  return [t, setTweak];
+}
+
+function TweaksPanel({ t, setT, onClose }) {
+  return (
+    <div className="fixed bottom-6 right-6 z-50 w-[280px] bg-white rounded-2xl shadow-xl p-5"
+      style={{border:'1px solid rgba(85,65,139,0.18)', fontFamily:'Plus Jakarta Sans, sans-serif'}}>
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-[14px] font-bold" style={{color:'#3F2F6B'}}>Tweaks</span>
+        <button className="text-[22px] leading-none" style={{color:'#8C84A6'}} onClick={onClose}>×</button>
+      </div>
+      <div>
+        <p className="text-[10.5px] uppercase tracking-wider font-semibold mb-2" style={{color:'#8C84A6'}}>Canvas</p>
+        <label className="flex items-center justify-between text-[12.5px]" style={{color:'#2A2240'}}>
+          แสดง Post-it notes บนผืน Canvas
+          <input type="checkbox" checked={t.showPostit} onChange={e => setT('showPostit', e.target.checked)}/>
+        </label>
+      </div>
+      <p className="text-[10.5px] mt-4 leading-relaxed" style={{color:'#8C84A6'}}>
+        ลากการ์ดได้ · ดับเบิลคลิกชื่อเพื่อแก้ไข · กดที่การ์ดเพื่อขยายเต็มจอ (Esc เพื่อปิด)
+      </p>
+    </div>
+  );
+}
+
+// -------- App --------
+function App() {
+  const [t, setT] = useTweaks();
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const onMsg = (e) => {
+      if (!e.data || !e.data.type) return;
+      if (e.data.type === '__activate_edit_mode') setOpen(true);
+      if (e.data.type === '__deactivate_edit_mode') setOpen(false);
+    };
+    window.addEventListener('message', onMsg);
+    try { window.parent.postMessage({ type:'__edit_mode_available' }, '*'); } catch {}
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  // Each variation needs a stable size that fits its layout
+  const W = 1320, H = 880;
+
+  return (
+    <>
+      <DesignCanvas>
+        {/* === Direction A : 4 Bold Variations === */}
+        <DCSection id="search" title="Direction A · 4 Bold Variations"
+                   subtitle="Tab NETSAT | TCAS · เปรียบเทียบหลักสูตรได้ทันที · ปรับ Tweaks ที่มุมขวาล่าง">
+          <DCArtboard id="v1" label="V1 · Compare Dock" width={W} height={H}><SearchV1Pin/></DCArtboard>
+          <DCArtboard id="v2" label="V2 · Live Zone Map" width={W} height={H}><SearchV2Zone/></DCArtboard>
+          <DCArtboard id="v3" label="V3 · Constellation" width={W} height={H}><SearchV3Map/></DCArtboard>
+          <DCArtboard id="v4" label="V4 · Focus Stack" width={W} height={H}><SearchV4Stack/></DCArtboard>
+
+          {t.showPostit && (
+            <>
+              <DCPostIt x={20} y={-90} w={220}>
+                <b>V1 · Compare Dock</b><br/>
+                สมัยใหม่แต่คุ้นมือ · grid 3 ใบ + dock เปรียบเทียบที่ขอบล่าง · กดขยายเป็น overlay เต็มจอ
+              </DCPostIt>
+              <DCPostIt x={W + 80} y={-90} w={220} color="#E5E6F8">
+                <b>V2 · Live Zone Map</b><br/>
+                ใส่คะแนนแล้วเห็นเลย — หลักสูตรย้าย column "เสี่ยง / ลุ้น / น่าจะติด / มั่นใจ" สด ๆ
+              </DCPostIt>
+              <DCPostIt x={W*2 + 140} y={-90} w={220} color="#F0E5E5">
+                <b>V3 · Constellation</b><br/>
+                แผนที่ดวงดาว · ขนาดดาว = ความนิยม · พิกัด = คะแนน vs ที่นั่ง · คลิกดาวเพื่อดูรายละเอียด
+              </DCPostIt>
+              <DCPostIt x={W*3 + 200} y={-90} w={220} color="#FBEED3">
+                <b>V4 · Focus Stack</b><br/>
+                ดูทีละใบแบบ Pinterest · เก็บไว้ในรายการโปรด · มี match meter บอกโอกาสติด
+              </DCPostIt>
+            </>
+          )}
+        </DCSection>
+
+        {/* === Direction B : Wireframe-aligned (Home + Detail) === */}
+        <DCSection id="wireframe" title="Direction B · Wireframe-aligned (Home + Detail)"
+                   subtitle="2 หน้า ตามผังงาน· Home มี faculty grid + ปฏิทิน · Detail มี score input + zone advice + similar + pie">
+          <DCArtboard id="home" label="B1 · Home (เลือกคณะ/สาขา)" width={W} height={1080}>
+            <WireframeHomePage/>
+          </DCArtboard>
+          <DCArtboard id="detail" label="B2 · Faculty Detail (หลังกดเข้า)" width={W} height={1080}>
+            <WireframeDetailPage/>
+          </DCArtboard>
+
+          {t.showPostit && (
+            <>
+              <DCPostIt x={20} y={-90} w={220} color="#E5DBE6">
+                <b>B1 · Home</b><br/>
+                Filter | Faculty grid 5×2 (1 ใบไฮไลต์มี preview คะแนน) | NETSAT 2569 ปฏิทิน· กดที่ การ์ดไปหน้า Detail
+              </DCPostIt>
+              <DCPostIt x={W + 80} y={-90} w={220} color="#FBEED3">
+                <b>B2 · Faculty Detail</b><br/>
+                สิ่งที่ไฮไลต์ตามแบบร่าง: ไพจาร์ต zone advice พื้นเข้ม + รีวิวสาขาใกล้เคียง + pie weight + เลือกปีย้อนหลังได้ (2567 / 2568)
+              </DCPostIt>
+            </>
+          )}
+        </DCSection>
+      </DesignCanvas>
+
+      {open && <TweaksPanel t={t} setT={setT} onClose={() => {
+        setOpen(false);
+        try { window.parent.postMessage({ type:'__edit_mode_dismissed' }, '*'); } catch {}
+      }}/>}
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

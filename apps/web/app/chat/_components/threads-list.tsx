@@ -5,7 +5,6 @@ import { cn } from "@peerahat/ui";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, MessagesSquare, Search, ShieldCheck } from "lucide-react";
 import type { Route } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -93,14 +92,6 @@ export function ThreadsList({ initialThreads }: Props) {
 
         {/* Right — empty state with brand CTA */}
         <div className="bg-white p-10 rounded-[32px] border border-violet-100 shadow-[0_8px_24px_-16px_rgba(85,65,139,0.25)] text-center flex flex-col items-center gap-5 min-h-[420px] justify-center">
-          <Image
-            src="/mascot.png"
-            alt=""
-            width={220}
-            height={220}
-            className="w-40 h-40 sm:w-44 sm:h-44 object-contain"
-            priority={false}
-          />
           <div className="space-y-2">
             <h3 className="thai text-xl font-bold text-grape-deep">
               ยังไม่มีบทสนทนา

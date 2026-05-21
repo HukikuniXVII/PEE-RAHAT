@@ -5,6 +5,7 @@ import {
   BadgeCheck,
   Banknote,
   GraduationCap,
+  Palette,
   Receipt,
   ShieldAlert,
 } from "lucide-react";
@@ -12,12 +13,20 @@ import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+// /admin/design is a dev-only UI preview surface. The page itself returns
+// 404 in production (NODE_ENV check), but we also hide the sidebar entry
+// so it doesn't show up at all on prod builds.
+const IS_DEV = process.env.NODE_ENV !== "production";
+
 const ADMIN_ITEMS = [
   { href: "/admin/kyc", label: "ตรวจสอบ KYC", icon: BadgeCheck },
   { href: "/admin/payments", label: "ตรวจสลิป", icon: Receipt },
   { href: "/admin/payouts", label: "Payouts", icon: Banknote },
   { href: "/admin/reports", label: "Reports Queue", icon: ShieldAlert },
   { href: "/admin/tcas/import/criteria", label: "นำเข้า TCAS (AI)", icon: GraduationCap },
+  ...(IS_DEV
+    ? [{ href: "/admin/design", label: "UI Preview (dev)", icon: Palette }]
+    : []),
 ] as const;
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
