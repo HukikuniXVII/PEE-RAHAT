@@ -358,7 +358,7 @@ export class AdminService {
       });
       if (!profile) {
         throw new BadRequestException(
-          "ผู้ใช้ยังไม่ได้กรอกข้อมูลพี่ติว — ขอให้ทำขั้นตอน Onboarding ก่อนจึงอนุมัติได้",
+          "ผู้ใช้ยังไม่ได้กรอกข้อมูลพี่รหัส — ขอให้ทำขั้นตอน Onboarding ก่อนจึงอนุมัติได้",
         );
       }
       // FR-TH-02: mirror passbook + bank info from the KYC submission to

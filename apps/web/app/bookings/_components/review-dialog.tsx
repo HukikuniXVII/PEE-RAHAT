@@ -68,7 +68,7 @@ export function ReviewDialog({
           <div className="space-y-2">
             <DialogTitle>รีวิวคลาสนี้</DialogTitle>
             <DialogDescription className="text-xs">
-              ความคิดเห็นของคุณช่วยให้น้องๆ เลือกพี่ติวที่ใช่ได้ง่ายขึ้น
+              ความคิดเห็นของคุณช่วยให้น้องๆ เลือกพี่รหัสที่ใช่ได้ง่ายขึ้น
             </DialogDescription>
           </div>
 

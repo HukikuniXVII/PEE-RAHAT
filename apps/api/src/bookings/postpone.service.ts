@@ -99,7 +99,7 @@ export class PostponeService implements OnModuleInit {
       return { request, threadId: thread.id };
     });
 
-    const initiatorLabel = initiatorRole === "student" ? "น้อง" : "พี่ติว";
+    const initiatorLabel = initiatorRole === "student" ? "น้อง" : "พี่รหัส";
     const noticeChip = wasShortNotice
       ? " (ขอเลื่อนกระชั้นชิด <12 ชม.)"
       : "";
@@ -169,7 +169,7 @@ export class PostponeService implements OnModuleInit {
     });
 
     const thread = await this.chat.ensureThreadForBooking(booking.id);
-    const role = request.initiatorRole === "student" ? "น้อง" : "พี่ติว";
+    const role = request.initiatorRole === "student" ? "น้อง" : "พี่รหัส";
     await this.chat.postSystemMessage(
       thread.id,
       `${role}เสนอเวลาใหม่: ${proposedAt.toLocaleString("th-TH")} (${input.durationMinutes} นาที)`,
@@ -476,11 +476,11 @@ export class PostponeService implements OnModuleInit {
   ): string {
     switch (outcome) {
       case "unresponsive":
-        return `ปิดดีล — พี่ติวไม่ตอบกลับใน 2 ชม. คืนเงินน้อง 100% (฿${originalAmount.toLocaleString()})`;
+        return `ปิดดีล — พี่รหัสไม่ตอบกลับใน 2 ชม. คืนเงินน้อง 100% (฿${originalAmount.toLocaleString()})`;
       case "tutor_initiated_no_agreement":
-        return `ปิดดีล — น้องไม่ตกลงเวลาใหม่ที่พี่ติวเสนอ คืนเงินน้อง 100% (฿${originalAmount.toLocaleString()})`;
+        return `ปิดดีล — น้องไม่ตกลงเวลาใหม่ที่พี่รหัสเสนอ คืนเงินน้อง 100% (฿${originalAmount.toLocaleString()})`;
       case "no_agreement":
-        return `ปิดดีล — ไม่ตกลงเวลาใหม่ คืนเงินน้อง ฿${split.studentRefundThb.toLocaleString()} • ค่าตอบแทนพี่ติว ฿${split.tutorThb.toLocaleString()} • ค่าธรรมเนียม ฿${split.platformThb.toLocaleString()}`;
+        return `ปิดดีล — ไม่ตกลงเวลาใหม่ คืนเงินน้อง ฿${split.studentRefundThb.toLocaleString()} • ค่าตอบแทนพี่รหัส ฿${split.tutorThb.toLocaleString()} • ค่าธรรมเนียม ฿${split.platformThb.toLocaleString()}`;
     }
   }
 

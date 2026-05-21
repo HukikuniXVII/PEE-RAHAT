@@ -58,8 +58,8 @@ export function ReportDialog({ bookingId, onClose, onReported }: Props) {
               className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 outline-none"
               {...form.register("reason")}
             >
-              <option value="noShow">พี่ติวไม่มาเรียน</option>
-              <option value="lateArrival">พี่ติวมาสายเกิน 15 นาที</option>
+              <option value="noShow">พี่รหัสไม่มาเรียน</option>
+              <option value="lateArrival">พี่รหัสมาสายเกิน 15 นาที</option>
               <option value="qualityIssue">คุณภาพการสอนไม่ตรงตามที่ระบุ</option>
               <option value="conductIssue">พฤติกรรมไม่เหมาะสม</option>
               <option value="other">อื่นๆ</option>

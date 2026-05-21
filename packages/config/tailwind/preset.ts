@@ -28,8 +28,15 @@ const preset: Partial<Config> = {
           700: "#4338ca",
           900: "#312e81",
         },
-        // ---- design-system.md §1 — canonical Pee Rahat palette ----
-        // Primary brand violet (CTA default on light surfaces).
+        // ====================================================================
+        // Canonical Pee Rahat palette
+        // The landing page and the auth pages are the visual reference for
+        // the whole app. All tokens below are first-class — no "legacy"
+        // section. Prefer these names in every new component.
+        // ====================================================================
+
+        // Primary brand violet. violet-500 is the canonical name for #55418B
+        // (formerly also known as `dusty-grape`).
         violet: {
           50: "#C6BFD9",
           100: "#ADA1CE",
@@ -40,6 +47,28 @@ const preset: Partial<Config> = {
           700: "#3B2D61",
           800: "#2F244C",
         },
+        // Extended grape — headline + softest tint that sit outside the
+        // linear violet scale. Used on the landing hero and section cards.
+        "grape-deep": "#3F2F6B",
+        "grape-soft": "#EDE8F7",
+
+        // Secondary blue-violet accent. Chips, sub-labels, soft section bg.
+        "soft-periwinkle": "#7D80DA",
+        "lavender-blush": "#E5DBE6",
+
+        // Warm decorative neutral. Body-text contrast is insufficient (AA);
+        // reserve for decoration, dividers, and microcopy borders.
+        "rosy-taupe": "#BBA0A0",
+        "taupe-deep": "#8E7373",
+        "taupe-soft": "#F0E5E5",
+
+        // Warm "ink" text scale — softer than `neutral`, tuned for warm
+        // cream/lavender backgrounds. Use on any surface backed by
+        // `.landing-page` or <PageBackground />.
+        ink: "#2A2240",
+        "ink-soft": "#5B5176",
+        "ink-mute": "#8C84A6",
+
         // Butter yellow — hover state on primary CTAs, premium chips.
         accent: {
           50: "#F2EAD5",
@@ -49,7 +78,7 @@ const preset: Partial<Config> = {
           700: "#E9B21D",
           800: "#B68A12",
         },
-        // Neutrals — structure + text.
+        // Cool neutral scale — structure + text on white surfaces.
         neutral: {
           50: "#F5F5F4",
           100: "#EDEAE5",
@@ -60,22 +89,27 @@ const preset: Partial<Config> = {
           700: "#4D4750",
           800: "#2E2A3D",
         },
-        // ---- legacy marketing palette (kept for admin + landing migration) ----
-        // dusty-grape was the primary; soft-periwinkle is the hover/accent;
-        // rosy-taupe is reserved for non-critical microcopy/decorative
-        // borders only (AA contrast insufficient for body text).
+        // = neutral-50, exposed under its semantic name for text-on-dark.
         "white-smoke": "#F5F5F4",
-        "lavender-blush": "#E5DBE6",
-        "rosy-taupe": "#BBA0A0",
-        "soft-periwinkle": "#7D80DA",
+
+        // ====================================================================
+        // Shared surface gradient
+        // The landing page (.landing-page in globals.css) and the auth
+        // backdrop (<PageBackground />) both read these three stops. The
+        // values live as CSS custom properties on :root (see globals.css)
+        // so a single edit propagates to every backdrop.
+        // ====================================================================
+        "surface-cream": "var(--pee-surface-cream)",
+        "surface-mist": "var(--pee-surface-mist)",
+        "surface-dusk": "var(--pee-surface-dusk)",
+
+        // ====================================================================
+        // Compatibility alias
+        // dusty-grape === violet-500 (#55418B). violet-500 is canonical;
+        // dusty-grape stays available so existing class names on landing
+        // pages keep resolving while migration happens page-by-page.
+        // ====================================================================
         "dusty-grape": "#55418B",
-        "grape-deep": "#3F2F6B",
-        "grape-soft": "#EDE8F7",
-        "taupe-deep": "#8E7373",
-        "taupe-soft": "#F0E5E5",
-        ink: "#2A2240",
-        "ink-soft": "#5B5176",
-        "ink-mute": "#8C84A6",
       },
       borderRadius: {
         md: "8px",

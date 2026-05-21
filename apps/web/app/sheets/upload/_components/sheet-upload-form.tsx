@@ -296,8 +296,8 @@ export function SheetUploadForm() {
       <section className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 flex items-start gap-3">
         <ShieldCheck size={18} className="text-indigo-600 mt-0.5 shrink-0" />
         <p className="text-[11px] text-indigo-700 leading-relaxed">
-          พี่ติวที่จะลงขายต้องผ่านการยืนยันตัวตน (KYC) แล้วเท่านั้น และเนื้อหาที่ลงขาย
-          ต้องเป็นของพี่เองหรือมีสิทธิ์ในการเผยแพร่ ระบบจะตรวจสอบ Report การละเมิดลิขสิทธิ์
+          พี่รหัสที่จะลงขายต้องผ่านการยืนยันตัวตนแล้วเท่านั้น และเนื้อหาที่ลงขาย
+          ต้องเป็นของพี่เองหรือมีสิทธิ์ในการเผยแพร่ ระบบจะตรวจสอบเรื่องร้องเรียนการละเมิดลิขสิทธิ์
           และอาจระงับชีทระหว่างการตรวจสอบ
         </p>
       </section>

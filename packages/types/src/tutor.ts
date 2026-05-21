@@ -1,16 +1,75 @@
 import { z } from "zod";
 
+// Subject codes are aligned with the TCAS exam structure. The list is
+// ordered for UI rendering (TGAT/TPAT first, then core subjects, then
+// languages). Tutors store these strings in Postgres String[] — no DB
+// migration needed; older tutors keep their existing codes.
 export const subjectSchema = z.enum([
+  // TCAS exams
+  "TGAT",
+  "TPAT1",
+  "TPAT2",
+  "TPAT3",
+  "TPAT4",
+  "TPAT5",
+  // Core subjects
   "Math",
+  "AppliedScience",
   "Physics",
   "Chemistry",
   "Biology",
-  "English",
-  "Social",
   "Thai",
+  "Social",
+  "English",
+  // Languages
+  "French",
+  "German",
+  "Japanese",
+  "Korean",
+  "Chinese",
+  "Pali",
+  "Spanish",
 ]);
 
 export type Subject = z.infer<typeof subjectSchema>;
+
+// Canonical Thai display labels for Subject codes. Used by tutor
+// profile, onboarding, profile-edit, booking, and filter UIs so every
+// surface renders the same string. Compact chip variants (e.g.
+// tutor-card) can keep their own shorter abbreviations.
+export const SUBJECT_LABELS: Record<Subject, string> = {
+  TGAT: "TGAT",
+  TPAT1: "TPAT1",
+  TPAT2: "TPAT2",
+  TPAT3: "TPAT3",
+  TPAT4: "TPAT4",
+  TPAT5: "TPAT5",
+  Math: "คณิตศาสตร์",
+  AppliedScience: "วิทยาศาสตร์ประยุกต์",
+  Physics: "ฟิสิกส์",
+  Chemistry: "เคมี",
+  Biology: "ชีววิทยา",
+  Thai: "ภาษาไทย",
+  Social: "สังคมศึกษา",
+  English: "ภาษาอังกฤษ",
+  French: "ภาษาฝรั่งเศส",
+  German: "ภาษาเยอรมัน",
+  Japanese: "ภาษาญี่ปุ่น",
+  Korean: "ภาษาเกาหลี",
+  Chinese: "ภาษาจีน",
+  Pali: "ภาษาบาลี",
+  Spanish: "ภาษาสเปน",
+};
+
+// Long-form descriptors for TPAT codes. Pair with SUBJECT_LABELS via
+// `title` (tooltip) so the chip text stays short.
+export const SUBJECT_TOOLTIPS: Partial<Record<Subject, string>> = {
+  TPAT1: "วิชาเฉพาะ กสพท",
+  TPAT2: "ความถนัดศิลปกรรมศาสตร์",
+  TPAT3: "ความถนัดด้านวิทยาศาสตร์ เทคโนโลยี และวิศวกรรมศาสตร์",
+  TPAT4: "ความถนัดทางสถาปัตยกรรมศาสตร์",
+  TPAT5: "ความถนัดครุศาสตร์-ศึกษาศาสตร์",
+};
 
 export const tutorSortSchema = z.enum([
   "rating",

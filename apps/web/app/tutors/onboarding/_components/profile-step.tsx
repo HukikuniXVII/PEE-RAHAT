@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
+  SUBJECT_LABELS,
   type Subject,
   type TutorOnboardingDto,
   subjectSchema,
@@ -16,15 +17,7 @@ import { createApiClient } from "@/lib/api-client";
 
 const SUBJECT_OPTIONS = subjectSchema.options as readonly Subject[];
 
-const SUBJECT_LABEL: Record<Subject, string> = {
-  Math: "คณิตศาสตร์",
-  Physics: "ฟิสิกส์",
-  Chemistry: "เคมี",
-  Biology: "ชีววิทยา",
-  English: "อังกฤษ",
-  Social: "สังคม",
-  Thai: "ภาษาไทย",
-};
+const SUBJECT_LABEL = SUBJECT_LABELS;
 
 interface Props {
   onCompleted: () => void;
@@ -68,7 +61,7 @@ export function ProfileStep({ onCompleted }: Props) {
           ร่วมเป็น &quot;พี่รหัส&quot; มือโปร
         </h2>
         <p className="text-slate-500">
-          เริ่มต้นด้วยข้อมูลโปรไฟล์พี่ติว — ขั้นต่อไปจะเป็นการอัปโหลด KYC
+          เริ่มต้นด้วยข้อมูลโปรไฟล์พี่รหัส — ขั้นต่อไปจะเป็นการอัปโหลดเอกสารยืนยันตัวตน
         </p>
       </div>
 
@@ -76,7 +69,7 @@ export function ProfileStep({ onCompleted }: Props) {
         <div className="flex items-start gap-3 p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
           <Sparkles className="text-indigo-600 mt-1" size={18} />
           <p className="text-xs text-indigo-700 leading-relaxed">
-            ข้อมูลนี้จะแสดงในหน้าโปรไฟล์ของคุณเมื่อ Admin อนุมัติ KYC แล้ว
+            ข้อมูลนี้จะแสดงในหน้าโปรไฟล์ของคุณเมื่อทีมงานอนุมัติการยืนยันตัวตนแล้ว
             (สามารถแก้ไขภายหลังได้)
           </p>
         </div>

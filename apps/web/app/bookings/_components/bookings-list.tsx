@@ -2,7 +2,9 @@
 
 import type { Booking } from "@peerahat/types";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarX } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
 
 import { createApiClient } from "@/lib/api-client";
 
@@ -23,16 +25,30 @@ export function BookingsList({ initialBookings }: Props) {
 
   if (bookings.length === 0) {
     return (
-      <div className="bg-white p-12 rounded-[32px] border border-slate-200 text-center space-y-4">
-        <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-2xl flex items-center justify-center mx-auto">
-          <CalendarX size={32} />
+      <div className="bg-white p-10 rounded-[32px] border border-violet-100 shadow-[0_8px_24px_-16px_rgba(85,65,139,0.25)] max-w-md mx-auto text-center flex flex-col items-center gap-5">
+        <Image
+          src="/mascot.png"
+          alt=""
+          width={220}
+          height={220}
+          className="w-40 h-40 sm:w-44 sm:h-44 object-contain"
+          priority={false}
+        />
+        <div className="space-y-2">
+          <h3 className="thai text-xl font-bold text-grape-deep">
+            ยังไม่มีรายการจอง
+          </h3>
+          <p className="thai text-sm text-ink-soft leading-relaxed">
+            เริ่มต้นด้วยการเลือกพี่รหัสจาก Tutor Hub แล้วกดจองคลาสได้เลย
+          </p>
         </div>
-        <h3 className="text-xl font-bold text-slate-800">
-          ยังไม่มีรายการจอง
-        </h3>
-        <p className="text-sm text-slate-500">
-          เริ่มต้นด้วยการเลือกพี่ติวจาก Tutor Hub แล้วกดจองคลาสได้เลย
-        </p>
+        <Link
+          href="/tutors"
+          className="thai inline-flex items-center gap-2 rounded-[16px] bg-dusty-grape px-8 py-4 text-[16px] font-bold text-white-smoke shadow-lg transition-all hover:bg-accent-500 hover:text-neutral-800 hover:shadow-lg hover:shadow-accent-500/30"
+        >
+          ค้นหาพี่รหัสเลย
+          <ArrowRight size={16} strokeWidth={2.5} />
+        </Link>
       </div>
     );
   }

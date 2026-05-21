@@ -5,35 +5,27 @@ import Link from "next/link";
 const FEATURES = [
   {
     n: "01",
-    href: "/tcas" as Route,
-    title: "Diagnostic Quiz",
-    thai: "แบบทดสอบหาจุดอ่อน",
-    body: "ตอบ 20 ข้อต่อวิชา รู้ทันทีว่าควรซ่อมบทไหนก่อน",
+    href: "/tutors" as Route,
+    title: "Tutor Match",
+    thai: "ระบบจับคู่พี่รหัสอัตโนมัติ",
+    body: "แนะนำพี่ที่ติดคณะตรงเป้า ในงบที่น้องไหว",
     taupe: false,
   },
   {
     n: "02",
-    href: "/tutors" as Route,
-    title: "Tutor Match",
-    thai: "ระบบจับคู่พี่ติวอัตโนมัติ",
-    body: "แนะนำพี่ที่ติดคณะตรงเป้า ในงบที่น้องไหว",
-    taupe: true,
-  },
-  {
-    n: "03",
     href: "/sheets" as Route,
     title: "Sheet Market",
     thai: "ตลาดชีทสรุปจากรุ่นพี่ตัวจริง",
     body: "PDF พรีวิวได้ก่อนซื้อ พิมพ์อ่านได้เลยไม่ต้องสรุปเอง",
-    taupe: false,
+    taupe: true,
   },
   {
-    n: "04",
+    n: "03",
     href: "/tcas" as Route,
     title: "TCAS Calc",
     thai: "คำนวณคะแนนแบบ What-If",
     body: "บอกชัด ๆ ว่ายังขาดอีกกี่คะแนนต่อวิชา ถึงจะติดเป้า",
-    taupe: true,
+    taupe: false,
   },
 ];
 
@@ -71,7 +63,7 @@ export function AboutFeatures() {
           <div className="grid grid-cols-2 gap-3 pt-2">
             <div className="rounded-2xl p-4 bg-white/60 border border-dusty-grape/10 backdrop-blur-sm shadow-card">
               <p className="thai text-[13px] font-bold text-dusty-grape mb-1">
-                พี่ติวรุ่นจริง
+                พี่รหัสรุ่นจริง
               </p>
               <p className="thai text-[12px] text-ink-soft leading-relaxed">
                 เพิ่งติดคณะที่น้องเล็ง
@@ -79,8 +71,8 @@ export function AboutFeatures() {
                 ผ่าน KYC ทุกคน
               </p>
             </div>
-            <div className="rounded-2xl p-4 bg-white/60 border border-[#BBA0A0]/20 backdrop-blur-sm shadow-card">
-              <p className="thai text-[13px] font-bold text-[#8E7373] mb-1">
+            <div className="rounded-2xl p-4 bg-white/60 border border-rosy-taupe/20 backdrop-blur-sm shadow-card">
+              <p className="thai text-[13px] font-bold text-taupe-deep mb-1">
                 คุยสบาย ไม่กดดัน
               </p>
               <p className="thai text-[12px] text-ink-soft leading-relaxed">
@@ -100,7 +92,7 @@ export function AboutFeatures() {
             ฟีเจอร์
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             {FEATURES.map((it) => (
               <Link
                 key={it.n}
@@ -110,7 +102,7 @@ export function AboutFeatures() {
                 <div
                   className={`mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl text-white text-[13px] font-mono font-bold ${
                     it.taupe
-                      ? "bg-[#BBA0A0] shadow-[0_6px_16px_-6px_rgba(187,160,160,0.6)]"
+                      ? "bg-rosy-taupe shadow-[0_6px_16px_-6px_rgba(187,160,160,0.6)]"
                       : "bg-dusty-grape shadow-[0_6px_16px_-6px_rgba(85,65,139,0.5)]"
                   }`}
                 >
@@ -118,14 +110,14 @@ export function AboutFeatures() {
                 </div>
                 <h3
                   className={`font-bold text-[16px] leading-tight mb-1 ${
-                    it.taupe ? "text-[#7a5a5a]" : "text-grape-deep"
+                    it.taupe ? "text-taupe-deep" : "text-grape-deep"
                   }`}
                 >
                   {it.title}
                 </h3>
                 <p
                   className={`thai text-[12px] font-semibold mb-2 ${
-                    it.taupe ? "text-[#BBA0A0]" : "text-soft-periwinkle"
+                    it.taupe ? "text-rosy-taupe" : "text-soft-periwinkle"
                   }`}
                 >
                   {it.thai}
@@ -135,7 +127,7 @@ export function AboutFeatures() {
                 </p>
                 <div
                   className={`mt-3 flex items-center gap-1 text-[12px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity ${
-                    it.taupe ? "text-[#BBA0A0]" : "text-dusty-grape"
+                    it.taupe ? "text-rosy-taupe" : "text-dusty-grape"
                   }`}
                 >
                   ดูเพิ่ม <ArrowRight size={12} strokeWidth={2.5} />

@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
+  SUBJECT_LABELS,
   type Subject,
   type Tutor,
   type TutorProfileUpdateDto,
@@ -22,15 +23,7 @@ import { UnavailabilityEditor } from "./unavailability-editor";
 
 const SUBJECT_OPTIONS = subjectSchema.options as readonly Subject[];
 
-const SUBJECT_LABEL: Record<Subject, string> = {
-  Math: "คณิตศาสตร์",
-  Physics: "ฟิสิกส์",
-  Chemistry: "เคมี",
-  Biology: "ชีววิทยา",
-  English: "อังกฤษ",
-  Social: "สังคม",
-  Thai: "ภาษาไทย",
-};
+const SUBJECT_LABEL = SUBJECT_LABELS;
 
 interface Props {
   tutor: Tutor;

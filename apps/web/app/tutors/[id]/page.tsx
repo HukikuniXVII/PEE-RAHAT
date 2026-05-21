@@ -1,4 +1,4 @@
-import type { Subject } from "@peerahat/types";
+import { SUBJECT_LABELS } from "@peerahat/types";
 import {
   HydrationBoundary,
   QueryClient,
@@ -19,15 +19,7 @@ interface Props {
   params: { id: string };
 }
 
-const SUBJECT_LABEL: Record<Subject, string> = {
-  Math: "คณิตศาสตร์",
-  Physics: "ฟิสิกส์",
-  Chemistry: "เคมี",
-  Biology: "ชีววิทยา",
-  English: "อังกฤษ",
-  Social: "สังคม",
-  Thai: "ภาษาไทย",
-};
+const SUBJECT_LABEL = SUBJECT_LABELS;
 
 export default async function TutorProfilePage({ params }: Props) {
   const token = await getServerAccessToken();
@@ -104,7 +96,7 @@ export default async function TutorProfilePage({ params }: Props) {
                   )}
                   <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-50 rounded-full text-xs font-bold text-emerald-700">
                     <ShieldCheck size={12} />
-                    Escrow Payment
+                    จ่ายเงินปลอดภัย
                   </span>
                 </div>
               </div>
@@ -115,7 +107,7 @@ export default async function TutorProfilePage({ params }: Props) {
                 แนะนำตัว
               </h2>
               <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">
-                {tutor.bio || "พี่ติวยังไม่ได้ใส่คำแนะนำตัว"}
+                {tutor.bio || "พี่รหัสยังไม่ได้ใส่คำแนะนำตัว"}
               </p>
             </div>
           </header>
@@ -179,7 +171,7 @@ export default async function TutorProfilePage({ params }: Props) {
                   className="text-emerald-600 mt-0.5 shrink-0"
                 />
                 <span>
-                  เงินจะอยู่ใน Escrow จนกว่าคลาสจะเสร็จและไม่มี Report
+                  เงินจะถูกพักไว้กับเราจนกว่าคลาสจะเสร็จและไม่มีการร้องเรียน
                   ภายใน 24 ชม. ปลอดภัย 100%
                 </span>
               </div>

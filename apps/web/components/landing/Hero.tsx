@@ -42,7 +42,7 @@ export function Hero() {
 
       {/* Subtitle */}
       <p className="relative z-10 mt-6 thai text-center text-[18px] text-ink-soft leading-[1.8] max-w-[600px]">
-        หาพี่ติวเองก็เหนื่อย จะตามโฆษณาก็ไม่มั่นใจ บางทีก็เรียนไม่เข้าใจ
+        หาพี่รหัสเองก็เหนื่อย จะตามโฆษณาก็ไม่มั่นใจ บางทีก็เรียนไม่เข้าใจ
         <br />
         ที่นี่เราให้น้องเจอพี่รหัส ที่คุยภาษาเดียวกันที่นี่
       </p>
@@ -58,7 +58,7 @@ export function Hero() {
       <div className="relative z-10 mt-10 flex items-center gap-4">
         <Link
           href={"/login" as Route}
-          className="thai inline-flex items-center gap-2 rounded-[16px] bg-dusty-grape px-8 py-4 text-[16px] font-bold text-white-smoke hover:opacity-90 transition-opacity shadow-lg"
+          className="thai inline-flex items-center gap-2 rounded-[16px] bg-dusty-grape px-8 py-4 text-[16px] font-bold text-white-smoke transition-all hover:bg-accent-500 hover:text-neutral-800 hover:shadow-lg hover:shadow-accent-500/30 shadow-lg"
         >
           เริ่มต้นใช้งาน
           <ArrowRight size={16} strokeWidth={2.5} />

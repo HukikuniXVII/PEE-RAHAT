@@ -267,7 +267,7 @@ function BankEditDialog({
         <div className="bg-amber-50 border border-amber-100 rounded-2xl p-3 flex items-start gap-2">
           <Info className="text-amber-600 shrink-0 mt-0.5" size={14} />
           <p className="text-[11px] text-amber-700 leading-relaxed">
-            <strong>ชื่อบัญชีต้องตรงกับชื่อในบัตรประชาชน</strong> ที่ใช้สมัคร KYC
+            <strong>ชื่อบัญชีต้องตรงกับชื่อในบัตรประชาชน</strong> ที่ใช้ยืนยันตัวตน
           </p>
         </div>
 

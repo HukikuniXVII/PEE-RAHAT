@@ -10,14 +10,30 @@ interface Props {
   tutor: Tutor;
 }
 
+// Compact chip labels (kept short so 3 chips fit on a card). TPAT codes
+// stay as-is; languages get the short suffix instead of "ภาษา…".
 const SUBJECT_LABEL: Record<Subject, string> = {
+  TGAT: "TGAT",
+  TPAT1: "TPAT1",
+  TPAT2: "TPAT2",
+  TPAT3: "TPAT3",
+  TPAT4: "TPAT4",
+  TPAT5: "TPAT5",
   Math: "คณิต",
+  AppliedScience: "วิทย์ประยุกต์",
   Physics: "ฟิสิกส์",
   Chemistry: "เคมี",
   Biology: "ชีววิทยา",
-  English: "อังกฤษ",
-  Social: "สังคม",
   Thai: "ไทย",
+  Social: "สังคม",
+  English: "อังกฤษ",
+  French: "ฝรั่งเศส",
+  German: "เยอรมัน",
+  Japanese: "ญี่ปุ่น",
+  Korean: "เกาหลี",
+  Chinese: "จีน",
+  Pali: "บาลี",
+  Spanish: "สเปน",
 };
 
 export function TutorCard({ tutor }: Props) {

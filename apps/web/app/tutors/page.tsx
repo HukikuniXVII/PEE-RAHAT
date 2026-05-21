@@ -1,4 +1,5 @@
 import { type Subject, subjectSchema } from "@peerahat/types";
+import { Card, PageBackground } from "@peerahat/ui";
 import { ShieldCheck, Sparkles } from "lucide-react";
 
 import { createApiClient } from "@/lib/api-client";
@@ -27,42 +28,55 @@ export default async function TutorsPage({ searchParams }: Props) {
   });
 
   return (
-    <div className="space-y-8">
-      <section className="rounded-[32px] bg-slate-900 text-white p-6 sm:p-10 flex flex-col sm:flex-row gap-6 sm:items-center sm:justify-between">
-        <div className="space-y-3 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur rounded-full text-[10px] font-black uppercase tracking-widest text-indigo-300">
-            <ShieldCheck size={12} />
-            Verified Tutors
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-black leading-tight">
-            ค้นหาพี่ติวที่ใช่
-            <br />
-            <span className="text-indigo-300">ยืนยันตัวตน 100% • Escrow</span>
-          </h1>
-          <p className="text-sm text-slate-300">
-            ทุกพี่ติวผ่านการยืนยันบัตรประชาชนและทรานสคริปต์ • คืนเงิน 100% ภายใน 24 ชม.
-          </p>
-        </div>
-        <div className="flex items-center gap-3 bg-white/10 backdrop-blur-xl px-5 py-4 rounded-[24px] border border-white/15 shrink-0">
-          <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center text-indigo-600">
-            <Sparkles size={20} />
-          </div>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">
-              Verified
-            </p>
-            <p className="text-2xl font-black leading-none mt-0.5">
-              {initial.total}
-            </p>
-          </div>
-        </div>
-      </section>
+    <>
+      <PageBackground photo={false} sparkles="sparse" />
 
-      <TutorSearch
-        initialQuery={searchParams.q ?? ""}
-        initialSubject={subject}
-        initialResult={initial}
-      />
-    </div>
+      <div className="space-y-8">
+        {/* Hero — frosted brand surface on warm backdrop */}
+        <Card
+          variant="frosted"
+          className="p-8 sm:p-10 flex flex-col sm:flex-row gap-6 sm:items-center sm:justify-between"
+        >
+          <div className="space-y-3 max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-grape-soft rounded-full text-[10px] font-bold uppercase tracking-widest text-dusty-grape">
+              <ShieldCheck size={12} />
+              Verified Tutors
+            </div>
+            <h1
+              className="thai font-bold text-grape-deep leading-[1.15]"
+              style={{
+                fontSize: "clamp(28px, 2.6vw, 40px)",
+                letterSpacing: "-0.02em",
+              }}
+            >
+              ค้นหาพี่รหัสที่ใช่
+            </h1>
+            <p className="thai text-[15px] text-ink-soft leading-relaxed">
+              พี่รหัสทุกคนผ่านการยืนยันตัวตน • ปลอดภัย ไร้กังวล
+            </p>
+          </div>
+
+          <div className="flex items-center gap-4 px-5 py-4 rounded-2xl bg-white/70 border border-white shadow-[0_8px_18px_-8px_rgba(85,65,139,0.25)] shrink-0">
+            <div className="w-12 h-12 bg-violet-500 rounded-xl flex items-center justify-center text-white shadow-[0_8px_18px_-8px_rgba(85,65,139,0.55)]">
+              <Sparkles size={20} />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-ink-mute">
+                Verified
+              </p>
+              <p className="text-2xl font-bold leading-none mt-0.5 text-grape-deep">
+                {initial.total}
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <TutorSearch
+          initialResult={initial}
+          initialSubject={subject}
+          initialQuery={searchParams.q ?? ""}
+        />
+      </div>
+    </>
   );
 }

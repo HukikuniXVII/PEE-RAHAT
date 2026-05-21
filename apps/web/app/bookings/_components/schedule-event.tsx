@@ -19,7 +19,7 @@ interface Props {
 export function ScheduleEvent({ booking, layout = "horizontal" }: Props) {
   const status = STATUS_COPY[booking.status];
   const counterpartyLabel =
-    booking.viewerSide === "student" ? "กับพี่ติว" : "กับน้อง";
+    booking.viewerSide === "student" ? "กับพี่รหัส" : "กับน้อง";
   const start = new Date(booking.scheduledAt);
   const time = start.toLocaleTimeString("th-TH", {
     hour: "2-digit",

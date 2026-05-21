@@ -156,7 +156,7 @@ export function PostCard({ post }: Props) {
               className="p-2 text-slate-300 hover:text-red-400 transition-colors flex items-center gap-1 text-[10px] font-bold disabled:opacity-50"
             >
               <AlertTriangle size={14} />
-              {report.isSuccess ? "Reported" : "Report"}
+              {report.isSuccess ? "แจ้งแล้ว" : "แจ้งปัญหา"}
             </button>
           </div>
 

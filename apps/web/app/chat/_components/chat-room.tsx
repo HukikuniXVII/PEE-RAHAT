@@ -287,7 +287,7 @@ export function ChatRoom({ thread, initialMessages }: Props) {
               <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
               <span>
                 ข้อความของคุณดูเหมือนจะมีช่องทางติดต่อนอกแพลตฟอร์ม (เช่น Line / เบอร์โทร)
-                ระบบจะกรองอัตโนมัติเพื่อรักษาความปลอดภัยของ Escrow
+                ระบบจะกรองอัตโนมัติเพื่อรักษาความปลอดภัยของเงินที่พักไว้
               </span>
             </div>
           )}

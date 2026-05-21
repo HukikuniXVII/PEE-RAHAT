@@ -75,14 +75,14 @@ export const DialogContent = forwardRef<
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-grape-deep/40 backdrop-blur-sm"
       onClick={() => onOpenChange(false)}
     >
       <div
         ref={ref}
         onClick={(e) => e.stopPropagation()}
         className={cn(
-          "w-full max-w-xl bg-white rounded-[32px] border border-slate-200 shadow-2xl overflow-hidden",
+          "w-full max-w-xl bg-white rounded-[32px] border border-white/80 shadow-[0_30px_60px_-30px_rgba(85,65,139,0.45)] overflow-hidden",
           className,
         )}
         {...props}
@@ -113,7 +113,7 @@ export const DialogTitle = forwardRef<
 >(({ className, ...props }, ref) => (
   <h2
     ref={ref}
-    className={cn("text-2xl font-black text-slate-900", className)}
+    className={cn("text-2xl font-bold text-grape-deep", className)}
     {...props}
   />
 ));
@@ -125,7 +125,7 @@ export const DialogDescription = forwardRef<
 >(({ className, ...props }, ref) => (
   <p
     ref={ref}
-    className={cn("text-sm text-slate-500 leading-relaxed", className)}
+    className={cn("text-sm text-ink-soft leading-relaxed", className)}
     {...props}
   />
 ));
@@ -162,7 +162,10 @@ export const DialogClose = forwardRef<HTMLButtonElement, DialogCloseProps>(
         ref={ref}
         type="button"
         onClick={handle}
-        className={cn("text-sm font-bold text-slate-500", className)}
+        className={cn(
+          "text-sm font-bold text-ink-mute hover:text-dusty-grape transition-colors",
+          className,
+        )}
         {...props}
       >
         {children ?? "ปิด"}

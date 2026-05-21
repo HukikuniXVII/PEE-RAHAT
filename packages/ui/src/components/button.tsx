@@ -3,36 +3,51 @@ import { forwardRef, type ButtonHTMLAttributes } from "react";
 
 import { cn } from "../lib/utils";
 
+// Canonical button styling matches the landing CTAs:
+//   - .brand-btn-primary  (Hero filled grape CTA)
+//   - .brand-btn-soft     (Hero outline white-on-grape CTA)
+// Rounded-lg (14px), font-semibold, soft grape drop-shadow, and a
+// 1px hover lift so every CTA in the product feels like the landing
+// hero. Focus state uses the gold shadow-focus ring defined in the
+// preset (no separate focus-ring outline).
 export const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-2xl font-bold transition-all disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-semibold transition-all disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-0 focus-visible:shadow-focus active:scale-[0.98]",
   {
     variants: {
       variant: {
-        // ---- design-system.md §8 ----
+        // ---- Canonical landing-aligned variants ----
         primary:
-          "bg-violet-500 text-neutral-50 rounded-md font-medium hover:bg-accent-500 hover:text-neutral-800 active:bg-violet-700 active:text-neutral-50 active:scale-[0.98] focus-visible:ring-0 focus-visible:shadow-focus disabled:bg-neutral-200 disabled:text-neutral-400",
+          "bg-violet-500 text-white shadow-[0_6px_14px_-6px_rgba(85,65,139,0.5)] hover:bg-grape-deep hover:-translate-y-px disabled:bg-neutral-200 disabled:text-neutral-400 disabled:shadow-none",
         "outline-brand":
-          "bg-transparent rounded-md font-medium border-[1.5px] border-violet-500 text-violet-700 hover:bg-violet-50 active:bg-violet-100 focus-visible:ring-0 focus-visible:shadow-focus",
+          "bg-white text-violet-500 border border-[rgba(85,65,139,0.18)] hover:bg-grape-soft hover:-translate-y-px",
         "ghost-brand":
-          "bg-transparent rounded-md font-medium text-neutral-700 hover:bg-neutral-100 focus-visible:ring-0 focus-visible:shadow-focus",
-        // ---- legacy variants (kept for admin + existing consumers) ----
-        default: "bg-indigo-600 text-white hover:bg-indigo-700",
-        secondary: "bg-slate-900 text-white hover:bg-black",
-        success: "bg-emerald-600 text-white hover:bg-emerald-700",
-        muted: "bg-slate-100 text-slate-600 hover:bg-slate-200",
+          "bg-transparent text-violet-700 hover:bg-grape-soft",
+
+        // ---- Legacy aliases ----
+        // `default` and `outline` redirect to the brand look so existing
+        // admin / list callers pick up the landing aesthetic without
+        // edits. Remove these once all call sites are migrated.
+        default:
+          "bg-violet-500 text-white shadow-[0_6px_14px_-6px_rgba(85,65,139,0.5)] hover:bg-grape-deep hover:-translate-y-px disabled:bg-neutral-200 disabled:text-neutral-400 disabled:shadow-none",
         outline:
-          "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50",
-        ghost: "text-slate-700 hover:bg-slate-50",
+          "bg-white text-violet-500 border border-[rgba(85,65,139,0.18)] hover:bg-grape-soft hover:-translate-y-px",
+
+        // ---- Semantic variants ----
+        secondary: "bg-neutral-800 text-white hover:bg-neutral-700",
+        success: "bg-emerald-600 text-white hover:bg-emerald-700",
+        muted: "bg-neutral-100 text-neutral-700 hover:bg-neutral-200",
+        ghost: "text-neutral-700 hover:bg-neutral-100",
         destructive: "bg-rose-600 text-white hover:bg-rose-700",
-        link: "text-indigo-600 hover:text-indigo-700 underline-offset-4 hover:underline",
+        link: "text-violet-500 hover:text-grape-deep underline-offset-4 hover:underline shadow-none active:scale-100",
       },
       size: {
         default: "px-5 py-3 text-sm",
         sm: "px-4 py-2 text-xs",
-        lg: "px-6 py-4 text-base",
-        compact: "px-3 py-2 text-[10px] gap-1 rounded-xl",
+        // Matches Hero CTA — `px-8 py-4 text-base font-bold rounded-[16px]`.
+        lg: "px-8 py-4 text-base rounded-[16px]",
+        compact: "px-3 py-2 text-[10px] gap-1 rounded-md",
         icon: "w-10 h-10",
-        // ---- design-system.md §8 sizes (use with primary/outline-brand/ghost-brand) ----
+        // ---- Fixed-height brand sizes (use for dense forms / toolbars) ----
         "brand-sm": "h-8 px-3 text-xs",
         "brand-md": "h-9 px-4 text-[13px]",
         "brand-lg": "h-11 px-6 text-sm",

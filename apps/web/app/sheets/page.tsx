@@ -1,5 +1,6 @@
 import { type Subject, subjectSchema } from "@peerahat/types";
-import { BookOpen, ChevronRight } from "lucide-react";
+import { Card, PageBackground } from "@peerahat/ui";
+import { ArrowRight, BookOpen } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 
@@ -30,54 +31,76 @@ export default async function SheetsPage({ searchParams }: Props) {
   });
 
   return (
-    <div className="space-y-8">
-      <div className="grid md:grid-cols-4 gap-6">
-        <div className="md:col-span-2 space-y-4">
-          <h2 className="text-4xl font-bold tracking-tight text-slate-900">
-            Sheet Marketplace
-          </h2>
-          <p className="text-slate-500 max-w-2xl font-medium leading-relaxed">
-            แหล่งรวมชีทสรุปคุณภาพจากพี่ๆ มหาวิทยาลัยชั้นนำ <br />
-            มั่นใจด้วยระบบ{" "}
-            <span className="text-indigo-600 font-bold">Escrow</span>{" "}
-            เงินจะถึงมือผู้ขายเมื่อคุณได้รับไฟล์แล้วเท่านั้น
-          </p>
-        </div>
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
-          <div className="space-y-1">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Sheet Library
-            </p>
-            <p className="text-2xl font-bold text-slate-800 tracking-tight">
-              {initial.total.toLocaleString()} Items
-            </p>
-          </div>
-          <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center">
-            <BookOpen size={24} />
-          </div>
-        </div>
-        <Link
-          href={"/sheets/upload" as Route}
-          className="bg-slate-900 p-6 rounded-3xl text-white shadow-xl shadow-slate-200 flex flex-col justify-center gap-3 group"
-        >
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            Tutor Hub
-          </p>
-          <span className="flex items-center gap-2 text-sm font-black hover:text-indigo-300 transition-colors">
-            อยากเป็นผู้ขายชีท?
-            <ChevronRight
-              size={16}
-              className="group-hover:translate-x-1 transition-transform"
-            />
-          </span>
-        </Link>
-      </div>
+    <>
+      <PageBackground photo={false} sparkles="sparse" />
 
-      <SheetGrid
-        initial={initial}
-        initialSubject={subject}
-        initialQuery={initialQuery}
-      />
-    </div>
+      <div className="space-y-8">
+        <div className="grid md:grid-cols-4 gap-5">
+          {/* Heading */}
+          <div className="md:col-span-2 space-y-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-grape-soft rounded-full text-[10px] font-bold uppercase tracking-widest text-dusty-grape">
+              Sheet Marketplace
+            </div>
+            <h1
+              className="thai font-bold text-grape-deep leading-[1.15]"
+              style={{
+                fontSize: "clamp(28px, 2.6vw, 40px)",
+                letterSpacing: "-0.02em",
+              }}
+            >
+              ชีทสรุปจาก
+              <span className="text-dusty-grape"> รุ่นพี่ตัวจริง</span>
+            </h1>
+            <p className="thai text-[15px] text-ink-soft leading-relaxed max-w-2xl">
+              แหล่งรวมชีทสรุปคุณภาพจากพี่ๆ มหาวิทยาลัยชั้นนำ มั่นใจด้วย{" "}
+              <span className="text-dusty-grape font-semibold">ระบบพักเงินตัวกลาง</span>{" "}
+              เงินถึงมือผู้ขายเมื่อคุณได้รับไฟล์แล้วเท่านั้น
+            </p>
+          </div>
+
+          {/* Stat tile */}
+          <Card variant="glass" className="p-6 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-ink-mute uppercase tracking-widest">
+                Sheet Library
+              </p>
+              <p className="text-2xl font-bold text-grape-deep tracking-tight leading-none">
+                {initial.total.toLocaleString()}
+              </p>
+              <p className="text-[10px] font-bold text-ink-mute uppercase tracking-wider">
+                Items
+              </p>
+            </div>
+            <div className="w-12 h-12 bg-violet-500 text-white rounded-xl flex items-center justify-center shadow-[0_8px_18px_-8px_rgba(85,65,139,0.55)]">
+              <BookOpen size={22} />
+            </div>
+          </Card>
+
+          {/* Upload CTA — grape filled, gold hover (Hero CTA aesthetic) */}
+          <Link
+            href={"/sheets/upload" as Route}
+            className="group rounded-[22px] bg-dusty-grape text-white p-6 flex flex-col justify-center gap-2 shadow-[0_12px_28px_-18px_rgba(85,65,139,0.6)] hover:bg-accent-500 hover:text-neutral-800 hover:-translate-y-0.5 hover:shadow-accent-500/30 transition-all"
+          >
+            <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest group-hover:text-neutral-800/60">
+              Tutor Hub
+            </p>
+            <span className="thai flex items-center gap-2 text-sm font-bold">
+              อยากเป็นผู้ขายชีท?
+              <ArrowRight
+                size={16}
+                strokeWidth={2.5}
+                className="group-hover:translate-x-1 transition-transform"
+              />
+            </span>
+          </Link>
+        </div>
+
+        <SheetGrid
+          initial={initial}
+          initialSubject={subject}
+          initialQuery={initialQuery}
+        />
+      </div>
+    </>
   );
 }

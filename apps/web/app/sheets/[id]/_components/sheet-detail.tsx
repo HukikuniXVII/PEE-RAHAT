@@ -132,13 +132,13 @@ export function SheetDetail({ sheet }: Props) {
               className="w-full"
             >
               <AlertTriangle size={14} />
-              {report.isSuccess ? "Reported" : "Report Sheet"}
+              {report.isSuccess ? "แจ้งปัญหาแล้ว" : "แจ้งปัญหาชีท"}
             </Button>
 
             <div className="pt-4 border-t border-slate-100 flex items-start gap-3 text-[10px] text-slate-500 leading-relaxed">
               <ShieldCheck size={14} className="text-emerald-600 mt-0.5 shrink-0" />
               <span>
-                เงินจะอยู่ใน Escrow จนกว่าคุณจะกดยืนยันรับไฟล์ ปลอดภัย 100%
+                เงินจะถูกพักไว้กับเราจนกว่าคุณจะกดยืนยันรับไฟล์ ปลอดภัย 100%
               </span>
             </div>
           </div>

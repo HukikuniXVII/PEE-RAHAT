@@ -6,9 +6,9 @@ export const STATUS_COPY: Record<
   BookingStatus,
   { label: string; tone: StatusTone }
 > = {
-  requested: { label: "รอพี่ติวกดรับ", tone: "warn" },
-  accepted: { label: "พี่ติวรับงานแล้ว — รอชำระเงิน", tone: "info" },
-  rejected: { label: "พี่ติวปฏิเสธคำขอ", tone: "danger" },
+  requested: { label: "รอพี่รหัสกดรับ", tone: "warn" },
+  accepted: { label: "พี่รหัสรับงานแล้ว — รอชำระเงิน", tone: "info" },
+  rejected: { label: "พี่รหัสปฏิเสธคำขอ", tone: "danger" },
   expired: { label: "หมดอายุ (ไม่มีการตอบใน 24 ชม.)", tone: "neutral" },
   paid: { label: "ชำระเงินแล้ว — รอเริ่มเรียน", tone: "ok" },
   completed: { label: "เรียนเสร็จแล้ว", tone: "ok" },
@@ -18,8 +18,8 @@ export const STATUS_COPY: Record<
   postpone_pending: { label: "กำลังเจรจาเลื่อนคลาส", tone: "warn" },
   postponed: { label: "เลื่อนคลาสแล้ว", tone: "neutral" },
   cancelled_no_agreement: { label: "ยกเลิก — ไม่ตกลงเวลาใหม่", tone: "danger" },
-  cancelled_tutor_unresponsive: { label: "ยกเลิก — พี่ติวไม่ตอบ", tone: "danger" },
-  cancelled_tutor_initiated: { label: "ยกเลิก — พี่ติวขอเลื่อน", tone: "danger" },
+  cancelled_tutor_unresponsive: { label: "ยกเลิก — พี่รหัสไม่ตอบ", tone: "danger" },
+  cancelled_tutor_initiated: { label: "ยกเลิก — พี่รหัสขอเลื่อน", tone: "danger" },
 };
 
 export const TONE_CLASSES: Record<StatusTone, string> = {

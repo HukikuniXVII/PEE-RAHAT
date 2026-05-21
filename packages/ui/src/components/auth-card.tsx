@@ -8,20 +8,26 @@ export interface AuthCardProps {
   className?: string;
 }
 
+// Frosted brand surface sitting on top of <PageBackground />.
+// Matches the .frosted-card visual language: large 32px radius, soft
+// white-on-warm body, grape drop shadow, hairline border. The mascot
+// frame uses a soft violet tint so it reads as part of the warm
+// backdrop rather than a separate panel.
 export function AuthCard({ mascot, children, className }: AuthCardProps) {
   return (
     <div
       className={cn(
         // 10% smaller than 90/88 → 81vw / 79vh
         "w-[81vw] h-[79vh] overflow-hidden",
-        "rounded-3xl bg-white shadow-2xl",
+        "rounded-[32px] bg-white/95 backdrop-blur-md border border-white/80",
+        "shadow-[0_30px_60px_-30px_rgba(85,65,139,0.45)]",
         "grid grid-cols-[54.5%_45.5%]",
         className,
       )}
     >
       {/* Mascot — flex-col so flex-1 child correctly respects the p-5 padding */}
-      <div className="h-full p-5 bg-white flex flex-col">
-        <div className="flex-1 rounded-2xl overflow-hidden flex items-end justify-center bg-violet-50/40">
+      <div className="h-full p-5 flex flex-col">
+        <div className="flex-1 rounded-2xl overflow-hidden flex items-end justify-center bg-white">
           {mascot}
         </div>
       </div>
