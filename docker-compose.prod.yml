@@ -90,6 +90,22 @@ services:
     ports:
       - "23000:3000"
 
+  # ─── Cloudflare Tunnel — public HTTPS ingress (no inbound ports) ─────────
+  # Terminates TLS at Cloudflare's edge; cloudflared makes only an OUTBOUND
+  # connection, so the VPS needs no open 80/443 and no reverse proxy. The
+  # public hostname + path routing (peerahat.com/api* -> api:3001,
+  # peerahat.com/* -> web:3000) are configured in the Cloudflare Zero Trust
+  # dashboard for this tunnel. CLOUDFLARE_TUNNEL_TOKEN lives in
+  # .env.production (git-ignored) — it is a credential, never commit it.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: peerahat-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN in .env.production}
+    depends_on:
+      api:
+        condition: service_healthy
+
   # ─── One-shot MinIO bucket provisioning (profile: setup) ─────────────────
   # Not started by a normal `up`. Run once on first deploy — idempotent.
   # Creates the four buckets and makes peerahat-avatars publicly readable

@@ -71,7 +71,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            NEXT_PUBLIC_API_BASE_URL=http://103.253.72.189:23001/api
+            NEXT_PUBLIC_API_BASE_URL=https://peerahat.com/api
             NEXT_PUBLIC_SUPABASE_URL=https://fuuvxzgeugrkxycyalxc.supabase.co
             NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_h2qARSVvS6v7qf8BOvRxHw_6Sc_q-fN
             NEXT_PUBLIC_SUPABASE_GOOGLE_ENABLED=true
