@@ -19,10 +19,14 @@ export default async function HomePage() {
     >
       <SnapLock />
 
-      {/* ── Section 1: Hero ── */}
+      {/* ── Section 1: Hero ──
+         The snap-scroll hides sections 2–3 inside an inner scroll container,
+         so crawlers + Google OAuth verification only ever see this section.
+         LandingFooter carries the purpose line + privacy link here too. */}
       <section className="landing-page h-screen snap-start snap-always flex flex-col">
         <Nav />
         <Hero />
+        <LandingFooter tagline="พี่รหัส (Pee Rahat) คือแพลตฟอร์มจับคู่น้อง ม.ปลาย กับติวเตอร์รุ่นพี่จากมหาวิทยาลัยชั้นนำ จองคาบเรียนออนไลน์และชำระเงินผ่านระบบพักเงินตัวกลางที่ปลอดภัย" />
       </section>
 
       {/* ── Section 2: อะไรคือพี่รหัส? + ฟีเจอร์ ── */}
