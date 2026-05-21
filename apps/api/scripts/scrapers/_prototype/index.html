@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TCAS Calculator — Data Validator</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --border: #e3e6eb;
+    --text: #1c1f24; --muted: #6b7280;
+    --ok: #047857; --ok-soft: #ecfdf5;
+    --warn: #b45309; --warn-soft: #fffbeb;
+    --err: #b91c1c; --err-soft: #fef2f2;
+    --chip: #eef2f7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", "Sarabun",
+                    "Noto Sans Thai", system-ui, sans-serif;
+  }
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px 20px 60px; }
+  header { margin-bottom: 18px; }
+  h1 { margin: 0 0 4px; font-size: 22px; }
+  h2 { margin: 22px 0 10px; font-size: 16px; }
+  .meta { color: var(--muted); font-size: 13px; }
+
+  .summary { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); margin: 14px 0; }
+  @media (min-width: 700px) { .summary { grid-template-columns: repeat(4, 1fr); } }
+  .file-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-left: 4px solid var(--border); border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .file-card.ok { border-left-color: var(--ok); }
+  .file-card.warn { border-left-color: var(--warn); }
+  .file-card.err { border-left-color: var(--err); }
+  .file-card .name { font-weight: 600; font-size: 13px; }
+  .file-card .stat { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .file-card .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; margin-top: 6px;
+  }
+  .badge.ok { background: var(--ok-soft); color: var(--ok); }
+  .badge.warn { background: var(--warn-soft); color: var(--warn); }
+  .badge.err { background: var(--err-soft); color: var(--err); }
+
+  .check-list { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 4px 0; }
+  .check {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 8px 14px; border-bottom: 1px solid var(--border);
+  }
+  .check:last-child { border-bottom: 0; }
+  .check .icon { width: 20px; flex: 0 0 20px; text-align: center; font-weight: 700; }
+  .check.ok .icon { color: var(--ok); }
+  .check.warn .icon { color: var(--warn); }
+  .check.err .icon { color: var(--err); }
+  .check .body { flex: 1; }
+  .check .title { font-weight: 500; }
+  .check .detail { color: var(--muted); font-size: 12.5px; margin-top: 2px; white-space: pre-wrap; }
+  .check details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+  .check details ul { margin: 4px 0 0 18px; padding: 0; font-size: 12.5px; }
+  .check details code { background: var(--chip); padding: 0 4px; border-radius: 3px; }
+
+  .file-section { margin-top: 22px; }
+  .file-section > h2 { display: flex; align-items: center; gap: 8px; }
+  .file-section .src {
+    color: var(--muted); font-size: 12px; font-weight: 400;
+    margin-left: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .error-block {
+    background: var(--err-soft); color: var(--err);
+    border: 1px solid #fecaca; border-radius: 8px;
+    padding: 12px 14px; margin: 8px 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.5px; white-space: pre-wrap;
+  }
+  button.reload {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 12px; font: inherit; cursor: pointer;
+  }
+  button.reload:hover { background: var(--chip); }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>TCAS Calculator — Data Validator</h1>
+    <div class="meta" id="hdr-meta">Loading…</div>
+  </header>
+
+  <div class="summary" id="summary"></div>
+  <div id="sections"></div>
+</div>
+
+<script>
+const FILES = [
+  { key: "kkuQuota",    path: "data/kku-quota-69.json",    label: "KKU Quota (Round 2 — weights)" },
+  { key: "kkuStat",     path: "data/kku-stat-68.json",     label: "KKU Stat (Round 2 — history)" },
+  { key: "tcasCalendar",path: "data/tcas-calendar-69.json",label: "TCAS Calendar (year 69)" },
+  { key: "tcasQuota",   path: "data/tcas-quota-69.json",   label: "TCAS Quota (Round 3 — weights)" },
+  { key: "tcasStat",    path: "data/tcas-stat-68.json",    label: "TCAS Stat (Round 3 — history)" },
+];
+
+const $ = id => document.getElementById(id);
+const escape = s => String(s ?? "").replace(/[&<>"]/g, c =>
+  ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+
+const SEV = { OK: "ok", WARN: "warn", ERR: "err" };
+
+function check(sev, title, detail, examples) {
+  return { sev, title, detail: detail ?? "", examples: examples ?? [] };
+}
+
+// ───────── validators per file type ─────────
+
+function validateKkuQuota(d) {
+  const checks = [];
+  const programs = d.programs || [];
+  checks.push(check(programs.length >= 145 ? SEV.OK : SEV.WARN,
+    "Program count ≥ 145 (target ≥ 95% of ~150)",
+    `Got ${programs.length} / 197 programs`));
+
+  const noWeights = programs.filter(p => !p.weights || p.weights.length === 0);
+  checks.push(check(noWeights.length === 0 ? SEV.OK : SEV.ERR,
+    "Every program has weights[]",
+    noWeights.length === 0 ? "all programs have weights"
+      : `${noWeights.length} programs missing weights`,
+    noWeights.slice(0, 5).map(p => `#${p.id} ${p.program_name}`)));
+
+  const badSum = programs.filter(p => {
+    const t = (p.weights || []).reduce((s, w) => s + (+w.weight_percent || 0), 0);
+    return Math.abs(t - 100) > 1;
+  });
+  checks.push(check(badSum.length === 0 ? SEV.OK : SEV.WARN,
+    "Weights sum to ~100% per program",
+    badSum.length === 0 ? "all programs ≈100" : `${badSum.length} off-by-more-than-1`,
+    badSum.slice(0, 8).map(p => {
+      const t = p.weights.reduce((s, w) => s + (+w.weight_percent || 0), 0);
+      return `#${p.id} (sum=${t.toFixed(1)}%) ${p.program_name}`;
+    })));
+
+  const unknown = [];
+  for (const p of programs)
+    for (const w of (p.weights || []))
+      if (String(w.exam_code).startsWith("UNKNOWN_"))
+        unknown.push(`#${p.id} → ${w.exam_code} (${w.raw_subject_name})`);
+  checks.push(check(unknown.length === 0 ? SEV.OK : SEV.ERR,
+    "Zero UNKNOWN_* exam codes",
+    unknown.length === 0 ? "all codes mapped" : `${unknown.length} unmapped`,
+    unknown.slice(0, 10)));
+
+  const badRange = programs.filter(p => p.min_total_percent < 0 || p.min_total_percent > 100);
+  checks.push(check(badRange.length === 0 ? SEV.OK : SEV.ERR,
+    "min_total_percent ∈ [0, 100]",
+    badRange.length === 0 ? "all valid" : `${badRange.length} out of range`));
+
+  const missingMeta = programs.filter(p => !p.faculty || !p.program_name);
+  checks.push(check(missingMeta.length === 0 ? SEV.OK : SEV.ERR,
+    "Faculty + program_name present",
+    missingMeta.length === 0 ? "all present" : `${missingMeta.length} missing`));
+
+  return checks;
+}
+
+function validateKkuStat(d) {
+  const checks = [];
+  const recs = d.records || [];
+  checks.push(check(recs.length >= 150 ? SEV.OK : SEV.WARN,
+    "Record count ≥ 150",
+    `Got ${recs.length}`));
+
+  const badRange = recs.filter(r => r.min_score != null && r.max_score != null && r.min_score > r.max_score);
+  checks.push(check(badRange.length === 0 ? SEV.OK : SEV.ERR,
+    "min_score ≤ max_score for every record",
+    badRange.length === 0 ? "no inversions" : `${badRange.length} inverted`,
+    badRange.slice(0, 5).map(r => `${r.external_id} min=${r.min_score} max=${r.max_score}`)));
+
+  const meanOut = recs.filter(r =>
+    r.mean_score != null && r.min_score != null && r.max_score != null &&
+    !(r.min_score <= r.mean_score && r.mean_score <= r.max_score));
+  checks.push(check(meanOut.length === 0 ? SEV.OK : SEV.WARN,
+    "mean_score ∈ [min_score, max_score]",
+    meanOut.length === 0 ? "all means in range" : `${meanOut.length} out of range`));
+
+  const nullScores = recs.filter(r => r.min_score == null || r.max_score == null);
+  checks.push(check(nullScores.length === 0 ? SEV.OK : SEV.WARN,
+    "min_score + max_score present",
+    nullScores.length === 0 ? "all present" : `${nullScores.length} missing`));
+
+  const outOfBounds = recs.filter(r =>
+    (r.min_score != null && (r.min_score < 0 || r.min_score > 100)) ||
+    (r.max_score != null && (r.max_score < 0 || r.max_score > 100)));
+  checks.push(check(outOfBounds.length === 0 ? SEV.OK : SEV.ERR,
+    "Scores ∈ [0, 100]",
+    outOfBounds.length === 0 ? "all valid" : `${outOfBounds.length} out of range`));
+  return checks;
+}
+
+function validateCalendar(d) {
+  const checks = [];
+  const rounds = d.rounds || [];
+  const expectedRounds = ["R1_PORTFOLIO", "R2_QUOTA", "R3_ADMISSION", "R4_DIRECT"];
+  const missing = expectedRounds.filter(r => !rounds.find(x => x.round_code === r));
+  checks.push(check(missing.length === 0 ? SEV.OK : SEV.ERR,
+    "All 4 TCAS rounds present",
+    missing.length === 0 ? "all 4 present" : `missing: ${missing.join(", ")}`));
+
+  const examEvents = d.exam_events || [];
+  const expectedExams = ["TGAT_TPAT", "A_LEVEL", "NETSAT"];
+  const missingExams = expectedExams.filter(e => !examEvents.find(x => x.exam_code === e));
+  checks.push(check(missingExams.length === 0 ? SEV.OK : SEV.WARN,
+    "exam_events covers TGAT/TPAT, A-Level, NETSAT",
+    missingExams.length === 0 ? "all present" : `missing: ${missingExams.join(", ")}`));
+
+  const validTypes = new Set(["register", "exam", "result", "confirm", "release", "interview"]);
+  const badTypes = [];
+  for (const r of rounds)
+    for (const e of (r.events || []))
+      if (!validTypes.has(e.event_type)) badTypes.push(`${r.round_code}/${e.event_type}`);
+  for (const e of examEvents)
+    if (!validTypes.has(e.event_type)) badTypes.push(`exam/${e.exam_code}/${e.event_type}`);
+  checks.push(check(badTypes.length === 0 ? SEV.OK : SEV.ERR,
+    "All event_type values are in the allowed set",
+    badTypes.length === 0 ? "all valid" : `${badTypes.length} invalid`,
+    badTypes.slice(0, 5)));
+
+  const isoRe = /^\d{4}-\d{2}-\d{2}$/;
+  const badDates = [];
+  const allEvents = [
+    ...rounds.flatMap(r => (r.events || []).map(e => ({ ctx: r.round_code, ...e }))),
+    ...examEvents.map(e => ({ ctx: `exam/${e.exam_code}`, ...e })),
+  ];
+  for (const e of allEvents) {
+    if (e.date_start && !isoRe.test(e.date_start)) badDates.push(`${e.ctx} start=${e.date_start}`);
+    if (e.date_end && !isoRe.test(e.date_end)) badDates.push(`${e.ctx} end=${e.date_end}`);
+  }
+  checks.push(check(badDates.length === 0 ? SEV.OK : SEV.ERR,
+    "Dates are ISO YYYY-MM-DD",
+    badDates.length === 0 ? "all valid" : `${badDates.length} invalid`,
+    badDates.slice(0, 5)));
+
+  checks.push(check(d.source ? SEV.OK : SEV.WARN,
+    "Source URL recorded for traceability",
+    d.source || "(none)"));
+
+  return checks;
+}
+
+function validateTcasQuota(d) {
+  const checks = [];
+  const programs = d.programs || [];
+  checks.push(check(programs.length > 0 ? SEV.OK : SEV.ERR,
+    "Round 3 weight records present",
+    `Got ${programs.length} records`));
+
+  const noWeights = programs.filter(p => !p.weights || p.weights.length === 0);
+  checks.push(check(noWeights.length === 0 ? SEV.OK : SEV.WARN,
+    "Every record has weights[] ≥ 1",
+    noWeights.length === 0 ? "all have weights"
+      : `${noWeights.length} records empty (likely portfolio-only projects)`));
+
+  const unknownCount = programs.reduce((n, p) =>
+    n + (p.weights || []).filter(w => String(w.exam_code).startsWith("UNKNOWN_")).length, 0);
+  checks.push(check(unknownCount === 0 ? SEV.OK : SEV.WARN,
+    "UNKNOWN_* exam codes < 1%",
+    `Got ${unknownCount} unknown codes out of ${programs.reduce((n,p)=>n+(p.weights||[]).length,0)} weight rows`));
+
+  const badSum = programs.filter(p => {
+    if (!p.weights || p.weights.length === 0) return false;
+    const t = p.weights.reduce((s, w) => s + (+w.weight_percent || 0), 0);
+    // mytcas mixes raw weight percentages; many programs sum to 100 but some include gpax which can be >100 total
+    return t < 30 || t > 110;
+  });
+  checks.push(check(badSum.length === 0 ? SEV.OK : SEV.WARN,
+    "Weight sums look reasonable (30–110)",
+    badSum.length === 0 ? "all reasonable" : `${badSum.length} unusual`,
+    badSum.slice(0, 5).map(p => {
+      const t = p.weights.reduce((s, w) => s + (+w.weight_percent || 0), 0);
+      return `${p.external_id} sum=${t} ${p.program_name}`;
+    })));
+
+  const missingMeta = programs.filter(p => !p.university || !p.program_name);
+  checks.push(check(missingMeta.length === 0 ? SEV.OK : SEV.ERR,
+    "university + program_name present",
+    missingMeta.length === 0 ? "all present" : `${missingMeta.length} missing`));
+
+  const uniqUni = new Set(programs.map(p => p.university));
+  checks.push(check(uniqUni.size >= 30 ? SEV.OK : SEV.WARN,
+    "Coverage across ≥ 30 universities",
+    `Got ${uniqUni.size} distinct universities`));
+
+  return checks;
+}
+
+function validateTcasStat(d) {
+  const checks = [];
+  const recs = d.records || [];
+  checks.push(check(recs.length > 0 ? SEV.OK : SEV.ERR,
+    "Stat records present",
+    `Got ${recs.length} records`));
+
+  const numeric = recs.filter(r => r.min_score != null);
+  const outOfBounds = numeric.filter(r =>
+    r.min_score < 0 || r.min_score > 100 ||
+    (r.max_score != null && (r.max_score < 0 || r.max_score > 100)));
+  checks.push(check(outOfBounds.length === 0 ? SEV.OK : SEV.ERR,
+    "Scores ∈ [0, 100]",
+    outOfBounds.length === 0 ? "all valid" : `${outOfBounds.length} out of range`,
+    outOfBounds.slice(0, 5).map(r => `${r.external_id} min=${r.min_score} max=${r.max_score}`)));
+
+  const inverted = numeric.filter(r =>
+    r.max_score != null && r.min_score > r.max_score);
+  checks.push(check(inverted.length === 0 ? SEV.OK : SEV.ERR,
+    "min_score ≤ max_score",
+    inverted.length === 0 ? "all consistent" : `${inverted.length} inverted`));
+
+  const predFlag = recs.filter(r => typeof r.is_predicted === "boolean");
+  checks.push(check(predFlag.length === recs.length ? SEV.OK : SEV.WARN,
+    "is_predicted flag set on every record",
+    predFlag.length === recs.length ? "all set" : `${recs.length - predFlag.length} missing`));
+
+  return checks;
+}
+
+const VALIDATORS = {
+  kkuQuota: validateKkuQuota,
+  kkuStat: validateKkuStat,
+  tcasCalendar: validateCalendar,
+  tcasQuota: validateTcasQuota,
+  tcasStat: validateTcasStat,
+};
+
+// ───────── render ─────────
+
+function worstSev(checks) {
+  if (checks.some(c => c.sev === SEV.ERR)) return SEV.ERR;
+  if (checks.some(c => c.sev === SEV.WARN)) return SEV.WARN;
+  return SEV.OK;
+}
+
+function renderSummary(results) {
+  const html = results.map(r => {
+    const cls = r.error ? "err" : (r.checks ? worstSev(r.checks) : "warn");
+    const badge = r.error ? '<span class="badge err">load failed</span>'
+                          : `<span class="badge ${cls}">${cls.toUpperCase()}</span>`;
+    const stat = r.error ? "" :
+      (r.data?.metadata
+        ? Object.entries(r.data.metadata)
+            .filter(([k]) => !["scraped_at","source","round_types_seen"].includes(k))
+            .slice(0, 3)
+            .map(([k, v]) => `${k}=${v}`).join(" · ")
+        : "");
+    return `<div class="file-card ${cls}">
+      <div class="name">${escape(r.label)}</div>
+      <div class="stat">${escape(stat)}</div>
+      ${badge}
+    </div>`;
+  }).join("");
+  $("summary").innerHTML = html;
+}
+
+function renderSection(r) {
+  if (r.error) {
+    return `<div class="file-section">
+      <h2>${escape(r.label)}<span class="src">${escape(r.path)}</span></h2>
+      <div class="error-block">${escape(r.error)}</div>
+    </div>`;
+  }
+  const checks = r.checks || [];
+  const checkHtml = checks.map(c => `
+    <div class="check ${c.sev}">
+      <div class="icon">${c.sev === "ok" ? "✓" : c.sev === "warn" ? "!" : "✗"}</div>
+      <div class="body">
+        <div class="title">${escape(c.title)}</div>
+        <div class="detail">${escape(c.detail)}</div>
+        ${c.examples && c.examples.length
+          ? `<details><summary>${c.examples.length} example${c.examples.length>1?"s":""}</summary>
+              <ul>${c.examples.map(x => `<li><code>${escape(x)}</code></li>`).join("")}</ul>
+             </details>`
+          : ""}
+      </div>
+    </div>`).join("");
+  return `<div class="file-section">
+    <h2>${escape(r.label)}<span class="src">${escape(r.path)}</span></h2>
+    <div class="check-list">${checkHtml}</div>
+  </div>`;
+}
+
+async function loadFile(spec) {
+  try {
+    const r = await fetch(spec.path + "?ts=" + Date.now());
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    const validator = VALIDATORS[spec.key];
+    const checks = validator ? validator(data) : [];
+    return { ...spec, data, checks };
+  } catch (e) {
+    return { ...spec, error: `Failed to load ${spec.path}: ${e.message}` };
+  }
+}
+
+async function loadAll() {
+  $("hdr-meta").textContent = "Loading…";
+  const results = await Promise.all(FILES.map(loadFile));
+  renderSummary(results);
+  $("sections").innerHTML = results.map(renderSection).join("");
+  const totalChecks = results.reduce((n, r) => n + (r.checks?.length || 0), 0);
+  const okChecks = results.reduce((n, r) =>
+    n + (r.checks?.filter(c => c.sev === SEV.OK).length || 0), 0);
+  $("hdr-meta").innerHTML =
+    `${okChecks} / ${totalChecks} checks passing · `
+    + `validated at ${new Date().toLocaleTimeString()} · `
+    + `<button class="reload" onclick="loadAll()">⟳ reload</button>`;
+}
+
+loadAll();
+</script>
+</body>
+</html>
