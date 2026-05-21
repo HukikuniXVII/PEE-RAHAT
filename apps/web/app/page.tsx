@@ -4,6 +4,7 @@ import { getInitialUser } from "@/lib/auth";
 import { AboutFeatures } from "@/components/landing/AboutFeatures";
 import { Hero } from "@/components/landing/Hero";
 import { HowItWorks } from "@/components/landing/HowItWorks";
+import { LandingFooter } from "@/components/landing/LandingFooter";
 import { Nav } from "@/components/landing/Nav";
 import { SnapLock } from "@/components/snap-lock";
 
@@ -50,6 +51,7 @@ export default async function HomePage() {
         }}
       >
         <HowItWorks />
+        <LandingFooter />
       </section>
     </div>
   );
