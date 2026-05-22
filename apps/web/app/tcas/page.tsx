@@ -40,7 +40,12 @@ export default async function TcasPage() {
     tcasStatById.set(r.external_id, r);
   }
 
-  const programs: UnifiedProgram[] = [
+  // Raw TCAS quota contains many byte-identical duplicate rows (one
+  // external_id can repeat 100+ times across project_ids). Map first,
+  // then keep first occurrence per unified id so React keys stay unique
+  // — duplicate keys silently kept stale ProgramCard nodes mounted
+  // through filter changes, which looked like the filter was broken.
+  const raw: UnifiedProgram[] = [
     ...kkuQuota.programs.map((p) =>
       mapKkuProgram(p, kkuStatByKey.get(`${p.faculty}|${p.program_name}`)),
     ),
@@ -48,6 +53,13 @@ export default async function TcasPage() {
       mapTcasProgram(p, tcasStatById.get(p.external_id)),
     ),
   ];
+  const seen = new Set<string>();
+  const programs: UnifiedProgram[] = [];
+  for (const p of raw) {
+    if (seen.has(p.id)) continue;
+    seen.add(p.id);
+    programs.push(p);
+  }
 
   return <TcasCalculator programs={programs} calendar={calendar} />;
 }

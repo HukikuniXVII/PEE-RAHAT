@@ -112,111 +112,129 @@ export function ThreadsList({ initialThreads }: Props) {
     );
   }
 
+  // Populated state mirrors the empty state's split layout so the page
+  // does not visually re-flow when the first thread arrives. Left column
+  // holds the conversation list + search; right column is a placeholder
+  // until the future split-pane chat view lands (today, opening a thread
+  // still navigates to /chat/thread/[id]).
   return (
-    <div className="space-y-3">
-      <div className="relative">
-        <Search
-          size={16}
-          className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-        />
-        <input
-          type="text"
-          placeholder="ค้นหาบทสนทนา..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-        />
-      </div>
+    <div className="grid lg:grid-cols-[280px_1fr] gap-6">
+      <aside className="space-y-3 min-w-0">
+        <div className="relative">
+          <Search
+            size={16}
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-mute"
+          />
+          <input
+            type="text"
+            placeholder="ค้นหาบทสนทนา..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="thai w-full pl-10 pr-4 py-3 bg-white border border-violet-100 rounded-2xl text-sm text-ink placeholder:text-ink-mute focus:border-violet-300 focus:shadow-focus outline-none transition-all"
+          />
+        </div>
 
-      {threads.length === 0 ? (
-        <p className="text-center text-xs text-slate-400 py-8 font-medium">
-          ไม่พบบทสนทนาที่ตรงกับ "{search}"
-        </p>
-      ) : null}
+        {threads.length === 0 ? (
+          <p className="thai text-center text-xs text-ink-mute py-8 font-medium">
+            ไม่พบบทสนทนาที่ตรงกับ &ldquo;{search}&rdquo;
+          </p>
+        ) : null}
 
-      {threads.map((thread) => {
-        const isStudentSide = thread.counterparty.role === "tutor";
-        const hasUnread = thread.unreadCount > 0;
-        return (
-          <Link
-            key={thread.id}
-            href={`/chat/thread/${thread.id}` as Route}
-            className="block"
-          >
-            <div
-              className={cn(
-                "flex items-center gap-4 p-4 rounded-2xl border transition-all shadow-sm",
-                hasUnread
-                  ? "bg-indigo-50/40 border-indigo-100 hover:border-indigo-300"
-                  : "bg-white border-slate-100 hover:border-indigo-200",
-              )}
+        {threads.map((thread) => {
+          const isStudentSide = thread.counterparty.role === "tutor";
+          const hasUnread = thread.unreadCount > 0;
+          return (
+            <Link
+              key={thread.id}
+              href={`/chat/thread/${thread.id}` as Route}
+              className="block"
             >
-              {thread.counterparty.avatarUrl ? (
-                <img
-                  src={thread.counterparty.avatarUrl}
-                  alt={thread.counterparty.displayName}
-                  className="w-12 h-12 rounded-2xl object-cover bg-slate-50"
-                />
-              ) : (
-                <span className="w-12 h-12 rounded-2xl bg-indigo-600 text-white text-sm font-black flex items-center justify-center">
-                  {initialsOf(thread.counterparty.displayName)}
-                </span>
-              )}
-              <div className="flex-1 min-w-0 space-y-1">
-                <div className="flex items-center justify-between gap-2">
-                  <h3
-                    className={cn(
-                      "text-sm truncate",
-                      hasUnread
-                        ? "font-black text-slate-900"
-                        : "font-bold text-slate-900",
-                    )}
-                  >
-                    {thread.counterparty.displayName}
-                  </h3>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[10px] font-medium text-slate-400">
-                      {formatRelative(thread.lastMessageAt)}
-                    </span>
-                    {hasUnread && (
-                      <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-indigo-600 text-white text-[10px] font-black flex items-center justify-center">
-                        {thread.unreadCount > 99 ? "99+" : thread.unreadCount}
+              <div
+                className={cn(
+                  "flex items-center gap-3 p-3 rounded-[20px] border transition-all shadow-[0_4px_12px_-8px_rgba(85,65,139,0.18)]",
+                  hasUnread
+                    ? "bg-grape-soft/60 border-violet-200 hover:border-violet-300"
+                    : "bg-white border-violet-100 hover:border-violet-200",
+                )}
+              >
+                {thread.counterparty.avatarUrl ? (
+                  <img
+                    src={thread.counterparty.avatarUrl}
+                    alt={thread.counterparty.displayName}
+                    className="w-11 h-11 rounded-2xl object-cover bg-grape-soft shrink-0"
+                  />
+                ) : (
+                  <span className="w-11 h-11 rounded-2xl bg-dusty-grape text-white text-sm font-black flex items-center justify-center shrink-0">
+                    {initialsOf(thread.counterparty.displayName)}
+                  </span>
+                )}
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3
+                      className={cn(
+                        "thai text-sm truncate",
+                        hasUnread
+                          ? "font-black text-grape-deep"
+                          : "font-bold text-ink",
+                      )}
+                    >
+                      {thread.counterparty.displayName}
+                    </h3>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[10px] font-medium text-ink-mute">
+                        {formatRelative(thread.lastMessageAt)}
                       </span>
-                    )}
+                      {hasUnread && (
+                        <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-dusty-grape text-white text-[10px] font-black flex items-center justify-center">
+                          {thread.unreadCount > 99 ? "99+" : thread.unreadCount}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={cn(
+                        "text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded",
+                        isStudentSide
+                          ? "bg-grape-soft text-grape-deep"
+                          : "bg-neutral-100 text-ink-mute",
+                      )}
+                    >
+                      {isStudentSide ? "Tutor" : "Student"}
+                    </span>
+                    <p
+                      className={cn(
+                        "thai text-xs truncate flex-1",
+                        hasUnread ? "font-bold text-ink-soft" : "text-ink-mute",
+                      )}
+                    >
+                      {thread.lastMessagePreview || "ยังไม่มีข้อความ"}
+                    </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={cn(
-                      "text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded",
-                      isStudentSide
-                        ? "bg-indigo-50 text-indigo-600"
-                        : "bg-slate-100 text-slate-500",
-                    )}
-                  >
-                    {isStudentSide ? "Tutor" : "Student"}
-                  </span>
-                  <p
-                    className={cn(
-                      "text-xs truncate flex-1",
-                      hasUnread
-                        ? "font-bold text-slate-700"
-                        : "text-slate-500",
-                    )}
-                  >
-                    {thread.lastMessagePreview || "ยังไม่มีข้อความ"}
-                  </p>
-                </div>
               </div>
-            </div>
-          </Link>
-        );
-      })}
+            </Link>
+          );
+        })}
 
-      <p className="pt-4 text-[10px] text-slate-400 text-center font-medium flex items-center justify-center gap-1.5">
-        <ShieldCheck size={12} className="text-emerald-500" />
-        ทุกข้อความถูกกรองช่องทางติดต่อนอกแพลตฟอร์มอัตโนมัติ
-      </p>
+        <p className="thai pt-4 text-[10px] text-ink-mute text-center font-medium flex items-center justify-center gap-1.5">
+          <ShieldCheck size={12} className="text-emerald-500" />
+          ทุกข้อความถูกกรองช่องทางติดต่อนอกแพลตฟอร์มอัตโนมัติ
+        </p>
+      </aside>
+
+      {/* Right — placeholder until split-pane chat view lands. Mirrors
+          the empty state's right column so layout stays identical. */}
+      <div className="hidden lg:flex bg-white p-10 rounded-[32px] border border-violet-100 shadow-[0_8px_24px_-16px_rgba(85,65,139,0.25)] text-center flex-col items-center justify-center gap-3 min-h-[420px]">
+        <MessagesSquare
+          size={28}
+          className="text-violet-300"
+          strokeWidth={1.8}
+        />
+        <p className="thai text-sm text-ink-soft leading-relaxed max-w-xs">
+          เลือกบทสนทนาจากด้านซ้ายเพื่อเริ่มสนทนากับพี่รหัส
+        </p>
+      </div>
     </div>
   );
 }

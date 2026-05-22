@@ -39,6 +39,7 @@ import {
   type Zone,
   calculateWeightedScore,
   classifyZone,
+  examCodeLabel,
   zoneLabel,
 } from "@/lib/tcas-unified";
 
@@ -118,7 +119,10 @@ const UNI_SHORT: Record<string, string> = {
   สถาบันเทคโนโลยีพระจอมเกล้าเจ้าคุณทหารลาดกระบัง: "สจล.",
 };
 function shortUni(name: string): string {
-  return UNI_SHORT[name] ?? name.replace(/^มหาวิทยาลัย/, "ม.").slice(0, 14);
+  // Defensive: trim + NFC-normalize so JSON-source and source-code keys
+  // always compare equal even if one side picks up combining-mark drift.
+  const cleaned = name.trim().normalize("NFC");
+  return UNI_SHORT[cleaned] ?? cleaned.replace(/^มหาวิทยาลัย/, "ม.").slice(0, 14);
 }
 
 function similarityScore(a: UnifiedProgram, b: UnifiedProgram): number {
@@ -196,6 +200,15 @@ export function TcasCalculator({ programs, calendar }: Props) {
   );
   const [selectedUnis, setSelectedUnis] = useState<Set<string>>(new Set());
   const [minGpaxBucket, setMinGpaxBucket] = useState<number>(0);
+
+  // Reset the university filter when switching tabs — NETSAT only has
+  // KKU programs while TCAS R3 has 73 unis. Carrying a selection across
+  // tabs almost always hides the new tab's programs (e.g. selecting
+  // "มข." on NETSAT, then switching to TCAS, would show only the ~293
+  // KKU R3 programs out of 7,489 — looks like the filter is broken).
+  useEffect(() => {
+    setSelectedUnis(new Set());
+  }, [tab]);
 
   // Pinned-for-comparison IDs (per the V1 design's compare dock). Cap at
   // 3 per the handoff spec — additional pin attempts silently no-op.
@@ -598,17 +611,42 @@ function HomePage(props: {
       />
 
       <main className="flex flex-col min-w-0">
+        <ActiveFilterBanner
+          tab={tab}
+          tilesCount={tiles.length}
+          totalInRound={totalInRound}
+          activeCategories={activeCategories}
+          selectedUnis={selectedUnis}
+          minGpaxBucket={minGpaxBucket}
+          onClearCategory={(key) => {
+            const next = new Set(activeCategories);
+            next.delete(key);
+            setActiveCategories(next);
+          }}
+          onClearUni={(short) => {
+            const next = new Set(selectedUnis);
+            next.delete(short);
+            setSelectedUnis(next);
+          }}
+          onClearGpax={() => setMinGpaxBucket(0)}
+          onResetAll={onResetFilters}
+        />
+
         <div className="flex items-center justify-between mb-3">
           <p className="thai text-[12px] text-ink-soft">
-            พบ{" "}
+            แสดง{" "}
+            <span className="font-bold text-grape-deep tabular-nums">
+              {Math.min(tiles.length, 24).toLocaleString()}
+            </span>{" "}
+            จาก{" "}
             <span className="font-bold text-grape-deep tabular-nums">
               {tiles.length.toLocaleString()}
             </span>{" "}
-            หลักสูตรในกลุ่ม "{tab === "kku-netsat" ? "NETSAT" : "TCAS"}" ·{" "}
-            <span className="font-bold text-emerald-700 tabular-nums">
-              {totalInRound.toLocaleString()}
-            </span>{" "}
-            ทั้งหมด
+            หลักสูตรที่ตรงเงื่อนไข
+            <span className="text-ink-mute ml-1">
+              (ทั้งหมดในรอบ {tab === "kku-netsat" ? "NETSAT" : "TCAS"}:{" "}
+              {totalInRound.toLocaleString()})
+            </span>
           </p>
           <select
             value={sortKey}
@@ -657,6 +695,123 @@ function HomePage(props: {
 
       <CalendarWidget calendar={calendar} tab={tab} />
     </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Active-filter banner (surfaces the current filter state so the
+// number on the count line and the cards in the grid feel obviously
+// connected — without this, narrowing 7,489 → 197 looked the same as
+// "filter not applied" to many users).
+// ────────────────────────────────────────────────────────────────────
+
+function ActiveFilterBanner({
+  tab,
+  tilesCount,
+  totalInRound,
+  activeCategories,
+  selectedUnis,
+  minGpaxBucket,
+  onClearCategory,
+  onClearUni,
+  onClearGpax,
+  onResetAll,
+}: {
+  tab: RoundFilter;
+  tilesCount: number;
+  totalInRound: number;
+  activeCategories: Set<string>;
+  selectedUnis: Set<string>;
+  minGpaxBucket: number;
+  onClearCategory: (key: string) => void;
+  onClearUni: (short: string) => void;
+  onClearGpax: () => void;
+  onResetAll: () => void;
+}) {
+  const hasAny =
+    activeCategories.size > 0 ||
+    selectedUnis.size > 0 ||
+    minGpaxBucket > 0;
+  if (!hasAny) return null;
+
+  const matchEmpty = tilesCount === 0;
+
+  return (
+    <div
+      className={cn(
+        "mb-3 rounded-2xl border px-4 py-3 flex flex-wrap items-center gap-2",
+        matchEmpty
+          ? "bg-rose-50/70 border-rose-200"
+          : "bg-accent-500/15 border-accent-500/40",
+      )}
+    >
+      <span
+        className={cn(
+          "thai text-[12px] font-bold",
+          matchEmpty ? "text-rose-700" : "text-grape-deep",
+        )}
+      >
+        {matchEmpty
+          ? "⚠️ ไม่มีหลักสูตรตรงตัวกรอง"
+          : `🔍 ตัวกรองกำลังทำงาน — แสดง ${tilesCount.toLocaleString()} จาก ${totalInRound.toLocaleString()} หลักสูตรในรอบ ${tab === "kku-netsat" ? "NETSAT" : "TCAS"}`}
+      </span>
+
+      <div className="flex flex-wrap items-center gap-1.5 ml-auto">
+        {[...activeCategories].map((key) => {
+          const cat = CATEGORIES.find((c) => c.key === key);
+          if (!cat) return null;
+          return (
+            <FilterChip
+              key={`cat-${key}`}
+              label={`${cat.icon} ${cat.labelTh}`}
+              onClear={() => onClearCategory(key)}
+            />
+          );
+        })}
+        {[...selectedUnis].map((short) => (
+          <FilterChip
+            key={`uni-${short}`}
+            label={short}
+            onClear={() => onClearUni(short)}
+          />
+        ))}
+        {minGpaxBucket > 0 && (
+          <FilterChip
+            label={`GPAX ≥ ${minGpaxBucket.toFixed(2)}`}
+            onClear={onClearGpax}
+          />
+        )}
+        <button
+          type="button"
+          onClick={onResetAll}
+          className="thai ml-1 text-[11px] font-bold underline underline-offset-2 text-grape-deep hover:text-violet-500"
+        >
+          ล้างทั้งหมด
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function FilterChip({
+  label,
+  onClear,
+}: {
+  label: string;
+  onClear: () => void;
+}) {
+  return (
+    <span className="thai inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full text-[11px] font-bold bg-violet-500 text-white">
+      {label}
+      <button
+        type="button"
+        onClick={onClear}
+        aria-label={`ลบตัวกรอง ${label}`}
+        className="w-3.5 h-3.5 rounded-full inline-flex items-center justify-center bg-white/25 hover:bg-white/40 transition-colors"
+      >
+        <X size={9} />
+      </button>
+    </span>
   );
 }
 
@@ -896,13 +1051,16 @@ function UniFilterGroup({
         </div>
       )}
 
-      <div className="rounded-lg overflow-hidden bg-violet-100/30 max-h-[220px] overflow-y-auto custom-scrollbar">
+      <div className="rounded-lg overflow-hidden bg-violet-100/30 max-h-[260px] overflow-y-auto custom-scrollbar">
         {filtered.length === 0 ? (
           <p className="thai text-[10.5px] py-3 text-center text-ink-mute">
             ไม่พบมหา'ลัย "{q}"
           </p>
         ) : (
-          filtered.slice(0, 20).map((u) => {
+          // Render the full list (scrollable container handles overflow).
+          // Previously capped at 20 → most TCAS R3 unis (73 total) were
+          // unreachable without typing the exact name first.
+          filtered.map((u) => {
             const on = selected.has(u.short);
             return (
               <label
@@ -930,11 +1088,6 @@ function UniFilterGroup({
           })
         )}
       </div>
-      {filtered.length > 20 && (
-        <p className="thai text-[10px] mt-1 text-center text-soft-periwinkle">
-          พิมพ์เพิ่มเพื่อค้นหาในอีก {filtered.length - 20} มหา'ลัย
-        </p>
-      )}
     </div>
   );
 }
@@ -1085,7 +1238,7 @@ function ProgramCard({
                 key={`${w.examCode}-${i}`}
                 className={WEIGHT_SEGMENT_COLORS[i % WEIGHT_SEGMENT_COLORS.length]}
                 style={{ width: `${w.weightPercent}%` }}
-                title={`${w.rawSubjectName || w.examCode} ${w.weightPercent.toFixed(0)}%`}
+                title={`${w.rawSubjectName || examCodeLabel(w.examCode)} ${w.weightPercent.toFixed(0)}%`}
               />
             ))}
           </div>
@@ -1095,7 +1248,7 @@ function ProgramCard({
                 key={`${w.examCode}-${i}`}
                 className="thai text-[10px] px-1.5 py-0.5 rounded bg-[#F5F2FA] text-ink-soft"
               >
-                {w.rawSubjectName || w.examCode}{" "}
+                {w.rawSubjectName || examCodeLabel(w.examCode)}{" "}
                 <span className="tabular-nums font-semibold text-grape-deep">
                   {w.weightPercent.toFixed(0)}%
                 </span>
@@ -1415,7 +1568,16 @@ function DetailPage({
     );
   }
 
-  const { total: myScore } = calculateWeightedScore(program.weights, scores);
+  // PRIORITY_SCORE ("ลำดับการเลือก") is computed by TCAS from the
+  // applicant's rank list, not entered by the student. Assume 100 (1st
+  // choice) so the projected total isn't artificially deflated for
+  // programs that weight it — historical min/max in the data already
+  // includes admitted students' actual rank-of-choice values.
+  const scoresForCalc = { ...scores, PRIORITY_SCORE: scores.PRIORITY_SCORE ?? 100 };
+  const { total: myScore } = calculateWeightedScore(
+    program.weights,
+    scoresForCalc,
+  );
   const zone = classifyZone(myScore, program.history);
 
   const history = program.history;
@@ -1435,6 +1597,7 @@ function DetailPage({
     feasible: boolean;
   };
   const advice: Advice[] = program.weights
+    .filter((w) => w.examCode !== "PRIORITY_SCORE")
     .map((w) => {
       const cur = scores[w.examCode] ?? 0;
       const headroom = 100 - cur;
@@ -1590,41 +1753,54 @@ function ScoreInputRow({
       </p>
 
       <div className="flex flex-wrap gap-1.5">
-        {program.weights.map((w) => {
-          const val = scores[w.examCode];
-          return (
-            <label
-              key={w.examCode}
-              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 bg-white border border-[rgba(85,65,139,0.10)] focus-within:border-violet-300 focus-within:shadow-focus"
-            >
-              <span className="thai text-[11px] text-ink-soft">
-                {w.rawSubjectName || w.examCode}
-              </span>
-              <span className="thai text-[10px] px-1 rounded bg-grape-soft text-grape-deep font-bold">
-                {w.weightPercent.toFixed(0)}%
-              </span>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                step={0.01}
-                value={val ?? ""}
-                onChange={(e) => {
-                  const raw = e.target.value;
-                  if (raw === "") {
-                    setScore(w.examCode, Number.NaN);
-                    return;
-                  }
-                  const n = Number(raw);
-                  if (!Number.isNaN(n)) setScore(w.examCode, n);
-                }}
-                placeholder="—"
-                className="font-bold text-[13px] text-grape-deep tabular-nums w-12 text-right bg-transparent outline-none placeholder:text-ink-mute placeholder:font-normal"
-              />
-            </label>
-          );
-        })}
+        {program.weights
+          .filter((w) => w.examCode !== "PRIORITY_SCORE")
+          .map((w) => {
+            const val = scores[w.examCode];
+            return (
+              <label
+                key={w.examCode}
+                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 bg-white border border-[rgba(85,65,139,0.10)] focus-within:border-violet-300 focus-within:shadow-focus"
+              >
+                <span className="thai text-[11px] text-ink-soft">
+                  {w.rawSubjectName || examCodeLabel(w.examCode)}
+                </span>
+                <span className="thai text-[10px] px-1 rounded bg-grape-soft text-grape-deep font-bold">
+                  {w.weightPercent.toFixed(0)}%
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.01}
+                  value={val ?? ""}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === "") {
+                      setScore(w.examCode, Number.NaN);
+                      return;
+                    }
+                    const n = Number(raw);
+                    if (!Number.isNaN(n)) setScore(w.examCode, n);
+                  }}
+                  placeholder="—"
+                  className="font-bold text-[13px] text-grape-deep tabular-nums w-12 text-right bg-transparent outline-none placeholder:text-ink-mute placeholder:font-normal"
+                />
+              </label>
+            );
+          })}
       </div>
+      {(() => {
+        const priority = program.weights.find(
+          (w) => w.examCode === "PRIORITY_SCORE",
+        );
+        if (!priority) return null;
+        return (
+          <p className="thai text-[10.5px] text-ink-mute mt-2 italic">
+            + ลำดับการเลือก {priority.weightPercent.toFixed(0)}% (คำนวณจากการจัดอันดับใน TCAS — ไม่ต้องกรอก)
+          </p>
+        );
+      })()}
     </div>
   );
 }
@@ -1765,7 +1941,7 @@ function ZoneAdviceCard({
                   </span>
                   <div className="flex-1 min-w-0">
                     <p className="thai text-[13px] font-bold truncate">
-                      {a.weight.rawSubjectName || a.weight.examCode}
+                      {a.weight.rawSubjectName || examCodeLabel(a.weight.examCode)}
                     </p>
                     <p className="thai text-[10.5px] text-white/70">
                       น้ำหนัก{" "}
@@ -2032,7 +2208,7 @@ function PieWeightCard({ program }: { program: UnifiedProgram }) {
               style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}
             />
             <span className="thai text-[11px] flex-1 truncate text-ink">
-              {w.rawSubjectName || w.examCode}
+              {w.rawSubjectName || examCodeLabel(w.examCode)}
             </span>
             <span className="text-[11px] tabular-nums font-bold text-grape-deep">
               {w.weightPercent.toFixed(0)}%
