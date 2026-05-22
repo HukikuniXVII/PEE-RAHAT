@@ -115,14 +115,27 @@ export class ReportsService {
       resolution.ownerUserIds[0] ??
       null;
 
+    // Chat-bypass auto-detection (FR-CM-05): when the reported chat
+    // message tripped the anti-bypass filter on send (the stored
+    // `redacted` flag, surfaced by the resolver as bypassMatch), force
+    // the off-platform category — unless the reporter already picked
+    // something more specific than "other" — and float priority up.
+    const chatCtx =
+      resolution.context.kind === "chat_message" ? resolution.context : null;
+    const bypassDetected = chatCtx?.bypassMatch ?? false;
+    const category =
+      bypassDetected && dto.category === "other"
+        ? "off_platform_solicitation"
+        : dto.category;
+
     const bookingCtx =
       resolution.context.kind === "booking" ? resolution.context : null;
-    const { priority, slaDeadline } = this.priority.compute({
+    let { priority, slaDeadline } = this.priority.compute({
       reporter: {
         falseReportCount: reporter.falseReportCount,
         isMinor: this.isReporterMinor(),
       },
-      category: dto.category,
+      category,
       target: {
         type: dto.targetType,
         bookingStatus: bookingCtx?.status ?? null,
@@ -131,6 +144,10 @@ export class ReportsService {
           : null,
       },
     });
+    if (bypassDetected && priority !== "urgent") {
+      priority = "high";
+      slaDeadline = this.priority.slaDeadlineFor("high");
+    }
 
     const report = await this.prisma.report.create({
       data: {
@@ -138,7 +155,7 @@ export class ReportsService {
         targetType: dto.targetType,
         targetId: dto.targetId,
         targetUserId,
-        category: dto.category,
+        category,
         description: dto.description,
         evidenceKeys: dto.evidenceKeys,
         priority,

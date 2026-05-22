@@ -85,6 +85,7 @@ function makeService(over: Overrides = {}) {
     compute: jest
       .fn()
       .mockReturnValue({ priority: "normal", slaDeadline: SLA }),
+    slaDeadlineFor: jest.fn().mockReturnValue(SLA),
   };
   const rateLimit = {
     assertCanFile: over.rateLimit ?? jest.fn().mockResolvedValue(undefined),
@@ -202,6 +203,56 @@ describe("ReportsService.create (FR-CM-05 / FR-SM-07 / FR-PM-05)", () => {
     await expect(svc.create("sup-reporter", POST_DTO)).rejects.toThrow(
       /รายงานบ่อยเกินไป/,
     );
+  });
+});
+
+describe("ReportsService.create — chat-bypass auto-detection (FR-CM-05)", () => {
+  const chatResolution = (bypassMatch: boolean): TargetResolution => ({
+    exists: true,
+    ownerUserIds: ["u-sender"],
+    bookingId: "bk1",
+    context: {
+      kind: "chat_message",
+      messageId: "m1",
+      bookingId: "bk1",
+      bypassMatch,
+      thread: [],
+    },
+  });
+
+  const chatDto = (category: "other" | "scam") => ({
+    targetType: "chat_message" as const,
+    targetId: "m1",
+    category,
+    description: "x".repeat(25),
+    evidenceKeys: [] as string[],
+  });
+
+  it("forces off_platform_solicitation + high priority on a flagged message", async () => {
+    const { svc, prisma } = makeService({ resolution: chatResolution(true) });
+    await svc.create("sup-reporter", chatDto("other"));
+    expect(prisma.report.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        category: "off_platform_solicitation",
+        priority: "high",
+      }),
+    });
+  });
+
+  it("keeps a more specific category but still bumps priority to high", async () => {
+    const { svc, prisma } = makeService({ resolution: chatResolution(true) });
+    await svc.create("sup-reporter", chatDto("scam"));
+    expect(prisma.report.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ category: "scam", priority: "high" }),
+    });
+  });
+
+  it("leaves category + priority untouched when no bypass was detected", async () => {
+    const { svc, prisma } = makeService({ resolution: chatResolution(false) });
+    await svc.create("sup-reporter", chatDto("other"));
+    expect(prisma.report.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ category: "other", priority: "normal" }),
+    });
   });
 });
 

@@ -80,10 +80,15 @@ export class ReportPriorityService {
   compute(input: ComputePriorityInput): ComputePriorityResult {
     const now = input.now ?? new Date();
     const priority = this.resolvePriority(input, now);
-    const slaDeadline = new Date(
-      now.getTime() + this.slaHours[priority] * HOUR_MS,
-    );
-    return { priority, slaDeadline };
+    return { priority, slaDeadline: this.slaDeadlineFor(priority, now) };
+  }
+
+  /**
+   * SLA deadline for a given priority. Public so ReportsService can
+   * recompute it after the chat-bypass priority bump (FR-CM-05).
+   */
+  slaDeadlineFor(priority: ReportPriority, now: Date = new Date()): Date {
+    return new Date(now.getTime() + this.slaHours[priority] * HOUR_MS);
   }
 
   private resolvePriority(
