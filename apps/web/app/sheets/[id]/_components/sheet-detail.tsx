@@ -2,13 +2,11 @@
 
 import type { StudySheet } from "@peerahat/types";
 import { Button } from "@peerahat/ui";
-import { AlertTriangle, ShieldCheck, Star, Wallet } from "lucide-react";
+import { ShieldCheck, Star, Wallet } from "lucide-react";
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { toast } from "sonner";
 
+import { ReportButton } from "@/app/_components/report-button";
 import { PaymentDialog } from "@/components/payment-dialog";
-import { createApiClient } from "@/lib/api-client";
 
 interface Props {
   sheet: StudySheet;
@@ -16,19 +14,6 @@ interface Props {
 
 export function SheetDetail({ sheet }: Props) {
   const [purchasing, setPurchasing] = useState(false);
-
-  const report = useMutation({
-    mutationFn: () =>
-      createApiClient().sheets.report({
-        sheetId: sheet.id,
-        reason: "copyright",
-        details: "Reported via UI",
-      }),
-    meta: { toast: "ส่งรายงานไม่สำเร็จ" },
-    onSuccess: () => {
-      toast.success("ส่งรายงานเรียบร้อย ทีมงานจะตรวจสอบโดยเร็ว");
-    },
-  });
 
   return (
     <>
@@ -124,16 +109,12 @@ export function SheetDetail({ sheet }: Props) {
               {sheet.isSuspended ? "ระงับชั่วคราว" : "Buy Now"}
             </Button>
 
-            <Button
-              variant="muted"
-              size="sm"
-              onClick={() => report.mutate()}
-              disabled={report.isPending || report.isSuccess}
-              className="w-full"
-            >
-              <AlertTriangle size={14} />
-              {report.isSuccess ? "แจ้งปัญหาแล้ว" : "แจ้งปัญหาชีท"}
-            </Button>
+            <ReportButton
+              targetType="sheet"
+              targetId={sheet.id}
+              label="แจ้งปัญหาชีท"
+              className="w-full justify-center"
+            />
 
             <div className="pt-4 border-t border-slate-100 flex items-start gap-3 text-[10px] text-slate-500 leading-relaxed">
               <ShieldCheck size={14} className="text-emerald-600 mt-0.5 shrink-0" />

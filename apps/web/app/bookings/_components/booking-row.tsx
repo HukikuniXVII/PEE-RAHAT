@@ -4,7 +4,6 @@ import type { Booking } from "@peerahat/types";
 import { Button, cn } from "@peerahat/ui";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  AlertTriangle,
   CalendarClock,
   CalendarX,
   CheckCircle2,
@@ -20,11 +19,11 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { ReportButton } from "@/app/_components/report-button";
 import { PaymentDialog } from "@/components/payment-dialog";
 import { createApiClient } from "@/lib/api-client";
 
 import { PostponeReasonDialog } from "./postpone-reason-dialog";
-import { ReportDialog } from "./report-dialog";
 import { ReviewDialog } from "./review-dialog";
 import { STATUS_COPY, TONE_CLASSES } from "./status-meta";
 
@@ -46,7 +45,6 @@ export function BookingRow({ booking }: Props) {
   const queryClient = useQueryClient();
   const router = useRouter();
   const [paying, setPaying] = useState(false);
-  const [reporting, setReporting] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [postponing, setPostponing] = useState(false);
 
@@ -203,14 +201,15 @@ export function BookingRow({ booking }: Props) {
             </span>
           )}
           {reportWindowOpen && (
-            <button
-              type="button"
-              onClick={() => setReporting(true)}
-              className="px-4 py-2.5 bg-rose-50 text-rose-600 rounded-xl font-bold text-sm hover:bg-rose-100 transition-all flex items-center gap-2"
-            >
-              <AlertTriangle size={14} />
-              แจ้งปัญหา
-            </button>
+            <ReportButton
+              targetType="booking"
+              targetId={booking.id}
+              label="แจ้งปัญหา"
+              className="px-4 py-2.5"
+              onReported={() =>
+                queryClient.invalidateQueries({ queryKey: ["bookings", "mine"] })
+              }
+            />
           )}
           {booking.status === "paid" && (
             <span className="text-[11px] font-bold text-emerald-600 inline-flex items-center gap-1.5">
@@ -251,16 +250,6 @@ export function BookingRow({ booking }: Props) {
             setPaying(false);
             queryClient.invalidateQueries({ queryKey: ["bookings", "mine"] });
           }}
-        />
-      )}
-
-      {reporting && (
-        <ReportDialog
-          bookingId={booking.id}
-          onClose={() => setReporting(false)}
-          onReported={() =>
-            queryClient.invalidateQueries({ queryKey: ["bookings", "mine"] })
-          }
         />
       )}
 

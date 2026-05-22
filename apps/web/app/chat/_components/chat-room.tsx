@@ -9,12 +9,13 @@ import {
 } from "@peerahat/types";
 import { Button, cn } from "@peerahat/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Lock, Send, ShieldCheck, Video } from "lucide-react";
+import { AlertTriangle, Flag, Lock, Send, ShieldCheck, Video } from "lucide-react";
 import { motion } from "motion/react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { ReportDialog } from "@/app/_components/report-dialog";
 import { createApiClient } from "@/lib/api-client";
 
 import { PostponePanel } from "./postpone-panel";
@@ -65,6 +66,9 @@ export function ChatRoom({ thread, initialMessages }: Props) {
   const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
   const { counterparty } = thread;
+  const [reportingMessageId, setReportingMessageId] = useState<string | null>(
+    null,
+  );
 
   const messagesQuery = useQuery({
     queryKey: ["chat", "messages", thread.id],
@@ -231,7 +235,7 @@ export function ChatRoom({ thread, initialMessages }: Props) {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 className={cn(
-                  "flex",
+                  "group flex items-center gap-2",
                   isMine(m) ? "justify-end" : "justify-start",
                 )}
               >
@@ -264,6 +268,16 @@ export function ChatRoom({ thread, initialMessages }: Props) {
                     {formatTime(m.createdAt)}
                   </p>
                 </div>
+                {!isMine(m) && (
+                  <button
+                    type="button"
+                    onClick={() => setReportingMessageId(m.id)}
+                    aria-label="รายงานข้อความนี้"
+                    className="shrink-0 text-slate-300 opacity-60 transition-opacity hover:text-rose-500 sm:opacity-0 sm:group-hover:opacity-100"
+                  >
+                    <Flag size={14} />
+                  </button>
+                )}
               </motion.div>
             );
           })
@@ -313,6 +327,14 @@ export function ChatRoom({ thread, initialMessages }: Props) {
             </p>
           )}
         </form>
+      )}
+
+      {reportingMessageId && (
+        <ReportDialog
+          targetType="chat_message"
+          targetId={reportingMessageId}
+          onClose={() => setReportingMessageId(null)}
+        />
       )}
     </div>
   );

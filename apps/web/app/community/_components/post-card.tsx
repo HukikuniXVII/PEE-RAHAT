@@ -18,8 +18,8 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
-import { toast } from "sonner";
 
+import { ReportDialog } from "@/app/_components/report-dialog";
 import { createApiClient } from "@/lib/api-client";
 
 import { ReplyComposer } from "./reply-composer";
@@ -33,6 +33,7 @@ const POSTS_KEY = ["community", "posts"] as const;
 export function PostCard({ post }: Props) {
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
+  const [reporting, setReporting] = useState(false);
 
   const repliesQuery = useInfiniteQuery({
     queryKey: ["community", "replies", post.id],
@@ -94,20 +95,6 @@ export function PostCard({ post }: Props) {
     },
   });
 
-  const report = useMutation({
-    mutationFn: () =>
-      createApiClient().reports.submit({
-        targetType: "post",
-        targetId: post.id,
-        reason: "inappropriate",
-        details: "Reported via UI",
-      }),
-    meta: { toast: "ส่งรายงานไม่สำเร็จ" },
-    onSuccess: () => {
-      toast.success("ส่งรายงานเรียบร้อย ทีมงานจะตรวจสอบโดยเร็ว");
-    },
-  });
-
   return (
     <motion.div
       layout
@@ -151,12 +138,11 @@ export function PostCard({ post }: Props) {
             </div>
             <button
               type="button"
-              onClick={() => report.mutate()}
-              disabled={report.isPending || report.isSuccess}
-              className="p-2 text-slate-300 hover:text-red-400 transition-colors flex items-center gap-1 text-[10px] font-bold disabled:opacity-50"
+              onClick={() => setReporting(true)}
+              className="p-2 text-slate-300 hover:text-rose-500 transition-colors flex items-center gap-1 text-[10px] font-bold"
             >
               <AlertTriangle size={14} />
-              {report.isSuccess ? "แจ้งแล้ว" : "แจ้งปัญหา"}
+              รายงาน
             </button>
           </div>
 
@@ -250,6 +236,14 @@ export function PostCard({ post }: Props) {
           </AnimatePresence>
         </div>
       </div>
+
+      {reporting && (
+        <ReportDialog
+          targetType="community_post"
+          targetId={post.id}
+          onClose={() => setReporting(false)}
+        />
+      )}
     </motion.div>
   );
 }

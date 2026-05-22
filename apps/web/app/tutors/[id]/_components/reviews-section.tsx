@@ -2,8 +2,10 @@
 
 import type { Page, TutorReview } from "@peerahat/types";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { Loader2, Star } from "lucide-react";
+import { Flag, Loader2, Star } from "lucide-react";
+import { useState } from "react";
 
+import { ReportDialog } from "@/app/_components/report-dialog";
 import { createApiClient } from "@/lib/api-client";
 
 interface Props {
@@ -42,6 +44,9 @@ export function ReviewsSection({ tutorId, initialPage, rating, reviewCount }: Pr
 
   const reviews = data?.pages.flatMap((p) => p.items) ?? [];
   const total = data?.pages[0]?.total ?? initialPage.total;
+  const [reportingReviewId, setReportingReviewId] = useState<string | null>(
+    null,
+  );
 
   return (
     <section className="bg-white rounded-[32px] border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
@@ -80,14 +85,24 @@ export function ReviewsSection({ tutorId, initialPage, rating, reviewCount }: Pr
               key={review.id}
               className="bg-slate-50 rounded-2xl border border-slate-100 p-5 space-y-3"
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-bold text-slate-800 truncate pr-2">
                   {review.studentDisplayName}
                 </p>
-                <span className="inline-flex items-center gap-0.5 text-xs font-bold text-amber-600 shrink-0">
-                  <Star size={12} fill="currentColor" />
-                  {review.rating}
-                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="inline-flex items-center gap-0.5 text-xs font-bold text-amber-600">
+                    <Star size={12} fill="currentColor" />
+                    {review.rating}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setReportingReviewId(review.id)}
+                    aria-label="รายงานรีวิวนี้"
+                    className="text-slate-300 transition-colors hover:text-rose-500"
+                  >
+                    <Flag size={13} />
+                  </button>
+                </div>
               </div>
               <p className="text-sm text-slate-600 leading-relaxed line-clamp-4">
                 {review.text}
@@ -113,6 +128,14 @@ export function ReviewsSection({ tutorId, initialPage, rating, reviewCount }: Pr
             ดูรีวิวเพิ่มเติม
           </button>
         </div>
+      )}
+
+      {reportingReviewId && (
+        <ReportDialog
+          targetType="review"
+          targetId={reportingReviewId}
+          onClose={() => setReportingReviewId(null)}
+        />
       )}
     </section>
   );

@@ -40,7 +40,6 @@ import {
   type PostponeOpenResult,
   type PostponeRequestDto,
   type ProposeSlotDto,
-  type ReportDto,
   type AddReportCommentDto,
   type CreateReportDto,
   type CreateReportResult,
@@ -732,14 +731,6 @@ export function createApiClient(opts: ApiClientOptions = {}) {
       addComment: (id: string, dto: AddReportCommentDto) =>
         request<ReportEventView>(
           API_PATHS.reportComment(id),
-          { method: "POST", body: JSON.stringify(dto) },
-          token,
-        ),
-      // Legacy community report — removed once post-card.tsx is rewired
-      // to the shared ReportDialog (report-system step 8 integrations).
-      submit: (dto: ReportDto) =>
-        request<void>(
-          API_PATHS.reports,
           { method: "POST", body: JSON.stringify(dto) },
           token,
         ),
