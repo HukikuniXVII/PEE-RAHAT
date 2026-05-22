@@ -18,6 +18,7 @@ import type {
 import type { ReportEvent } from "@prisma/client";
 
 import { StorageService } from "../common/storage.service";
+import { NotificationService } from "../notifications/notification.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { ReportPriorityService } from "./report-priority.service";
 import { ReportRateLimitService } from "./report-rate-limit.service";
@@ -64,6 +65,7 @@ export class ReportsService {
     private readonly targetResolver: TargetResolverService,
     private readonly priority: ReportPriorityService,
     private readonly rateLimit: ReportRateLimitService,
+    private readonly notifications: NotificationService,
   ) {
     this.maxEvidenceMb = readPositiveInt("REPORT_MAX_EVIDENCE_MB", 10);
   }
@@ -167,9 +169,16 @@ export class ReportsService {
       },
     });
 
-    // The "report filed" reporter notification is wired in step 11
-    // (NotificationService). The target user is intentionally NOT
-    // notified here — only when an admin moves status to under_review.
+    // Notify the reporter. The target user is intentionally NOT notified
+    // here — only when an admin moves the report to under_review.
+    await this.notifications.notify({
+      userId: reporter.id,
+      type: "report_filed",
+      title: "ส่งรายงานเรียบร้อย",
+      body: "เราได้รับรายงานของคุณแล้ว ทีมงานจะตรวจสอบและตอบกลับโดยเร็ว",
+      linkUrl: `/account/reports/${report.id}`,
+      reportId: report.id,
+    });
 
     return {
       id: report.id,

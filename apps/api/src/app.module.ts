@@ -12,6 +12,7 @@ import { CommunityModule } from "./community/community.module";
 import { GoogleCalendarModule } from "./integrations/google-calendar/google-calendar.module";
 import { JobsModule } from "./jobs/jobs.module";
 import { KycModule } from "./kyc/kyc.module";
+import { NotificationsModule } from "./notifications/notifications.module";
 import { PaymentsModule } from "./payments/payments.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { QuizModule } from "./quiz/quiz.module";
@@ -43,6 +44,7 @@ import { UsersModule } from "./users/users.module";
     CommunityModule,
     ChatModule,
     PaymentsModule,
+    NotificationsModule,
     ReportsModule,
     AdminModule,
     TcasImportModule,

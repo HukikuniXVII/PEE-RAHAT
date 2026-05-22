@@ -8,6 +8,7 @@ import {
 } from "@nestjs/common";
 
 import type { StorageService } from "../common/storage.service";
+import type { NotificationService } from "../notifications/notification.service";
 import type { PrismaService } from "../prisma/prisma.service";
 import type { ReportPriorityService } from "./report-priority.service";
 import type { ReportRateLimitService } from "./report-rate-limit.service";
@@ -107,14 +108,24 @@ function makeService(over: Overrides = {}) {
   const rateLimit = {
     assertCanFile: over.rateLimit ?? jest.fn().mockResolvedValue(undefined),
   };
+  const notifications = { notify: jest.fn().mockResolvedValue(undefined) };
   const svc = new ReportsService(
     prisma as unknown as PrismaService,
     storage as unknown as StorageService,
     targetResolver as unknown as TargetResolverService,
     priority as unknown as ReportPriorityService,
     rateLimit as unknown as ReportRateLimitService,
+    notifications as unknown as NotificationService,
   );
-  return { svc, prisma, storage, targetResolver, priority, rateLimit };
+  return {
+    svc,
+    prisma,
+    storage,
+    targetResolver,
+    priority,
+    rateLimit,
+    notifications,
+  };
 }
 
 const POST_DTO = {
@@ -144,6 +155,14 @@ describe("ReportsService.create (FR-CM-05 / FR-SM-07 / FR-PM-05)", () => {
         linkedBookingId: null,
       }),
     });
+  });
+
+  it("notifies the reporter that the report was filed", async () => {
+    const { svc, notifications } = makeService();
+    await svc.create("sup-reporter", POST_DTO);
+    expect(notifications.notify).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "report_filed", userId: "u-reporter" }),
+    );
   });
 
   it("404s when the target does not exist", async () => {

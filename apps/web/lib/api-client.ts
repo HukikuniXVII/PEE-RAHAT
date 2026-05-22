@@ -42,6 +42,7 @@ import {
   type PostponeRequestDto,
   type ProposeSlotDto,
   type AddReportCommentDto,
+  type NotificationItem,
   type CreateReportDto,
   type CreateReportResult,
   type RelatedReportItem,
@@ -779,6 +780,22 @@ export function createApiClient(opts: ApiClientOptions = {}) {
         request<ReportEventView>(
           API_PATHS.reportComment(id),
           { method: "POST", body: JSON.stringify(dto) },
+          token,
+        ),
+    },
+    notifications: {
+      list: () =>
+        request<NotificationItem[]>(API_PATHS.notifications, {}, token),
+      markRead: (id: string) =>
+        request<{ ok: true }>(
+          API_PATHS.notificationRead(id),
+          { method: "PATCH" },
+          token,
+        ),
+      markAllRead: () =>
+        request<{ ok: true }>(
+          API_PATHS.notificationsReadAll,
+          { method: "POST" },
           token,
         ),
     },

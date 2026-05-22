@@ -5,6 +5,7 @@ import {
 } from "@nestjs/common";
 import {
   REPORT_STATUS_LABELS,
+  REPORT_TARGET_LABELS,
   type AdminReportDetail,
   type AdminReportQueueItem,
   type RelatedReportItem,
@@ -17,6 +18,7 @@ import type { Prisma, Report } from "@prisma/client";
 
 import { AuditLogService } from "../common/audit-log.service";
 import { StorageService } from "../common/storage.service";
+import { NotificationService } from "../notifications/notification.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { ReportResolutionService } from "./report-resolution.service";
 import { TargetResolverService } from "./target-resolver.service";
@@ -47,6 +49,7 @@ export class AdminReportsService {
     private readonly resolution: ReportResolutionService,
     private readonly audit: AuditLogService,
     private readonly storage: StorageService,
+    private readonly notifications: NotificationService,
   ) {}
 
   /** Moderation queue — priority desc, then closest-to-overdue first. */
@@ -283,7 +286,12 @@ export class AdminReportsService {
     const admin = await this.requireAdmin(adminSupabaseId);
     const report = await this.prisma.report.findUnique({
       where: { id: reportId },
-      select: { id: true },
+      select: {
+        id: true,
+        status: true,
+        targetType: true,
+        targetUserId: true,
+      },
     });
     if (!report) throw new NotFoundException("ไม่พบรายงาน");
     await this.prisma.$transaction(async (tx) => {
@@ -314,6 +322,22 @@ export class AdminReportsService {
       targetId: reportId,
       ip,
     });
+
+    // Delayed target-user notification — fires only on the transition
+    // INTO under_review, never at file-time, and never names the reporter.
+    if (
+      status === "under_review" &&
+      report.status !== "under_review" &&
+      report.targetUserId
+    ) {
+      await this.notifications.notify({
+        userId: report.targetUserId,
+        type: "report_under_review",
+        title: "มีรายงานเกี่ยวกับเนื้อหาของคุณ",
+        body: `มีรายงานเกี่ยวกับ${REPORT_TARGET_LABELS[report.targetType]}ของคุณ — กำลังตรวจสอบโดยแอดมิน`,
+        reportId,
+      });
+    }
   }
 
   /** Resolve a report — delegates the downstream effect to the resolution
@@ -333,6 +357,92 @@ export class AdminReportsService {
       targetId: reportId,
       ip,
     });
+
+    // Notifications fire AFTER the resolution transaction commits.
+    const resolved = await this.prisma.report.findUnique({
+      where: { id: reportId },
+      select: {
+        reporterId: true,
+        targetUserId: true,
+        targetType: true,
+        publicResponse: true,
+      },
+    });
+    if (resolved) {
+      await this.sendResolutionNotifications(reportId, resolved, dto);
+    }
+  }
+
+  /** Reporter + target-user notifications for a resolved report. The
+   *  target user is never told who reported them. */
+  private async sendResolutionNotifications(
+    reportId: string,
+    report: {
+      reporterId: string;
+      targetUserId: string | null;
+      targetType: ReportTarget;
+      publicResponse: string | null;
+    },
+    dto: ResolveReportDto,
+  ): Promise<void> {
+    const reporterLink = `/account/reports/${reportId}`;
+
+    if (dto.resolution === "reporter_warned") {
+      await this.notifications.notify({
+        userId: report.reporterId,
+        type: "report_reporter_warned",
+        title: "การรายงานล่าสุดของคุณไม่เป็นความจริง",
+        body: "กรุณารายงานอย่างมีหลักฐานเพื่อให้ทีมงานตรวจสอบได้ถูกต้อง",
+        linkUrl: reporterLink,
+        reportId,
+      });
+    } else {
+      await this.notifications.notify({
+        userId: report.reporterId,
+        type: "report_resolved",
+        title: "การรายงานของคุณได้รับการดำเนินการแล้ว",
+        body:
+          report.publicResponse ??
+          "แอดมินได้ตรวจสอบและดำเนินการกับรายงานของคุณแล้ว",
+        linkUrl: reporterLink,
+        reportId,
+      });
+    }
+
+    const targetUserId = report.targetUserId;
+    if (!targetUserId) return;
+    if (dto.resolution === "warning_issued") {
+      await this.notifications.notify({
+        userId: targetUserId,
+        type: "report_warning",
+        title: "บัญชีของคุณได้รับคำเตือน",
+        body:
+          report.publicResponse ?? "กรุณาปฏิบัติตามกฎของแพลตฟอร์ม Pee Rahat",
+        reportId,
+      });
+    } else if (
+      dto.resolution === "suspension_temp" ||
+      dto.resolution === "suspension_perm" ||
+      dto.resolution === "account_banned"
+    ) {
+      await this.notifications.notify({
+        userId: targetUserId,
+        type: "report_suspension",
+        title: "บัญชีของคุณถูกพักการใช้งาน",
+        body:
+          report.publicResponse ??
+          "บัญชีของคุณถูกพักการใช้งานจากผลการตรวจสอบของแอดมิน",
+        reportId,
+      });
+    } else if (dto.resolution === "content_removed") {
+      await this.notifications.notify({
+        userId: targetUserId,
+        type: "report_content_removed",
+        title: "เนื้อหาของคุณถูกซ่อน",
+        body: `เหตุผล: ${dto.removedReason ?? "ละเมิดกฎของแพลตฟอร์ม"}`,
+        reportId,
+      });
+    }
   }
 
   /** Add a free-form admin-only internal note. */

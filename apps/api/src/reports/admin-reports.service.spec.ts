@@ -2,6 +2,7 @@ import { BadRequestException } from "@nestjs/common";
 
 import type { AuditLogService } from "../common/audit-log.service";
 import type { StorageService } from "../common/storage.service";
+import type { NotificationService } from "../notifications/notification.service";
 import type { PrismaService } from "../prisma/prisma.service";
 import { AdminReportsService } from "./admin-reports.service";
 import type { ReportResolutionService } from "./report-resolution.service";
@@ -22,6 +23,7 @@ interface Mocks {
   };
   resolution: { execute: jest.Mock };
   audit: { recordAdminAction: jest.Mock };
+  notifications: { notify: jest.Mock };
 }
 
 function build(): { svc: AdminReportsService } & Mocks {
@@ -48,14 +50,16 @@ function build(): { svc: AdminReportsService } & Mocks {
   const audit = { recordAdminAction: jest.fn().mockResolvedValue({}) };
   const targetResolver = { resolve: jest.fn() };
   const storage = { signDownload: jest.fn() };
+  const notifications = { notify: jest.fn().mockResolvedValue(undefined) };
   const svc = new AdminReportsService(
     prisma as unknown as PrismaService,
     targetResolver as unknown as TargetResolverService,
     resolution as unknown as ReportResolutionService,
     audit as unknown as AuditLogService,
     storage as unknown as StorageService,
+    notifications as unknown as NotificationService,
   );
-  return { svc, prisma, resolution, audit };
+  return { svc, prisma, resolution, audit, notifications };
 }
 
 describe("AdminReportsService (FR-CM-05)", () => {
@@ -123,8 +127,14 @@ describe("AdminReportsService (FR-CM-05)", () => {
   });
 
   describe("resolve", () => {
-    it("delegates to the resolution service and audit-logs", async () => {
-      const { svc, resolution, audit } = build();
+    it("delegates to the resolution service, audit-logs, and notifies the reporter", async () => {
+      const { svc, prisma, resolution, audit, notifications } = build();
+      prisma.report.findUnique.mockResolvedValue({
+        reporterId: "u-rep",
+        targetUserId: null,
+        targetType: "community_post",
+        publicResponse: null,
+      });
       const dto = { resolution: "no_action", resolutionNote: "ok" } as never;
       await svc.resolve("sup-admin", "rep-1", dto, "1.2.3.4");
       expect(resolution.execute).toHaveBeenCalledWith({
@@ -135,6 +145,40 @@ describe("AdminReportsService (FR-CM-05)", () => {
       expect(audit.recordAdminAction).toHaveBeenCalledWith(
         expect.objectContaining({ action: "resolve_report" }),
       );
+      expect(notifications.notify).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "report_resolved", userId: "u-rep" }),
+      );
+    });
+  });
+
+  describe("updateStatus notifications", () => {
+    it("notifies the target user when status moves to under_review", async () => {
+      const { svc, prisma, notifications } = build();
+      prisma.report.findUnique.mockResolvedValue({
+        id: "rep-1",
+        status: "pending",
+        targetType: "community_post",
+        targetUserId: "u-target",
+      });
+      await svc.updateStatus("sup-admin", "rep-1", "under_review", undefined);
+      expect(notifications.notify).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "report_under_review",
+          userId: "u-target",
+        }),
+      );
+    });
+
+    it("does not notify the target user for other status changes", async () => {
+      const { svc, prisma, notifications } = build();
+      prisma.report.findUnique.mockResolvedValue({
+        id: "rep-1",
+        status: "pending",
+        targetType: "community_post",
+        targetUserId: "u-target",
+      });
+      await svc.updateStatus("sup-admin", "rep-1", "escalated", undefined);
+      expect(notifications.notify).not.toHaveBeenCalled();
     });
   });
 

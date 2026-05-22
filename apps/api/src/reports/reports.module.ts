@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 
+import { NotificationsModule } from "../notifications/notifications.module";
 import { AdminReportsController } from "./admin-reports.controller";
 import { AdminReportsService } from "./admin-reports.service";
 import { ReportPriorityService } from "./report-priority.service";
@@ -21,6 +22,7 @@ import { TargetResolverService } from "./target-resolver.service";
  * are not imported here.
  */
 @Module({
+  imports: [NotificationsModule],
   controllers: [ReportsController, AdminReportsController],
   providers: [
     TargetResolverService,
