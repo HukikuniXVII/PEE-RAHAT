@@ -125,6 +125,17 @@ function shortUni(name: string): string {
   return UNI_SHORT[cleaned] ?? cleaned.replace(/^มหาวิทยาลัย/, "ม.").slice(0, 14);
 }
 
+// Filter-display name: full Thai name with the redundant "มหาวิทยาลัย"
+// removed (handles both prefix and suffix — e.g. "มหาวิทยาลัยขอนแก่น" →
+// "ขอนแก่น", "จุฬาลงกรณ์มหาวิทยาลัย" → "จุฬาลงกรณ์"). Names without the
+// word (e.g. "สถาบันเทคโนโลยี…", "ราชวิทยาลัยจุฬาภรณ์") are returned
+// unchanged. Used in the FilterSidebar uni list so the muted full-name
+// column is actually distinguishable across rows instead of every line
+// starting with the same truncated "มหาวิทยาลัย…".
+function uniDisplayName(name: string): string {
+  return name.trim().normalize("NFC").replace(/มหาวิทยาลัย/g, "").trim();
+}
+
 function similarityScore(a: UnifiedProgram, b: UnifiedProgram): number {
   const am = new Map(a.weights.map((w) => [w.examCode, w.weightPercent]));
   const bm = new Map(b.weights.map((w) => [w.examCode, w.weightPercent]));
@@ -857,7 +868,7 @@ function FilterSidebar({
       const s = shortUni(p.university);
       const existing = m.get(s);
       if (existing) existing.count += 1;
-      else m.set(s, { short: s, full: p.university, count: 1 });
+      else m.set(s, { short: s, full: uniDisplayName(p.university), count: 1 });
     }
     return Array.from(m.values()).sort((a, b) => b.count - a.count);
   }, [programs]);
@@ -1035,19 +1046,23 @@ function UniFilterGroup({
 
       {selected.size > 0 && (
         <div className="flex flex-wrap gap-1 mb-2">
-          {[...selected].map((code) => (
-            <button
-              key={code}
-              type="button"
-              onClick={() => toggle(code)}
-              className="thai text-[10px] font-semibold pl-2 pr-1 py-0.5 rounded-full inline-flex items-center gap-1 bg-violet-500 text-white"
-            >
-              {code}
-              <span className="w-3 h-3 rounded-full inline-flex items-center justify-center bg-white/20">
-                <X size={7} />
-              </span>
-            </button>
-          ))}
+          {[...selected].map((code) => {
+            const match = uniList.find((u) => u.short === code);
+            const label = match?.full || code;
+            return (
+              <button
+                key={code}
+                type="button"
+                onClick={() => toggle(code)}
+                className="thai text-[10px] font-semibold pl-2 pr-1 py-0.5 rounded-full inline-flex items-center gap-1 bg-violet-500 text-white"
+              >
+                {label}
+                <span className="w-3 h-3 rounded-full inline-flex items-center justify-center bg-white/20">
+                  <X size={7} />
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -1074,11 +1089,8 @@ function UniFilterGroup({
                   onChange={() => toggle(u.short)}
                   style={{ accentColor: "#55418B" }}
                 />
-                <span className="thai text-[10.5px] font-bold text-grape-deep min-w-[52px]">
-                  {u.short}
-                </span>
-                <span className="thai text-[9.5px] flex-1 truncate text-ink-mute">
-                  {u.full}
+                <span className="thai text-[11px] font-bold text-grape-deep flex-1 truncate">
+                  {u.full || u.short}
                 </span>
                 <span className="text-[9.5px] tabular-nums text-ink-mute">
                   {u.count}
