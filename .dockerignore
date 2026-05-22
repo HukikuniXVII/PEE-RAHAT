@@ -30,6 +30,9 @@ node_modules
 # tsx-only maintenance scripts — not part of `nest build` (sourceRoot: src),
 # and tsx is a devDep absent from the prod image.
 apps/api/scripts
+# …except the scraped TCAS JSON dumps: apps/web bundles them into the build
+# at compile time (lib/tcas-data-bundle.js), so they must reach the context.
+!apps/api/scripts/scrapers/data
 
 # ─── Local env / secrets — must NEVER leak into an image ─────────────────────
 .env
