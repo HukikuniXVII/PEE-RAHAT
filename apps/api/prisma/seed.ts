@@ -508,10 +508,11 @@ async function seed() {
     create: {
       id: "seed-report-1",
       reporterId: jane.id,
-      targetType: "reply",
+      targetType: "community_post",
       targetId: "seed-reply-2",
-      reason: "off_topic",
-      details: "Soliciting off-platform contact (FR-PM-08 spirit).",
+      category: "off_platform_solicitation",
+      description: "Soliciting off-platform contact (FR-PM-08 spirit).",
+      slaDeadline: new Date(Date.now() + 48 * 60 * 60 * 1000),
     },
   });
 

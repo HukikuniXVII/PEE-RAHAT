@@ -525,13 +525,18 @@ export class BookingsService {
     }
 
     await this.prisma.$transaction(async (tx) => {
+      // INTERIM (report system): the legacy booking-report endpoint is
+      // superseded by the unified POST /reports (step 8). Until then it
+      // writes a valid new-schema row with a default category + 48h SLA.
       await tx.report.create({
         data: {
           reporterId: user.id,
           targetType: "booking",
           targetId: bookingId,
-          reason: dto.reason,
-          details: dto.details,
+          category: "other",
+          description: `[${dto.reason}] ${dto.details}`,
+          slaDeadline: new Date(Date.now() + 48 * 60 * 60 * 1000),
+          linkedBookingId: bookingId,
         },
       });
       // Only freeze if escrow is still holding. If it already released

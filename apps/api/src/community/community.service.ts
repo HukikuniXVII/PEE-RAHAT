@@ -142,13 +142,25 @@ export class CommunityService {
   async report(supabaseId: string, dto: ReportDto) {
     const user = await this.prisma.user.findUnique({ where: { supabaseId } });
     if (!user) throw new BadRequestException();
+    // INTERIM (report system): the new ReportTarget enum has no `reply` /
+    // `tutor` member — bucket them as community_post until the unified
+    // POST /reports replaces this endpoint (step 8).
+    const TARGET = {
+      post: "community_post",
+      reply: "community_post",
+      tutor: "community_post",
+      sheet: "sheet",
+      message: "chat_message",
+      booking: "booking",
+    } as const;
     await this.prisma.report.create({
       data: {
         reporterId: user.id,
-        targetType: dto.targetType,
+        targetType: TARGET[dto.targetType],
         targetId: dto.targetId,
-        reason: dto.reason,
-        details: dto.details,
+        category: "other",
+        description: `[${dto.reason}] ${dto.details}`,
+        slaDeadline: new Date(Date.now() + 48 * 60 * 60 * 1000),
       },
     });
   }

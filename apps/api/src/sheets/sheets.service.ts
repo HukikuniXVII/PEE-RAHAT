@@ -152,13 +152,16 @@ export class SheetsService {
   ) {
     const user = await this.prisma.user.findUnique({ where: { supabaseId } });
     if (!user) throw new BadRequestException();
+    // INTERIM (report system): superseded by the unified POST /reports
+    // (step 8). Maps the copyright reason to the pirated_content category.
     await this.prisma.report.create({
       data: {
         reporterId: user.id,
         targetType: "sheet",
         targetId: sheetId,
-        reason: dto.reason,
-        details: dto.details,
+        category: dto.reason === "copyright" ? "pirated_content" : "other",
+        description: dto.details,
+        slaDeadline: new Date(Date.now() + 48 * 60 * 60 * 1000),
       },
     });
     if (dto.reason === "copyright") {

@@ -28,6 +28,16 @@ model User {
   avatarUrl   String?
   createdAt   DateTime @default(now())
 
+  // Report system (FR-CM-05): lightweight moderation counters, only ever
+  // incremented by ReportResolutionService — never auto-decremented.
+  falseReportCount Int       @default(0)
+  warningCount     Int       @default(0)
+  // Set by suspension / ban resolutions. Checked in the auth guard so a
+  // suspended user is blocked on their next request (stateless Supabase
+  // JWT — no session table). suspension_perm / account_banned set the
+  // year 2099 sentinel.
+  suspendedUntil   DateTime?
+
   tutorProfile              TutorProfile?
   studentProfile            StudentProfile?
   kycSubmissions            KycSubmission[]
@@ -36,7 +46,8 @@ model User {
   posts                     CommunityPost[]
   replies                   CommunityReply[]
   upvotes                   PostUpvote[]
-  reports                   Report[]
+  reports                   Report[]          @relation("ReportsFiled")
+  notifications             Notification[]
   paymentIntents            PaymentIntent[]
   sentMessages              ChatMessage[]
   threadsAsStudent          ChatThread[]      @relation("StudentChat")
@@ -222,6 +233,12 @@ model TutorReview {
   text      String
   createdAt DateTime     @default(now())
 
+  // Report system (content_removed resolution). Removed reviews are
+  // excluded from public lists AND from the tutor rating average.
+  removed       Boolean   @default(false)
+  removedReason String?
+  removedAt     DateTime?
+
   @@index([tutorId])
 }
 
@@ -243,6 +260,12 @@ model StudySheet {
   pageCount              Int          @default(0)
   isSuspended            Boolean      @default(false)
   createdAt              DateTime     @default(now())
+
+  // Report system (content_removed resolution) — distinct from the
+  // isSuspended copyright-takedown flag (FR-SM-07).
+  removed       Boolean   @default(false)
+  removedReason String?
+  removedAt     DateTime?
 
   paymentIntents PaymentIntent[]
 
@@ -363,6 +386,11 @@ model CommunityPost {
   isHidden    Boolean  @default(false)
   createdAt   DateTime @default(now())
 
+  // Report system (content_removed resolution) — distinct from isHidden.
+  removed       Boolean   @default(false)
+  removedReason String?
+  removedAt     DateTime?
+
   replies CommunityReply[]
   upvotes PostUpvote[]
 
@@ -378,6 +406,11 @@ model CommunityReply {
   content   String
   createdAt DateTime      @default(now())
 
+  // Report system (content_removed resolution).
+  removed       Boolean   @default(false)
+  removedReason String?
+  removedAt     DateTime?
+
   @@index([postId])
 }
 
@@ -391,29 +424,158 @@ model PostUpvote {
   @@id([postId, userId])
 }
 
-// ─── Reports & moderation ─────────────────────────────────────────────────
+// ─── Reports & moderation (report system, FR-CM-05 / FR-SM-07 / FR-PM-05) ──
+// Polymorphic moderation reports across booking / chat / sheet / review /
+// community-post targets. A reporter files; the resolved target owner is
+// notified WITHOUT the reporter's identity; an admin manually reviews and
+// resolves. Nothing is automatic except priority/SLA computation, rate
+// limits, and the chat-bypass category nudge.
 
-enum ReportTargetType {
-  post
-  reply
-  sheet
-  tutor
-  message
+enum ReportTarget {
   booking
+  chat_message
+  sheet
+  review
+  community_post
+}
+
+enum ReportCategory {
+  no_show
+  fraud
+  abuse
+  harassment
+  scam
+  off_platform_solicitation
+  fake_credentials
+  impersonation
+  inappropriate_content
+  pirated_content
+  quality_issue
+  payment_issue
+  spam
+  misinformation
+  other
+}
+
+enum ReportStatus {
+  pending
+  under_review
+  escalated
+  resolved
+  rejected
+  duplicate
+}
+
+enum ReportPriority {
+  low
+  normal
+  high
+  urgent
+}
+
+enum ReportResolution {
+  no_action
+  warning_issued
+  suspension_temp
+  suspension_perm
+  refund_partial
+  refund_full
+  content_removed
+  account_banned
+  reporter_warned
 }
 
 model Report {
-  id         String           @id @default(uuid())
+  id         String @id @default(cuid())
   reporterId String
-  reporter   User             @relation(fields: [reporterId], references: [id])
-  targetType ReportTargetType
-  targetId   String
-  reason     String
-  details    String
-  resolvedAt DateTime?
-  createdAt  DateTime         @default(now())
+  reporter   User   @relation("ReportsFiled", fields: [reporterId], references: [id])
 
+  targetType   ReportTarget
+  targetId     String       // polymorphic FK — resolved via TargetResolverService
+  targetUserId String?      // resolved owner of the target, for notifications
+
+  category     ReportCategory
+  description  String   // 20–2000 chars (enforced in zod)
+  evidenceKeys String[] // R2/S3 object keys, max 5
+
+  status      ReportStatus   @default(pending)
+  priority    ReportPriority @default(normal)
+  slaDeadline DateTime
+
+  assignedToId   String?
+  resolvedAt     DateTime?
+  resolution     ReportResolution?
+  resolutionNote String? // internal admin note — never shown to the reporter
+  publicResponse String? // visible to the reporter only
+
+  linkedBookingId String? // chat/review/sheet report tied to a booking
+  parentReportId  String? // duplicate clustering
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events ReportEvent[]
+
+  @@index([status, priority, slaDeadline])
   @@index([targetType, targetId])
+  @@index([reporterId, createdAt])
+  @@index([targetUserId])
+}
+
+// Activity log for a report: reporter follow-up comments, admin-only
+// internal notes, and timeline entries (status changes, assignment,
+// resolution). One table — visibility is enforced per `kind` in the
+// service layer (the reporter sees comments + timeline; admin sees all).
+enum ReportEventKind {
+  reporter_comment
+  admin_note
+  status_change
+  assignment
+  resolution
+}
+
+model ReportEvent {
+  id           String          @id @default(uuid())
+  reportId     String
+  report       Report          @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  kind         ReportEventKind
+  authorId     String?  // null for system-generated timeline entries
+  text         String?  // comment / note body, or a timeline summary
+  evidenceKeys String[] // attachments on reporter follow-up comments
+  createdAt    DateTime        @default(now())
+
+  @@index([reportId, createdAt])
+}
+
+// Minimal in-app notification feed. Built for the report system (target-
+// user alerts, reporter updates, SLA pings) but kept generic for reuse.
+// In-app only for Phase 1 — no email/push. A notification sent to a
+// target user NEVER carries the reporter's identity.
+enum NotificationType {
+  report_filed
+  report_under_review
+  report_resolved
+  report_warning
+  report_suspension
+  report_content_removed
+  report_reporter_warned
+  report_sla_overdue
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  body      String
+  linkUrl   String?  // in-app deep link, e.g. /account/reports/:id
+  reportId  String?  // the report that triggered this, if any
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
 }
 
 // ─── Payments & Escrow ─────────────────────────────────────────────────────
@@ -637,6 +799,9 @@ model RefundLedger {
   tutorThb          Int
   platformThb       Int
   reasonCode        RefundReason
+  // Set when the refund was issued by a report resolution (refund_partial /
+  // refund_full). Null for postpone-driven refunds.
+  reportId          String?
   createdAt         DateTime      @default(now())
 
   @@index([bookingId])

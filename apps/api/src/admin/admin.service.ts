@@ -8,6 +8,7 @@ import type {
   AdminReport,
   PaymentItemType,
   PaymentStatus,
+  ReportTarget,
   ReportTargetType,
 } from "@peerahat/types";
 
@@ -18,6 +19,18 @@ import { CryptoService } from "../common/crypto.service";
 import { StorageService } from "../common/storage.service";
 import { GoogleCalendarService } from "../integrations/google-calendar/google-calendar.service";
 import { PrismaService } from "../prisma/prisma.service";
+
+// INTERIM (report system): the new schema replaced ReportTargetType with
+// ReportTarget. The legacy /admin/reports list — superseded by the report-
+// system admin queue (step 10) — still emits the old enum, so map each new
+// target to its nearest old value.
+const LEGACY_REPORT_TARGET: Record<ReportTarget, ReportTargetType> = {
+  booking: "booking",
+  sheet: "sheet",
+  chat_message: "message",
+  review: "post",
+  community_post: "post",
+};
 
 @Injectable()
 export class AdminService {
@@ -282,10 +295,10 @@ export class AdminService {
         id: r.id,
         reporterId: r.reporterId,
         reporterDisplayName: r.reporter.displayName,
-        targetType: r.targetType as ReportTargetType,
+        targetType: LEGACY_REPORT_TARGET[r.targetType],
         targetId: r.targetId,
-        reason: r.reason,
-        details: r.details,
+        reason: r.category,
+        details: r.description,
         resolvedAt: r.resolvedAt?.toISOString() ?? null,
         createdAt: r.createdAt.toISOString(),
       })),
@@ -298,17 +311,17 @@ export class AdminService {
   async resolveReport(reportId: string): Promise<AdminReport> {
     const updated = await this.prisma.report.update({
       where: { id: reportId },
-      data: { resolvedAt: new Date() },
+      data: { resolvedAt: new Date(), status: "resolved" },
       include: { reporter: true },
     });
     return {
       id: updated.id,
       reporterId: updated.reporterId,
       reporterDisplayName: updated.reporter.displayName,
-      targetType: updated.targetType as ReportTargetType,
+      targetType: LEGACY_REPORT_TARGET[updated.targetType],
       targetId: updated.targetId,
-      reason: updated.reason,
-      details: updated.details,
+      reason: updated.category,
+      details: updated.description,
       resolvedAt: updated.resolvedAt?.toISOString() ?? null,
       createdAt: updated.createdAt.toISOString(),
     };

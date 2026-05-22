@@ -5,6 +5,7 @@ export * from "./booking";
 export * from "./sheet";
 export * from "./payment";
 export * from "./community";
+export * from "./reports";
 export * from "./tcas";
 export * from "./tcas-import";
 export * from "./quiz";
