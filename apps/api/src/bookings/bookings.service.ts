@@ -175,10 +175,18 @@ export class BookingsService {
     if (!user) throw new BadRequestException();
     const tutor = await this.prisma.tutorProfile.findUnique({
       where: { id: input.tutorId },
+      include: { user: { select: { suspendedUntil: true } } },
     });
     if (!tutor) throw new NotFoundException();
     if (tutor.userId === user.id) {
       throw new ForbiddenException("ไม่สามารถจองคลาสของตัวเองได้");
+    }
+    // Report system: no new bookings against a suspended tutor.
+    if (
+      tutor.user.suspendedUntil &&
+      tutor.user.suspendedUntil.getTime() > Date.now()
+    ) {
+      throw new ForbiddenException("ติวเตอร์รายนี้ถูกพักการใช้งานชั่วคราว");
     }
 
     const amountThb = Math.round(

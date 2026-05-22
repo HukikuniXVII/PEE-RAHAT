@@ -133,6 +133,8 @@ export class TutorsService {
     const where: Prisma.TutorProfileWhereInput = {
       isVerified: true,
       bankAccountNumber: { not: null },
+      // Report system: a currently-suspended tutor is hidden from search.
+      NOT: { user: { suspendedUntil: { gt: new Date() } } },
     };
     if (query.subject) {
       where.subjects = { has: query.subject };
