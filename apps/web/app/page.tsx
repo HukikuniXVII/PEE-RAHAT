@@ -4,6 +4,7 @@ import { getInitialUser } from "@/lib/auth";
 import { AboutFeatures } from "@/components/landing/AboutFeatures";
 import { Hero } from "@/components/landing/Hero";
 import { HowItWorks } from "@/components/landing/HowItWorks";
+import { LandingFooter } from "@/components/landing/LandingFooter";
 import { Nav } from "@/components/landing/Nav";
 import { SnapLock } from "@/components/snap-lock";
 
@@ -18,10 +19,16 @@ export default async function HomePage() {
     >
       <SnapLock />
 
-      {/* ── Section 1: Hero ── */}
+      {/* ── Section 1: Hero ──
+         The snap-scroll hides sections 2–3 inside an inner scroll container,
+         so crawlers + Google OAuth verification only ever see this section.
+         LandingFooter renders here in `slim` mode so the home page still
+         exposes a crawlable Privacy-policy link; the full footer lives in
+         the last section below. */}
       <section className="landing-page h-screen snap-start snap-always flex flex-col">
         <Nav />
         <Hero />
+        <LandingFooter slim />
       </section>
 
       {/* ── Section 2: อะไรคือพี่รหัส? + ฟีเจอร์ ── */}
@@ -50,6 +57,7 @@ export default async function HomePage() {
         }}
       >
         <HowItWorks />
+        <LandingFooter />
       </section>
     </div>
   );

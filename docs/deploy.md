@@ -117,7 +117,13 @@ and PDF downloads.
 4. The R2 endpoint URL is `https://<account-id>.r2.cloudflarestorage.com`
    (account ID is at the top right of the R2 dashboard).
 
-Env vars you'll set on Railway:
+Create a fourth bucket, `peerahat-avatars`, and make it **public** —
+avatars are written to `User.avatarUrl` and fetched directly by the
+browser. KYC, sheets, and archive buckets stay **private** always
+(PDPA — NFR-03). If `S3_BUCKET_AVATARS` is omitted, avatars fall back
+into the sheets bucket.
+
+Env vars you'll set on the API service:
 
 ```
 S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
@@ -127,12 +133,38 @@ S3_SECRET_ACCESS_KEY=<from step 3>
 S3_BUCKET_KYC=peerahat-kyc
 S3_BUCKET_SHEETS=peerahat-sheets
 S3_BUCKET_KYC_ARCHIVE=peerahat-kyc-archive
+S3_BUCKET_AVATARS=peerahat-avatars
+S3_AVATAR_PUBLIC_BASE_URL=https://<account-id>.r2.cloudflarestorage.com/peerahat-avatars
 ```
 
-> Avatars on `/users` go through the same signer. If you want them
-> public-cached via R2's public bucket feature, you can split out a
-> fourth `peerahat-avatars` bucket later. The KYC bucket should stay
-> private always (PDPA — NFR-03).
+### Alternative: Supabase Storage
+
+If you'd rather not add Cloudflare as a vendor, Supabase Storage is
+S3-compatible and you already use Supabase for auth + DB.
+
+1. Supabase dashboard → **Storage** → create four buckets:
+   `peerahat-kyc`, `peerahat-sheets`, `peerahat-kyc-archive` (all
+   **private**) and `peerahat-avatars` (**public**).
+2. **Project Settings → Storage → S3 Access Keys** → create a key.
+   Note the endpoint, region, access key ID, and secret.
+3. Env vars:
+
+```
+S3_ENDPOINT=https://<project-ref>.supabase.co/storage/v1/s3
+S3_REGION=<your project region, e.g. ap-southeast-1>
+S3_ACCESS_KEY_ID=<from step 2>
+S3_SECRET_ACCESS_KEY=<from step 2>
+S3_BUCKET_KYC=peerahat-kyc
+S3_BUCKET_SHEETS=peerahat-sheets
+S3_BUCKET_KYC_ARCHIVE=peerahat-kyc-archive
+S3_BUCKET_AVATARS=peerahat-avatars
+S3_AVATAR_PUBLIC_BASE_URL=https://<project-ref>.supabase.co/storage/v1/object/public/peerahat-avatars
+```
+
+`S3_AVATAR_PUBLIC_BASE_URL` is **mandatory for Supabase** — its public
+object path (`/storage/v1/object/public/...`) is not the same as its
+S3 API path, so the URL can't be derived from `S3_ENDPOINT`. The free
+tier is 1 GB; KYC PDFs drive the volume.
 
 ---
 

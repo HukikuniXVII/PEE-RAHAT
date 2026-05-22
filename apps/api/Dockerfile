@@ -1,54 +1,75 @@
 # syntax=docker/dockerfile:1.7
 # ─────────────────────────────────────────────────────────────────────────────
 # apps/api — NestJS + Prisma production image.
-# Built from the repo root so pnpm can resolve workspace packages:
+#
+# Build from the repo root so pnpm can resolve workspace packages:
 #   docker build -f apps/api/Dockerfile -t peerahat-api .
+#
+# Optimized for fast rebuilds on a durable BuildKit builder:
+#   • manifests stage   → install layers survive every source-only edit
+#   • --filter api...    → the entire web / Next dependency tree is never installed
+#   • pnpm store mount   → a warm install is little more than hardlinking
+#   • schema-scoped copy → `prisma generate` is cached unless schema.prisma changes
 # ─────────────────────────────────────────────────────────────────────────────
 
 ARG NODE_VERSION=20-alpine
+ARG PNPM_VERSION=9.12.0
 
 # ─── base ────────────────────────────────────────────────────────────────────
 FROM node:${NODE_VERSION} AS base
+ARG PNPM_VERSION
 # libc6-compat + openssl: Prisma's query engine needs both on Alpine.
-RUN apk add --no-cache libc6-compat openssl
-RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
+RUN apk add --no-cache libc6-compat openssl \
+ && corepack enable \
+ && corepack prepare pnpm@${PNPM_VERSION} --activate
 WORKDIR /app
 
-# ─── deps: full workspace install (dev + prod) used only for the build ───────
-FROM base AS deps
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
-COPY apps/web/package.json ./apps/web/
-COPY apps/api/package.json ./apps/api/
-COPY packages/types/package.json ./packages/types/
-COPY packages/ui/package.json ./packages/ui/
+# ─── manifests: only the files that drive dependency resolution ──────────────
+# Isolating these means every install layer below is reused until a
+# package.json / the lockfile / the workspace config actually changes —
+# ordinary source edits never invalidate the (expensive) install.
+FROM base AS manifests
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json ./
+COPY apps/api/package.json        ./apps/api/
+COPY apps/web/package.json        ./apps/web/
+COPY packages/types/package.json  ./packages/types/
+COPY packages/ui/package.json     ./packages/ui/
 COPY packages/config/package.json ./packages/config/
-RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile
 
-# ─── builder: prisma generate + build @peerahat/types + build api ────────────
+# ─── deps: dev+prod deps for the API subtree only ────────────────────────────
+# `--filter @peerahat/api...` installs api + its transitive workspace deps
+# (@peerahat/types, plus @peerahat/config from devDeps) and nothing else —
+# the whole Next / React / lucide / motion tree is skipped. The shared store
+# cache mount makes a warm install little more than hardlinking from disk.
+FROM manifests AS deps
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile --filter @peerahat/api...
+
+# ─── builder: prisma generate → build @peerahat/types → build @peerahat/api ──
 FROM base AS builder
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
-COPY --from=deps /app/packages/types/node_modules ./packages/types/node_modules
-COPY . .
 ENV NODE_ENV=production
+# Workspace manifests + the installed dependency tree from `deps`.
+COPY --from=deps /app/ ./
+# The Prisma client is a pure function of the schema — copy ONLY the schema
+# first so the generate layer stays cached across source-only edits. (Both
+# node_modules and prisma/ are .dockerignore-safe: the later `COPY . .`
+# never clobbers installed deps, and re-copies an identical prisma/ dir.)
+COPY apps/api/prisma ./apps/api/prisma
 RUN pnpm --filter @peerahat/api exec prisma generate
-RUN pnpm --filter @peerahat/types build
-RUN pnpm --filter @peerahat/api build
+# The rest of the source, then build @peerahat/types (tsc) and the API
+# (nest build). These share one layer: a source edit reruns both anyway.
+COPY . .
+RUN pnpm --filter @peerahat/types build \
+ && pnpm --filter @peerahat/api build
 
-# ─── prod-deps: install ONLY the api subtree's production deps ───────────────
-# `--filter @peerahat/api...` keeps api + its transitive workspace deps
-# (only @peerahat/types in this graph) and drops everything web-only.
-# `--prod` skips devDeps. Combined, this strips Next, lucide, turbo CLI,
-# both TypeScript installs, etc. — roughly 500 MB of the previous image.
-FROM base AS prod-deps
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/web/package.json ./apps/web/
-COPY apps/api/package.json ./apps/api/
-COPY packages/types/package.json ./packages/types/
-COPY packages/ui/package.json ./packages/ui/
-COPY packages/config/package.json ./packages/config/
-RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+# ─── prod-deps: install ONLY the API subtree's production deps ───────────────
+# `--prod` skips devDeps; `--filter @peerahat/api...` keeps api + its
+# transitive workspace deps and drops everything web-only. Combined, this
+# strips Next, lucide, the nest/tsc toolchain, both TypeScript installs —
+# roughly 500 MB lighter than a naive install. Branching off `manifests`
+# reuses those COPY layers instead of repeating them.
+FROM manifests AS prod-deps
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --prod --frozen-lockfile --filter @peerahat/api...
 
 # ─── runner: slim runtime ────────────────────────────────────────────────────

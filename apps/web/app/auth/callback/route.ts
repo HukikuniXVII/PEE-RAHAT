@@ -15,8 +15,26 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * Supabase project's "Redirect URLs" allowlist (Dashboard → Auth → URL
  * Configuration). Forgetting that is the most common 4xx on this flow.
  */
+function publicOrigin(request: NextRequest, fallback: string): string {
+  // Behind the Cloudflare Tunnel the Next.js standalone server only knows its
+  // own bind address (HOSTNAME=0.0.0.0:3000), so `request.url` resolves to
+  // https://0.0.0.0:3000 and must not be trusted for redirects. Prefer the
+  // configured canonical URL, then the forwarded Host header.
+  const configured = process.env.NEXT_PUBLIC_SITE_URL;
+  if (configured) return configured.replace(/\/+$/, "");
+
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  if (host && !host.startsWith("0.0.0.0") && !host.startsWith("localhost")) {
+    const proto = request.headers.get("x-forwarded-proto") ?? "https";
+    return `${proto}://${host}`;
+  }
+  return fallback;
+}
+
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url);
+  const requestUrl = new URL(request.url);
+  const searchParams = requestUrl.searchParams;
+  const origin = publicOrigin(request, requestUrl.origin);
   const code = searchParams.get("code");
   const next = sanitizeNextPath(searchParams.get("next"));
   const supabaseError = searchParams.get("error_description") ?? searchParams.get("error");

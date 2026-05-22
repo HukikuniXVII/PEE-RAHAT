@@ -1,0 +1,133 @@
+# ─────────────────────────────────────────────────────────────────────────
+# Pee Rahat — PRODUCTION compose for the self-hosted VPS (103.253.72.189).
+#
+# The VPS PULLS pre-built images from ghcr.io — it never builds. Images are
+# produced by .github/workflows/publish-images.yml on every push to main.
+#
+# Postgres runs on the VPS host and MinIO at zsh.ltd — external, not
+# defined here. Redis IS defined here as a container (the VPS had none).
+# All connection details + image tags come from .env.production.
+#
+# First deploy:
+#   1. Copy .env.production onto the VPS next to this file.
+#   2. If the ghcr packages are private:  docker login ghcr.io
+#   3. One-time MinIO buckets:
+#        docker compose --env-file .env.production -f docker-compose.prod.yml \
+#          --profile setup run --rm minio-init
+#   4. Pull + start (api runs `prisma migrate deploy` on boot):
+#        docker compose --env-file .env.production -f docker-compose.prod.yml up -d
+#
+# Redeploy a new build:  same `up -d` command — pull_policy:always re-pulls.
+# Logs:   docker compose -f docker-compose.prod.yml logs -f
+# Stop:   docker compose -f docker-compose.prod.yml down
+# ─────────────────────────────────────────────────────────────────────────
+
+services:
+  # ─── Redis — BullMQ queues + caches ──────────────────────────────────────
+  # The VPS shipped no Redis, so the stack runs its own. Published to the
+  # host's loopback only (127.0.0.1) — never the public internet. The
+  # host-network api container reaches it at 127.0.0.1:6379.
+  redis:
+    image: redis:7-alpine
+    container_name: peerahat-redis
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD in .env.production}"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - peerahat-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ─── API — NestJS + Prisma ───────────────────────────────────────────────
+  api:
+    image: ${API_IMAGE:-ghcr.io/hukikunixvii/peerahat-api:latest}
+    container_name: peerahat-api
+    restart: unless-stopped
+    pull_policy: always
+    # Bridge networking: reaches Redis by compose service name (redis:6379)
+    # and the VPS's Postgres by host IP (see DATABASE_URL). Host port 23001
+    # is published to the container's internal port 3001.
+    env_file:
+      - .env.production
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "23001:3001"
+    # Apply DB migrations on every boot, then start the server. On the
+    # fresh VPS database this creates the whole schema before main.js
+    # starts listening.
+    command:
+      - sh
+      - -c
+      - |
+        apps/api/node_modules/.bin/prisma migrate deploy --schema apps/api/prisma/schema.prisma
+        exec node apps/api/dist/src/main.js
+    healthcheck:
+      # 127.0.0.1, not localhost: the container resolves localhost to IPv6
+      # ::1 first, but the API binds IPv4 only (app.listen(port,"0.0.0.0")).
+      test: "wget -q -O /dev/null http://127.0.0.1:3001/api/docs || exit 1"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
+  # ─── Web — Next.js (standalone) ──────────────────────────────────────────
+  # NEXT_PUBLIC_* are already baked into this image at CI build time
+  # (see publish-images.yml) — nothing to pass here.
+  web:
+    image: ${WEB_IMAGE:-ghcr.io/hukikunixvii/peerahat-web:latest}
+    container_name: peerahat-web
+    restart: unless-stopped
+    pull_policy: always
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "23000:3000"
+
+  # ─── Cloudflare Tunnel — public HTTPS ingress (no inbound ports) ─────────
+  # Terminates TLS at Cloudflare's edge; cloudflared makes only an OUTBOUND
+  # connection, so the VPS needs no open 80/443 and no reverse proxy. The
+  # public hostname + path routing (peerahat.com/api* -> api:3001,
+  # peerahat.com/* -> web:3000) are configured in the Cloudflare Zero Trust
+  # dashboard for this tunnel. CLOUDFLARE_TUNNEL_TOKEN lives in
+  # .env.production (git-ignored) — it is a credential, never commit it.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: peerahat-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN in .env.production}
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # ─── One-shot MinIO bucket provisioning (profile: setup) ─────────────────
+  # Not started by a normal `up`. Run once on first deploy — idempotent.
+  # Creates the four buckets and makes peerahat-avatars publicly readable
+  # so StorageService's S3_AVATAR_PUBLIC_BASE_URL resolves to live images.
+  minio-init:
+    profiles: ["setup"]
+    image: minio/mc:latest
+    env_file:
+      - .env.production
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        until mc alias set pr "$$S3_ENDPOINT" "$$S3_ACCESS_KEY_ID" "$$S3_SECRET_ACCESS_KEY" >/dev/null 2>&1; do
+          echo 'waiting for minio...'; sleep 2;
+        done
+        mc mb --ignore-existing pr/"$$S3_BUCKET_KYC"
+        mc mb --ignore-existing pr/"$$S3_BUCKET_SHEETS"
+        mc mb --ignore-existing pr/"$$S3_BUCKET_KYC_ARCHIVE"
+        mc mb --ignore-existing pr/"$$S3_BUCKET_AVATARS"
+        mc anonymous set download pr/"$$S3_BUCKET_AVATARS"
+        echo "Buckets ready. $$S3_BUCKET_AVATARS = public download; others private."
+
+volumes:
+  peerahat-redis:

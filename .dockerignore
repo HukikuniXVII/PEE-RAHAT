@@ -1,17 +1,37 @@
-# ─── Dependencies ─────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# Docker build context excludes — shared by apps/api/Dockerfile and
+# apps/web/Dockerfile. Keeps the context upload to BuildKit (and every
+# `COPY . .`) tiny: only the source needed to install + build is sent.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─── Dependencies & package-manager state ────────────────────────────────────
 node_modules
 **/node_modules
 .pnpm-store
 **/.pnpm-store
 
-# ─── Build outputs ────────────────────────────────────────────────────
+# ─── Build outputs — regenerated inside the image ────────────────────────────
 **/dist
 **/.next
 **/.turbo
 **/coverage
 **/*.tsbuildinfo
+**/*.tgz
+# CI-only: buildkit-cache-dance round-trips .next/cache through this dir
+# (see .github/workflows/publish-images.yml) — never send it as build context.
+.ci-cache
 
-# ─── Local env / secrets — must NEVER leak into an image ─────────────
+# ─── Tests — never compiled into a production image ──────────────────────────
+# tsconfig.build.json excludes specs anyway; dropping them shrinks context.
+**/*.spec.ts
+**/*.test.ts
+**/*.e2e-spec.ts
+**/__tests__
+# tsx-only maintenance scripts — not part of `nest build` (sourceRoot: src),
+# and tsx is a devDep absent from the prod image.
+apps/api/scripts
+
+# ─── Local env / secrets — must NEVER leak into an image ─────────────────────
 .env
 .env.*
 **/.env
@@ -19,34 +39,44 @@ node_modules
 !.env.example
 !**/.env.example
 
-# ─── VCS / editor / OS ───────────────────────────────────────────────
+# ─── VCS / CI / editor / OS ──────────────────────────────────────────────────
 .git
 .gitignore
 .gitattributes
+.github
 .vscode
 .idea
 .DS_Store
 Thumbs.db
 
-# ─── Tooling state not needed in the image ───────────────────────────
+# ─── Tooling state & agent/design scratch — not build inputs ─────────────────
 .claude
 .skill
 .cursor
+.figma-refs
 docs
+design_handoff_v1_program_card
 *.log
 **/*.log
 **/npm-debug.log*
 **/pnpm-debug.log*
 
-# ─── Docker artifacts (avoid recursive copy) ─────────────────────────
+# ─── Docs — markdown/design files are never an input to the build (no MDX) ───
+*.md
+**/*.md
+**/*.pen
+render.yaml
+
+# ─── Docker / compose artifacts (avoid recursive self-copy) ──────────────────
 Dockerfile
 **/Dockerfile
 .dockerignore
 docker-compose*.yml
 
-# ─── Loose screenshots / scratch files at repo root ───────────────────
-*.png
-*.jpg
-*.jpeg
-*.gif
-setup.md
+# ─── Loose screenshots / scratch images at the repo ROOT only ────────────────
+# Note: NOT `**/*.png` — apps/web/public/* assets must still ship in the image.
+/*.png
+/*.jpg
+/*.jpeg
+/*.gif
+/*.webp

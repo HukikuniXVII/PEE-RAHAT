@@ -122,16 +122,16 @@ export class TutorsService {
   }
 
   async search(query: TutorSearchQuery): Promise<TutorSearchResult> {
-    // FR-TH-17 rev3: search hides tutors who haven't connected a Google
-    // account. Bookings have to mint a Meet link at payment-confirm, so a
-    // tutor without OAuth can't deliver a class — surfacing them in
-    // search would be a dead-end. The connection state is also the
-    // platform's "ready to take bookings" signal alongside isVerified.
-    // Additional gate (FR-TH-02): tutors without bank info can't be paid;
-    // hiding them from search prevents bookings that would block on payout.
+    // FR-TH-17: search lists every verified tutor — including those who
+    // haven't connected a Google account. A missing Google OAuth no longer
+    // hides the tutor: Meet generation at payment-confirm is best-effort
+    // (PaymentsService.tryGenerateMeet logs + swallows the failure, the
+    // booking stays paid, and admin regenerates the link later via
+    // /admin/bookings/:id/regenerate-meet).
+    // Gate (FR-TH-02): tutors without bank info can't be paid, so they
+    // stay hidden — a booking for them would block on payout.
     const where: Prisma.TutorProfileWhereInput = {
       isVerified: true,
-      googleRefreshToken: { not: null },
       bankAccountNumber: { not: null },
     };
     if (query.subject) {

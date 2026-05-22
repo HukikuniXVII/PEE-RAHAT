@@ -130,18 +130,14 @@ export function PaymentDialog({
 
               <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 flex flex-col items-center gap-4">
                 <div className="w-48 h-48 bg-white border-4 border-white shadow-sm rounded-2xl flex items-center justify-center overflow-hidden">
-                  {intent ? (
-                    <img
-                      src={`data:image/svg+xml;base64,${btoa(intent.promptPayQrPayload)}`}
-                      alt="PromptPay QR"
-                      className="w-full h-full object-contain"
-                    />
-                  ) : (
-                    <Loader2
-                      className="text-indigo-600 animate-spin"
-                      size={32}
-                    />
-                  )}
+                  {/* TEMP: hard-coded PromptPay QR (account: นายกันต์ธีร์ แข้คำ).
+                      Revert to the escrow-generated intent.promptPayQrPayload
+                      once escrow goes live. */}
+                  <img
+                    src="/promptpay-qr.jpg"
+                    alt="PromptPay QR"
+                    className="w-full h-full object-contain"
+                  />
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-full text-xs font-bold">
                   <QrCode size={14} />

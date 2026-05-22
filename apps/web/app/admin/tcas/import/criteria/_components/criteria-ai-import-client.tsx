@@ -1,11 +1,12 @@
 "use client";
 
-import type {
-  ParsedProgramRow,
-  TcasAiParseResponse,
-  TcasCommitResult,
-  TcasRound,
-  TcasRowEdits,
+import {
+  componentKey,
+  type ParsedProgramRow,
+  type TcasAiParseResponse,
+  type TcasCommitResult,
+  type TcasRound,
+  type TcasRowEdits,
 } from "@peerahat/types";
 import { cn } from "@peerahat/ui";
 import {
@@ -15,11 +16,14 @@ import {
   Sparkles,
   Upload,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { createApiClient } from "@/lib/api-client";
 
+import { BulkActionBar } from "./bulk-action-bar";
+import { BulkEditModal, type BulkEditApply } from "./bulk-edit-modal";
 import { describeComponents, RowEditPanel } from "./row-edit-panel";
+import { UndoToast } from "./undo-toast";
 
 const ROUND_OPTIONS: Array<{ value: TcasRound; label: string }> = [
   { value: "r1_portfolio", label: "รอบ 1 Portfolio" },
@@ -67,6 +71,16 @@ export function CriteriaAiImportClient({ accessToken }: Props) {
   const [editedRows, setEditedRows] = useState<ParsedProgramRow[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
   const [openRowIdx, setOpenRowIdx] = useState<number | null>(null);
+
+  // FR-TC-02 bulk-edit state. selectedIds is keyed by row index — the
+  // same identifier the rest of the file uses. Persists across filter
+  // changes by design.
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [undoSnapshot, setUndoSnapshot] = useState<{
+    rows: ParsedProgramRow[];
+    count: number;
+  } | null>(null);
 
   // Result
   const [commitResult, setCommitResult] = useState<TcasCommitResult | null>(
@@ -148,6 +162,60 @@ export function CriteriaAiImportClient({ accessToken }: Props) {
     setCommitResult(null);
     setFilter("all");
     setOpenRowIdx(null);
+    setSelectedIds(new Set());
+    setBulkOpen(false);
+    setUndoSnapshot(null);
+  }
+
+  // ─── Bulk-edit handlers (FR-TC-02) ─────────────────────────────────
+
+  const toggleRow = useCallback((idx: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  }, []);
+
+  function applyBulkEdit(payload: BulkEditApply) {
+    // Snapshot first so undo restores the *pre-apply* state.
+    setUndoSnapshot({ rows: editedRows.map((r) => structuredClone(r)), count: selectedIds.size });
+
+    const next = editedRows.map((row, i) => {
+      if (!selectedIds.has(i)) return row;
+      // Apply weight edits — walk only "single" components.
+      const exams = row.components.exams.map((c) => {
+        if (c.type !== "single") return c;
+        const key = componentKey(c.system, c.code);
+        const w = payload.weights[key];
+        if (w === undefined) return c;
+        return { ...c, weight: w };
+      });
+      // Apply common-field edits.
+      const f = payload.fields;
+      return {
+        ...row,
+        components: {
+          ...row.components,
+          exams,
+          gpaxMin: f.gpaxMin !== undefined ? f.gpaxMin : row.components.gpaxMin,
+        },
+        programType: f.programType !== undefined ? f.programType : row.programType,
+        subTrack: f.subTrack !== undefined ? f.subTrack : row.subTrack,
+        quotaSeats: f.quotaSeats !== undefined ? f.quotaSeats : row.quotaSeats,
+        totalMinScore:
+          f.totalMinScore !== undefined ? f.totalMinScore : row.totalMinScore,
+      };
+    });
+    setEditedRows(next);
+    setBulkOpen(false);
+  }
+
+  function undoBulkEdit() {
+    if (!undoSnapshot) return;
+    setEditedRows(undoSnapshot.rows);
+    setUndoSnapshot(null);
   }
 
   // ─── Derived ────────────────────────────────────────────────────────
@@ -201,6 +269,31 @@ export function CriteriaAiImportClient({ accessToken }: Props) {
   }, [editedRows, filter, errorRows, chooseHighestRows]);
 
   const canCommit = parse !== null && errorRows.length === 0 && !busy;
+
+  // Selection-derived helpers for the action bar + modal.
+  const selectedRows = useMemo(
+    () => [...selectedIds].sort((a, b) => a - b).map((i) => editedRows[i]!).filter(Boolean),
+    [selectedIds, editedRows],
+  );
+  const visibleSelectedCount = visibleRows.filter(({ i }) =>
+    selectedIds.has(i),
+  ).length;
+  const allVisibleSelected =
+    visibleRows.length > 0 && visibleSelectedCount === visibleRows.length;
+  const someVisibleSelected =
+    visibleSelectedCount > 0 && visibleSelectedCount < visibleRows.length;
+
+  function toggleAllVisible() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        for (const { i } of visibleRows) next.delete(i);
+      } else {
+        for (const { i } of visibleRows) next.add(i);
+      }
+      return next;
+    });
+  }
 
   // ─── Render ──────────────────────────────────────────────────────────
 
@@ -425,6 +518,18 @@ export function CriteriaAiImportClient({ accessToken }: Props) {
         <table className="w-full text-xs">
           <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
             <tr>
+              <th className="p-2 w-10">
+                <input
+                  type="checkbox"
+                  aria-label="เลือกทุกแถวที่แสดง"
+                  checked={allVisibleSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = someVisibleSelected;
+                  }}
+                  onChange={toggleAllVisible}
+                  className="accent-violet-600 cursor-pointer"
+                />
+              </th>
               <th className="text-left p-2 w-12">#</th>
               <th className="text-left p-2">คณะ / สาขา</th>
               <th className="text-left p-2 w-[35%]">น้ำหนัก</th>
@@ -436,15 +541,33 @@ export function CriteriaAiImportClient({ accessToken }: Props) {
           <tbody>
             {visibleRows.map(({ r, i }) => {
               const isError = errorRows.some((e) => e.i === i);
+              const isSelected = selectedIds.has(i);
               return (
                 <tr
                   key={i}
                   className={cn(
                     "border-t border-slate-100 hover:bg-violet-50/40 cursor-pointer",
                     isError && "bg-rose-50/40",
+                    isSelected && "bg-violet-50/60 hover:bg-violet-50/80",
                   )}
                   onClick={() => setOpenRowIdx(i)}
                 >
+                  <td
+                    className="p-2"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleRow(i);
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      aria-label={`เลือกแถวสำหรับ ${r.major || r.faculty || `แถว ${i + 1}`}`}
+                      checked={isSelected}
+                      onChange={() => toggleRow(i)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="accent-violet-600 cursor-pointer"
+                    />
+                  </td>
                   <td className="p-2 font-mono text-slate-400">
                     {r.orderNumber !== null
                       ? String(r.orderNumber).padStart(3, "0")
@@ -480,7 +603,7 @@ export function CriteriaAiImportClient({ accessToken }: Props) {
             })}
             {visibleRows.length === 0 && (
               <tr>
-                <td colSpan={6} className="p-8 text-center text-slate-400">
+                <td colSpan={7} className="p-8 text-center text-slate-400">
                   ไม่มีแถวที่ตรงกับฟิลเตอร์
                 </td>
               </tr>
@@ -536,6 +659,28 @@ export function CriteriaAiImportClient({ accessToken }: Props) {
             setEditedRows(copy);
           }}
           onClose={() => setOpenRowIdx(null)}
+        />
+      )}
+
+      <BulkActionBar
+        count={selectedIds.size}
+        onEdit={() => setBulkOpen(true)}
+        onClear={() => setSelectedIds(new Set())}
+      />
+
+      {bulkOpen && selectedRows.length > 0 && (
+        <BulkEditModal
+          selectedRows={selectedRows}
+          onApply={applyBulkEdit}
+          onClose={() => setBulkOpen(false)}
+        />
+      )}
+
+      {undoSnapshot && (
+        <UndoToast
+          count={undoSnapshot.count}
+          onUndo={undoBulkEdit}
+          onDismiss={() => setUndoSnapshot(null)}
         />
       )}
     </div>
