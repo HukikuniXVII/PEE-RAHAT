@@ -11,8 +11,6 @@ import {
   type CreatePostDto,
   createPostSchema,
   createReplySchema,
-  type ReportDto,
-  reportSchema,
 } from "@peerahat/types";
 
 import { CurrentUser } from "../auth/current-user.decorator";
@@ -68,12 +66,5 @@ export class CommunityController {
   ) {
     const dto = createReplyBodySchema.parse(raw);
     return this.community.reply(user.sub, postId, dto.content);
-  }
-
-  @Post("reports")
-  @UseGuards(SupabaseAuthGuard)
-  report(@CurrentUser() user: SupabaseJwtPayload, @Body() raw: unknown) {
-    const dto: ReportDto = reportSchema.parse(raw);
-    return this.community.report(user.sub, dto);
   }
 }

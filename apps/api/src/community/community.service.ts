@@ -4,7 +4,6 @@ import type {
   CommunityReply,
   CreatePostDto,
   Page,
-  ReportDto,
 } from "@peerahat/types";
 
 import { PrismaService } from "../prisma/prisma.service";
@@ -137,32 +136,6 @@ export class CommunityService {
       content: reply.content,
       createdAt: reply.createdAt.toISOString(),
     };
-  }
-
-  async report(supabaseId: string, dto: ReportDto) {
-    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
-    if (!user) throw new BadRequestException();
-    // INTERIM (report system): the new ReportTarget enum has no `reply` /
-    // `tutor` member — bucket them as community_post until the unified
-    // POST /reports replaces this endpoint (step 8).
-    const TARGET = {
-      post: "community_post",
-      reply: "community_post",
-      tutor: "community_post",
-      sheet: "sheet",
-      message: "chat_message",
-      booking: "booking",
-    } as const;
-    await this.prisma.report.create({
-      data: {
-        reporterId: user.id,
-        targetType: TARGET[dto.targetType],
-        targetId: dto.targetId,
-        category: "other",
-        description: `[${dto.reason}] ${dto.details}`,
-        slaDeadline: new Date(Date.now() + 48 * 60 * 60 * 1000),
-      },
-    });
   }
 
   private toDto(

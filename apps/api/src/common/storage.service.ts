@@ -7,6 +7,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Injectable, Logger } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
 
 export interface SignedUploadUrl {
   uploadUrl: string;
@@ -152,6 +153,35 @@ export class StorageService {
   ): Promise<SignedUploadUrl> {
     const objectKey = `sheets/${userId}/${kind}-${Date.now()}`;
     return this.signPut(this.config?.sheetsBucket, objectKey, contentType);
+  }
+
+  /**
+   * Report-system evidence (FR-CM-05 / FR-SM-07 / FR-PM-05). Unlike the
+   * signed-PUT flows above this is a server-side upload: the API receives
+   * the file (multipart) and writes it here. Evidence lives under the
+   * `reports/` prefix in the private sheets bucket — signDownload's prefix
+   * routing serves it via 5-minute signed GETs. In dev with no S3 config,
+   * returns the object key without uploading (stubbed-storage behaviour).
+   */
+  async uploadReportEvidence(
+    userId: string,
+    body: Buffer,
+    contentType: string,
+  ): Promise<string> {
+    const ext = contentType.split("/")[1]?.split("+")[0] ?? "bin";
+    const objectKey = `reports/${userId}/${Date.now()}-${randomUUID()}.${ext}`;
+    if (!this.client || !this.config) {
+      return objectKey;
+    }
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.config.sheetsBucket,
+        Key: objectKey,
+        Body: body,
+        ContentType: contentType,
+      }),
+    );
+    return objectKey;
   }
 
   /**
