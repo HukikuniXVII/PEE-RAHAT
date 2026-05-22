@@ -281,7 +281,7 @@ export class TutorsService {
     const pageSize = Math.min(50, Math.max(1, pageSizeInput ?? 10));
     const [rows, total] = await Promise.all([
       this.prisma.tutorReview.findMany({
-        where: { tutorId: id },
+        where: { tutorId: id, removed: false },
         orderBy: { createdAt: "desc" },
         include: { student: true },
         skip: (page - 1) * pageSize,
@@ -348,7 +348,7 @@ export class TutorsService {
     });
 
     const allReviews = await this.prisma.tutorReview.findMany({
-      where: { tutorId },
+      where: { tutorId, removed: false },
       select: { rating: true },
     });
     const avg =

@@ -30,6 +30,7 @@ export class SheetsService {
       ? W
       : never = {
       isSuspended: false,
+      removed: false,
       ...(query.subject ? { subject: query.subject } : {}),
       ...(query.q
         ? {

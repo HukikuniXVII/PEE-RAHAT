@@ -16,7 +16,7 @@ export class CommunityService {
     const pageSize = 20;
     const [rows, total] = await Promise.all([
       this.prisma.communityPost.findMany({
-        where: { isHidden: false },
+        where: { isHidden: false, removed: false },
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -25,7 +25,7 @@ export class CommunityService {
           _count: { select: { replies: true } },
         },
       }),
-      this.prisma.communityPost.count({ where: { isHidden: false } }),
+      this.prisma.communityPost.count({ where: { isHidden: false, removed: false } }),
     ]);
 
     return {
@@ -94,13 +94,13 @@ export class CommunityService {
     const pageSize = Math.min(50, Math.max(1, pageSizeInput ?? 10));
     const [rows, total] = await Promise.all([
       this.prisma.communityReply.findMany({
-        where: { postId },
+        where: { postId, removed: false },
         orderBy: { createdAt: "asc" },
         skip: (page - 1) * pageSize,
         take: pageSize,
         include: { author: { include: { tutorProfile: true } } },
       }),
-      this.prisma.communityReply.count({ where: { postId } }),
+      this.prisma.communityReply.count({ where: { postId, removed: false } }),
     ]);
     return {
       items: rows.map((r) => ({
