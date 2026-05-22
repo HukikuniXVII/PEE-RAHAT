@@ -168,6 +168,20 @@ function formatRange(start: string | null, end: string | null): string {
   return `${formatThaiDate(start)} – ${formatThaiDate(end)}`;
 }
 
+// Pagination window — show all pages when total ≤ 7, else show the
+// first, the last, the current ± 1 neighbour, and ellipses between.
+// Keeps the control compact regardless of the underlying list size.
+function pageNumbersToShow(
+  current: number,
+  total: number,
+): Array<number | "…"> {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  if (current <= 4) return [1, 2, 3, 4, 5, "…", total];
+  if (current >= total - 3)
+    return [1, "…", total - 4, total - 3, total - 2, total - 1, total];
+  return [1, "…", current - 1, current, current + 1, "…", total];
+}
+
 // ────────────────────────────────────────────────────────────────────
 // Top-level component
 // ────────────────────────────────────────────────────────────────────
@@ -715,7 +729,7 @@ function HomePage(props: {
         {totalPages > 1 && (
           <nav
             aria-label="ตัวเลือกหน้า"
-            className="mt-6 flex items-center justify-center gap-2"
+            className="mt-6 flex items-center justify-center gap-1.5 flex-wrap"
           >
             <button
               type="button"
@@ -728,18 +742,40 @@ function HomePage(props: {
               disabled={currentPage === 1}
               className="thai text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-white border border-violet-100 text-grape-deep hover:border-violet-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              ‹ ก่อนหน้า
+              ‹ ย้อนกลับ
             </button>
 
-            <span className="thai text-[12px] text-ink-soft tabular-nums px-3 py-1.5 rounded-lg bg-grape-soft/60">
-              หน้า{" "}
-              <strong className="text-grape-deep">{currentPage}</strong>
-              {" / "}
-              <span className="text-grape-deep">{totalPages}</span>
-              <span className="text-ink-mute font-normal">
-                {" "}· {tiles.length.toLocaleString()} หลักสูตร
-              </span>
-            </span>
+            {pageNumbersToShow(currentPage, totalPages).map((n, i) =>
+              n === "…" ? (
+                <span
+                  key={`gap-${i}`}
+                  aria-hidden
+                  className="text-ink-mute text-[12px] px-1"
+                >
+                  …
+                </span>
+              ) : (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => {
+                    setPageNum(n);
+                    if (typeof window !== "undefined") {
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }
+                  }}
+                  aria-current={n === currentPage ? "page" : undefined}
+                  className={cn(
+                    "thai text-[12px] font-semibold tabular-nums min-w-[32px] h-8 rounded-lg transition-colors",
+                    n === currentPage
+                      ? "bg-violet-500 text-white shadow-[0_4px_10px_-4px_rgba(85,65,139,0.45)]"
+                      : "bg-white border border-violet-100 text-grape-deep hover:border-violet-300",
+                  )}
+                >
+                  {n}
+                </button>
+              ),
+            )}
 
             <button
               type="button"
@@ -755,6 +791,12 @@ function HomePage(props: {
               ถัดไป ›
             </button>
           </nav>
+        )}
+
+        {totalPages > 1 && (
+          <p className="thai text-[10.5px] mt-2 text-center text-ink-mute tabular-nums">
+            {tiles.length.toLocaleString()} หลักสูตร · {PAGE_SIZE} หลักสูตรต่อหน้า
+          </p>
         )}
 
         <p className="thai text-[10.5px] mt-3 text-ink-mute">
@@ -1553,6 +1595,11 @@ function CalendarWidget({
 
   const today = useMemo(() => new Date(), []);
   type Event = {
+    // ISO `YYYY-MM-DD` start date kept on the event so the list can sort
+    // chronologically; previously sorted by the formatted Thai display
+    // string, which collated alphabetically by month name instead of by
+    // date and produced a non-time-ordered timeline.
+    sortKey: string;
     date: string;
     title: string;
     status: "done" | "current" | "upcoming";
@@ -1567,6 +1614,7 @@ function CalendarWidget({
       const status: Event["status"] =
         today > end ? "done" : today >= start ? "current" : "upcoming";
       events.push({
+        sortKey: e.date_start,
         date: formatRange(e.date_start, e.date_end),
         title: e.title_th,
         status,
@@ -1583,12 +1631,14 @@ function CalendarWidget({
     const status: Event["status"] =
       today > end ? "done" : today >= start ? "current" : "upcoming";
     events.push({
+      sortKey: e.date_start,
       date: formatRange(e.date_start, e.date_end),
       title: e.title_th,
       status,
     });
   }
-  events.sort((a, b) => a.date.localeCompare(b.date));
+  // Ascending chronological: oldest at top, newest at bottom.
+  events.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 
   return (
     <aside className="rounded-2xl bg-white p-4 self-start sticky top-24 border border-[rgba(85,65,139,0.10)] shadow-[0_1px_0_rgba(85,65,139,0.04),0_18px_40px_-22px_rgba(85,65,139,0.25)] flex flex-col">
