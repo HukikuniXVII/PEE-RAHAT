@@ -5,15 +5,18 @@ import { cn } from "@peerahat/ui";
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import {
+  BookOpen,
   CalendarCheck,
   Calculator,
   ChevronDown,
+  Flag,
   GraduationCap,
   LogOut,
   Menu,
   MessagesSquare,
   Search,
   ShieldCheck,
+  Users,
   Wallet,
   X,
 } from "lucide-react";
@@ -29,7 +32,9 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const NAV_ITEMS = [
   { href: "/tutors", label: "Tutor Hub", icon: Search },
+  { href: "/sheets", label: "Sheets", icon: BookOpen },
   { href: "/tcas", label: "TCAS Calc", icon: Calculator },
+  { href: "/community", label: "Community", icon: Users },
   { href: "/bookings", label: "Bookings", icon: CalendarCheck },
   { href: "/chat", label: "Chat", icon: MessagesSquare },
 ] as const;
@@ -236,6 +241,18 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
                         <CalendarCheck size={14} />
                         My Bookings
                       </Link>
+                      {/* Reports the user has filed (FR-CM-05). Shown to
+                          admins + students; tutors keep their own menu. */}
+                      {!isTutor && (
+                        <Link
+                          href={"/account/reports" as Route}
+                          onClick={() => setAccountOpen(false)}
+                          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-ink-soft hover:bg-grape-soft hover:text-violet-700 transition-colors"
+                        >
+                          <Flag size={14} />
+                          My Reports
+                        </Link>
+                      )}
                       {isTutor && tutorProfileId ? (
                         <>
                           <Link
@@ -368,6 +385,16 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
                     </p>
                   </div>
                 </Link>
+                {!isTutor && (
+                  <Link
+                    href={"/account/reports" as Route}
+                    onClick={() => setIsMenuOpen(false)}
+                    className="w-full text-left px-5 py-4 rounded-2xl text-base font-semibold flex items-center gap-4 text-violet-700/80 hover:bg-grape-soft/60 hover:text-dusty-grape transition-colors"
+                  >
+                    <Flag size={20} />
+                    My Reports
+                  </Link>
+                )}
                 {isAdmin && (
                   <Link
                     href={"/admin/kyc" as Route}
