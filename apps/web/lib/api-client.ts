@@ -41,6 +41,14 @@ import {
   type PostponeRequestDto,
   type ProposeSlotDto,
   type ReportDto,
+  type AddReportCommentDto,
+  type CreateReportDto,
+  type CreateReportResult,
+  type ReportDetail,
+  type ReportEventView,
+  type ReportEvidenceUploadResult,
+  type ReportListItem,
+  type ReportStatus,
   type SendMessageDto,
   type SheetReportDto,
   type SheetUploadIntent,
@@ -698,6 +706,37 @@ export function createApiClient(opts: ApiClientOptions = {}) {
         ),
     },
     reports: {
+      create: (dto: CreateReportDto) =>
+        request<CreateReportResult>(
+          API_PATHS.reports,
+          { method: "POST", body: JSON.stringify(dto) },
+          token,
+        ),
+      uploadEvidence: (file: File) => {
+        const form = new FormData();
+        form.append("file", file);
+        return requestMultipart<ReportEvidenceUploadResult>(
+          API_PATHS.reportUploadEvidence,
+          form,
+          token,
+        );
+      },
+      mine: (status?: ReportStatus) =>
+        request<ReportListItem[]>(
+          `${API_PATHS.reportsMine}${status ? `?status=${status}` : ""}`,
+          {},
+          token,
+        ),
+      byId: (id: string) =>
+        request<ReportDetail>(API_PATHS.reportById(id), {}, token),
+      addComment: (id: string, dto: AddReportCommentDto) =>
+        request<ReportEventView>(
+          API_PATHS.reportComment(id),
+          { method: "POST", body: JSON.stringify(dto) },
+          token,
+        ),
+      // Legacy community report — removed once post-card.tsx is rewired
+      // to the shared ReportDialog (report-system step 8 integrations).
       submit: (dto: ReportDto) =>
         request<void>(
           API_PATHS.reports,
