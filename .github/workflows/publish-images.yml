@@ -55,6 +55,40 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # ── Persist the Next.js build cache across CI runs ────────────────────
+      # `cache-to/from: type=gha` caches image *layers*, but NOT BuildKit
+      # cache *mounts*. The web image's `RUN --mount=type=cache,
+      # target=.../.next/cache` is therefore cold on every run: any source
+      # edit invalidates `COPY . .`, so the `next build` layer re-executes.
+      # buildkit-cache-dance round-trips .next/cache through actions/cache so
+      # that rebuild stays incremental run-to-run.
+      #
+      # The pnpm-store mount is deliberately NOT danced: when package.json
+      # and the lockfile are unchanged the whole install layer is a plain
+      # `type=gha` hit, so a warm store buys nothing — and dancing a ~1 GB
+      # dir every run would cost more than it saves.
+      - name: Restore Next.js build cache
+        id: next-cache
+        uses: actions/cache@v4
+        with:
+          path: .ci-cache/next-cache
+          key: next-build-cache-${{ github.sha }}
+          restore-keys: |
+            next-build-cache-
+
+      # Injects .ci-cache/next-cache into the BuildKit cache mount before the
+      # web build; the action's post-step extracts the updated mount back out
+      # so actions/cache can save it. Placed AFTER the actions/cache step so
+      # the post-steps run in the correct order: extract, then save.
+      - name: Sync Next.js cache into BuildKit
+        uses: reproducible-containers/buildkit-cache-dance@v3
+        with:
+          cache-map: |
+            {
+              ".ci-cache/next-cache": "/app/apps/web/.next/cache"
+            }
+          skip-extraction: ${{ steps.next-cache.outputs.cache-hit }}
+
       # NEXT_PUBLIC_* are baked into the browser bundle at build time, so
       # they must be passed here. These are PUBLIC values (they ship to the
       # client) — not secrets. Edit them when the environment changes

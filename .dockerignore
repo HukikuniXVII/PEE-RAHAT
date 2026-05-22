@@ -17,6 +17,9 @@ node_modules
 **/coverage
 **/*.tsbuildinfo
 **/*.tgz
+# CI-only: buildkit-cache-dance round-trips .next/cache through this dir
+# (see .github/workflows/publish-images.yml) — never send it as build context.
+.ci-cache
 
 # ─── Tests — never compiled into a production image ──────────────────────────
 # tsconfig.build.json excludes specs anyway; dropping them shrinks context.

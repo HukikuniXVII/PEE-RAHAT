@@ -77,7 +77,10 @@ ENV NODE_ENV=production
 # cache mount turns every build after the first into an incremental one.
 # The mount is NOT part of any image layer — only .next/standalone and
 # .next/static (real files written alongside it) are copied into the runner.
-RUN --mount=type=cache,id=next-web-cache,target=/app/apps/web/.next/cache \
+# In CI this mount is persisted across runs by buildkit-cache-dance (see
+# .github/workflows/publish-images.yml); its id is intentionally left at the
+# default (= the target path) so the dance can address it by target.
+RUN --mount=type=cache,target=/app/apps/web/.next/cache \
     pnpm --filter @peerahat/types build \
  && pnpm --filter @peerahat/web build
 
