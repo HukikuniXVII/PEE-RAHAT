@@ -15,6 +15,7 @@ import { KycModule } from "./kyc/kyc.module";
 import { PaymentsModule } from "./payments/payments.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { QuizModule } from "./quiz/quiz.module";
+import { ReportsModule } from "./reports/reports.module";
 import { ReviewsModule } from "./reviews/reviews.module";
 import { SheetsModule } from "./sheets/sheets.module";
 import { TcasModule } from "./tcas/tcas.module";
@@ -42,6 +43,7 @@ import { UsersModule } from "./users/users.module";
     CommunityModule,
     ChatModule,
     PaymentsModule,
+    ReportsModule,
     AdminModule,
     TcasImportModule,
     JobsModule,
