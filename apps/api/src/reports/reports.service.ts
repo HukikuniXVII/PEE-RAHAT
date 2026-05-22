@@ -6,10 +6,16 @@ import {
   PayloadTooLargeException,
 } from "@nestjs/common";
 import type {
+  AddReportCommentDto,
   CreateReportDto,
   CreateReportResult,
+  ReportDetail,
+  ReportEventView,
   ReportEvidenceUploadResult,
+  ReportListItem,
+  ReportStatus,
 } from "@peerahat/types";
+import type { ReportEvent } from "@prisma/client";
 
 import { StorageService } from "../common/storage.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -68,10 +74,7 @@ export class ReportsService {
     supabaseId: string,
     dto: CreateReportDto,
   ): Promise<CreateReportResult> {
-    const reporter = await this.prisma.user.findUnique({
-      where: { supabaseId },
-    });
-    if (!reporter) throw new BadRequestException("Unknown user");
+    const reporter = await this.requireUser(supabaseId);
 
     // Anti-abuse rate limits — throws 429 with a Thai message.
     await this.rateLimit.assertCanFile({
@@ -181,10 +184,7 @@ export class ReportsService {
     supabaseId: string,
     file: UploadedEvidenceFile | undefined,
   ): Promise<ReportEvidenceUploadResult> {
-    const reporter = await this.prisma.user.findUnique({
-      where: { supabaseId },
-    });
-    if (!reporter) throw new BadRequestException("Unknown user");
+    const reporter = await this.requireUser(supabaseId);
     if (!file) throw new BadRequestException("ไม่พบไฟล์หลักฐาน");
     if (!EVIDENCE_ALLOWED_TYPES.has(file.mimetype)) {
       throw new BadRequestException("รองรับเฉพาะไฟล์รูปภาพหรือ PDF");
@@ -200,6 +200,131 @@ export class ReportsService {
       file.mimetype,
     );
     return { objectKey };
+  }
+
+  /** The reporter's own filed reports, newest first. */
+  async listMine(
+    supabaseId: string,
+    status?: ReportStatus,
+  ): Promise<ReportListItem[]> {
+    const reporter = await this.requireUser(supabaseId);
+    const rows = await this.prisma.report.findMany({
+      where: { reporterId: reporter.id, ...(status ? { status } : {}) },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      targetType: r.targetType,
+      category: r.category,
+      status: r.status,
+      slaDeadline: r.slaDeadline.toISOString(),
+      createdAt: r.createdAt.toISOString(),
+      resolvedAt: r.resolvedAt?.toISOString() ?? null,
+    }));
+  }
+
+  /** Reporter-facing report detail. Admin-only internal notes are stripped
+   *  — the reporter sees only the timeline + their own follow-ups. */
+  async getMineDetail(
+    supabaseId: string,
+    reportId: string,
+  ): Promise<ReportDetail> {
+    const reporter = await this.requireUser(supabaseId);
+    const report = await this.prisma.report.findUnique({
+      where: { id: reportId },
+      include: { events: { orderBy: { createdAt: "asc" } } },
+    });
+    if (!report) throw new NotFoundException("ไม่พบรายงาน");
+    if (report.reporterId !== reporter.id) {
+      throw new ForbiddenException();
+    }
+    const events = await Promise.all(
+      report.events
+        .filter((e) => e.kind !== "admin_note")
+        .map((e) => this.toEventView(e)),
+    );
+    return {
+      id: report.id,
+      targetType: report.targetType,
+      targetId: report.targetId,
+      category: report.category,
+      description: report.description,
+      evidenceUrls: await this.signEvidence(report.evidenceKeys),
+      status: report.status,
+      slaDeadline: report.slaDeadline.toISOString(),
+      createdAt: report.createdAt.toISOString(),
+      resolvedAt: report.resolvedAt?.toISOString() ?? null,
+      resolution: report.resolution,
+      publicResponse: report.publicResponse,
+      events,
+      canComment:
+        report.status === "pending" || report.status === "under_review",
+    };
+  }
+
+  /** Add a reporter follow-up comment — allowed only while the report is
+   *  still open (pending / under_review). */
+  async addComment(
+    supabaseId: string,
+    reportId: string,
+    dto: AddReportCommentDto,
+  ): Promise<ReportEventView> {
+    const reporter = await this.requireUser(supabaseId);
+    const report = await this.prisma.report.findUnique({
+      where: { id: reportId },
+    });
+    if (!report) throw new NotFoundException("ไม่พบรายงาน");
+    if (report.reporterId !== reporter.id) {
+      throw new ForbiddenException();
+    }
+    if (report.status !== "pending" && report.status !== "under_review") {
+      throw new BadRequestException(
+        "ไม่สามารถเพิ่มความคิดเห็นในรายงานที่ปิดแล้ว",
+      );
+    }
+    const evidencePrefix = `reports/${reporter.id}/`;
+    for (const key of dto.evidenceKeys) {
+      if (!key.startsWith(evidencePrefix)) {
+        throw new BadRequestException("หลักฐานไม่ถูกต้อง");
+      }
+    }
+    const event = await this.prisma.reportEvent.create({
+      data: {
+        reportId,
+        kind: "reporter_comment",
+        authorId: reporter.id,
+        text: dto.text,
+        evidenceKeys: dto.evidenceKeys,
+      },
+    });
+    return this.toEventView(event);
+  }
+
+  private async requireUser(supabaseId: string) {
+    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
+    if (!user) throw new BadRequestException("Unknown user");
+    return user;
+  }
+
+  /** Resolve evidence object keys to 5-minute signed download URLs. */
+  private async signEvidence(keys: string[]): Promise<string[]> {
+    const signed = await Promise.all(
+      keys.map((key) => this.storage.signDownload(key)),
+    );
+    return signed.map((s) => s.url);
+  }
+
+  private async toEventView(event: ReportEvent): Promise<ReportEventView> {
+    return {
+      id: event.id,
+      kind: event.kind,
+      // Role label only — this is the reporter's own report, so admin
+      // actions read as "แอดมิน" and never carry an admin identity.
+      authorLabel: event.kind === "reporter_comment" ? "คุณ" : "แอดมิน",
+      text: event.text,
+      evidenceUrls: await this.signEvidence(event.evidenceKeys),
+      createdAt: event.createdAt.toISOString(),
+    };
   }
 
   /**

@@ -71,12 +71,29 @@ function makeService(over: Overrides = {}) {
         .mockImplementation(({ data }: { data: Record<string, unknown> }) =>
           Promise.resolve({ ...data, id: "rep-1", status: "pending", slaDeadline: SLA }),
         ),
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
+    reportEvent: {
+      create: jest
+        .fn()
+        .mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+          Promise.resolve({
+            id: "ev-1",
+            createdAt: new Date("2026-05-22T00:00:00.000Z"),
+            evidenceKeys: [],
+            ...data,
+          }),
+        ),
     },
   };
   const storage = {
     uploadReportEvidence: jest
       .fn()
       .mockResolvedValue("reports/u-reporter/123-abc.png"),
+    signDownload: jest
+      .fn()
+      .mockResolvedValue({ url: "https://signed.example/x", expiresAt: "x" }),
   };
   const targetResolver = {
     resolve: jest.fn().mockResolvedValue(over.resolution ?? POST_RESOLUTION),
@@ -253,6 +270,120 @@ describe("ReportsService.create — chat-bypass auto-detection (FR-CM-05)", () =
     expect(prisma.report.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ category: "other", priority: "normal" }),
     });
+  });
+});
+
+describe("ReportsService — reporter read endpoints (FR-CM-05)", () => {
+  const reportRow = (over: Record<string, unknown> = {}) => ({
+    id: "rep-1",
+    reporterId: "u-reporter",
+    targetType: "community_post",
+    targetId: "po1",
+    category: "spam",
+    description: "d".repeat(25),
+    evidenceKeys: ["reports/u-reporter/a.png"],
+    status: "under_review",
+    slaDeadline: SLA,
+    createdAt: new Date("2026-05-20T00:00:00.000Z"),
+    resolvedAt: null,
+    resolution: null,
+    publicResponse: null,
+    events: [],
+    ...over,
+  });
+
+  it("listMine maps the reporter's rows newest-first", async () => {
+    const { svc, prisma } = makeService();
+    prisma.report.findMany.mockResolvedValue([
+      reportRow({ id: "rep-2" }),
+      reportRow({ id: "rep-1" }),
+    ]);
+    const list = await svc.listMine("sup-reporter");
+    expect(list.map((r) => r.id)).toEqual(["rep-2", "rep-1"]);
+    expect(prisma.report.findMany).toHaveBeenCalledWith({
+      where: { reporterId: "u-reporter" },
+      orderBy: { createdAt: "desc" },
+    });
+  });
+
+  it("getMineDetail strips admin-only notes from the timeline", async () => {
+    const { svc, prisma } = makeService();
+    prisma.report.findUnique.mockResolvedValue(
+      reportRow({
+        events: [
+          {
+            id: "e1",
+            kind: "reporter_comment",
+            text: "เพิ่มหลักฐาน",
+            evidenceKeys: [],
+            createdAt: new Date("2026-05-21T00:00:00.000Z"),
+          },
+          {
+            id: "e2",
+            kind: "admin_note",
+            text: "internal only",
+            evidenceKeys: [],
+            createdAt: new Date("2026-05-21T01:00:00.000Z"),
+          },
+        ],
+      }),
+    );
+    const detail = await svc.getMineDetail("sup-reporter", "rep-1");
+    expect(detail.events).toHaveLength(1);
+    expect(detail.events[0]).toMatchObject({ id: "e1", authorLabel: "คุณ" });
+    expect(detail.canComment).toBe(true);
+  });
+
+  it("getMineDetail rejects another reporter's report", async () => {
+    const { svc, prisma } = makeService();
+    prisma.report.findUnique.mockResolvedValue(
+      reportRow({ reporterId: "someone-else" }),
+    );
+    await expect(
+      svc.getMineDetail("sup-reporter", "rep-1"),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("getMineDetail 404s a missing report", async () => {
+    const { svc } = makeService();
+    await expect(
+      svc.getMineDetail("sup-reporter", "missing"),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("addComment appends a reporter_comment event on an open report", async () => {
+    const { svc, prisma } = makeService();
+    prisma.report.findUnique.mockResolvedValue(reportRow());
+    await svc.addComment("sup-reporter", "rep-1", {
+      text: "มีหลักฐานเพิ่ม",
+      evidenceKeys: [],
+    });
+    expect(prisma.reportEvent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        reportId: "rep-1",
+        kind: "reporter_comment",
+        authorId: "u-reporter",
+        text: "มีหลักฐานเพิ่ม",
+      }),
+    });
+  });
+
+  it("addComment rejects a closed report", async () => {
+    const { svc, prisma } = makeService();
+    prisma.report.findUnique.mockResolvedValue(reportRow({ status: "resolved" }));
+    await expect(
+      svc.addComment("sup-reporter", "rep-1", { text: "x", evidenceKeys: [] }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("addComment rejects a comment on another reporter's report", async () => {
+    const { svc, prisma } = makeService();
+    prisma.report.findUnique.mockResolvedValue(
+      reportRow({ reporterId: "someone-else" }),
+    );
+    await expect(
+      svc.addComment("sup-reporter", "rep-1", { text: "x", evidenceKeys: [] }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });
 
