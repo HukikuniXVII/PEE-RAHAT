@@ -2,7 +2,7 @@ import { Card, PageBackground } from "@peerahat/ui";
 import { ScrollText } from "lucide-react";
 
 export const metadata = {
-  title: "ข้อกำหนดและเงื่อนไขการใช้งาน — Pee Rahat",
+  title: "ข้อกำหนดและเงื่อนไขการใช้งาน",
   description:
     "ข้อกำหนดและเงื่อนไขการใช้งานแพลตฟอร์ม Pee Rahat ครอบคลุมการจับคู่ติวเตอร์รุ่นพี่ ตลาดชีตสรุป ชุมชน เครื่องมือ TCAS และระบบตัวกลางพักเงิน",
 };

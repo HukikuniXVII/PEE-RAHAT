@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { DesignPreview } from "./_components/design-preview";
 
 export const metadata = {
-  title: "UI Preview — Pee Rahat (admin)",
+  title: "UI Preview (admin)",
 };
 
 // UI design preview surface. Picks any route from a dropdown and

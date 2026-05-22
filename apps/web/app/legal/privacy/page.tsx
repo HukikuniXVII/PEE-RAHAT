@@ -2,7 +2,7 @@ import { Card, PageBackground } from "@peerahat/ui";
 import { ShieldCheck } from "lucide-react";
 
 export const metadata = {
-  title: "นโยบายความเป็นส่วนตัว — Pee Rahat",
+  title: "นโยบายความเป็นส่วนตัว",
   description:
     "นโยบายความเป็นส่วนตัวของแพลตฟอร์ม Pee Rahat ตามพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562 (PDPA) ครอบคลุมการจับคู่ติวเตอร์ ตลาดชีตสรุป ชุมชน และเครื่องมือ TCAS",
 };
