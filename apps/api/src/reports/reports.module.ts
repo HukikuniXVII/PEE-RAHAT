@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 
 import { ReportPriorityService } from "./report-priority.service";
 import { ReportRateLimitService } from "./report-rate-limit.service";
+import { ReportResolutionService } from "./report-resolution.service";
 import { ReportsController } from "./reports.controller";
 import { ReportsService } from "./reports.service";
 import { TargetResolverService } from "./target-resolver.service";
@@ -23,12 +24,14 @@ import { TargetResolverService } from "./target-resolver.service";
     TargetResolverService,
     ReportPriorityService,
     ReportRateLimitService,
+    ReportResolutionService,
     ReportsService,
   ],
   exports: [
     TargetResolverService,
     ReportPriorityService,
     ReportRateLimitService,
+    ReportResolutionService,
     ReportsService,
   ],
 })
