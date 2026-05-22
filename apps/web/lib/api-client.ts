@@ -7,7 +7,8 @@ import {
   type AdminPayoutDetail,
   type AdminPayoutQueueGroup,
   type AdminPayoutRow,
-  type AdminReport,
+  type AdminReportDetail,
+  type AdminReportQueueItem,
   type AvatarUploadIntent,
   type ComputePayoutsDto,
   type FailPayoutDto,
@@ -43,11 +44,16 @@ import {
   type AddReportCommentDto,
   type CreateReportDto,
   type CreateReportResult,
+  type RelatedReportItem,
   type ReportDetail,
   type ReportEventView,
   type ReportEvidenceUploadResult,
   type ReportListItem,
+  type ReportPriority,
   type ReportStatus,
+  type ReportTarget,
+  type ResolveReportDto,
+  type UpdateReportStatusDto,
   type SendMessageDto,
   type SheetReportDto,
   type SheetUploadIntent,
@@ -265,24 +271,65 @@ export function createApiClient(opts: ApiClientOptions = {}) {
         ),
     },
     admin: {
-      listReports: (
-        opts: {
-          page?: number;
-          pageSize?: number;
-          status?: "open" | "resolved";
-        } = {},
-      ) =>
-        request<Page<AdminReport>>(
-          `${API_PATHS.adminReports}${qs(opts)}`,
-          {},
-          token,
-        ),
-      resolveReport: (id: string) =>
-        request<AdminReport>(
-          API_PATHS.adminResolveReport(id),
-          { method: "POST" },
-          token,
-        ),
+      reports: {
+        queue: (
+          opts: {
+            status?: ReportStatus;
+            priority?: ReportPriority;
+            targetType?: ReportTarget;
+            assignedToId?: string;
+          } = {},
+        ) =>
+          request<AdminReportQueueItem[]>(
+            `${API_PATHS.adminReportsQueue}${qs(opts)}`,
+            {},
+            token,
+          ),
+        overdue: () =>
+          request<AdminReportQueueItem[]>(
+            API_PATHS.adminReportsOverdue,
+            {},
+            token,
+          ),
+        detail: (id: string) =>
+          request<AdminReportDetail>(API_PATHS.adminReportById(id), {}, token),
+        related: (id: string) =>
+          request<RelatedReportItem[]>(
+            API_PATHS.adminReportRelated(id),
+            {},
+            token,
+          ),
+        assign: (id: string, adminId: string) =>
+          request<{ ok: true }>(
+            API_PATHS.adminAssignReport(id),
+            { method: "PATCH", body: JSON.stringify({ adminId }) },
+            token,
+          ),
+        updateStatus: (id: string, dto: UpdateReportStatusDto) =>
+          request<{ ok: true }>(
+            API_PATHS.adminReportStatus(id),
+            { method: "PATCH", body: JSON.stringify(dto) },
+            token,
+          ),
+        resolve: (id: string, dto: ResolveReportDto) =>
+          request<{ ok: true }>(
+            API_PATHS.adminResolveReport(id),
+            { method: "POST", body: JSON.stringify(dto) },
+            token,
+          ),
+        markDuplicate: (id: string, parentReportId: string) =>
+          request<{ ok: true }>(
+            API_PATHS.adminReportDuplicate(id),
+            { method: "POST", body: JSON.stringify({ parentReportId }) },
+            token,
+          ),
+        addNote: (id: string, text: string) =>
+          request<{ ok: true }>(
+            API_PATHS.adminReportNote(id),
+            { method: "POST", body: JSON.stringify({ text }) },
+            token,
+          ),
+      },
       kycQueue: () =>
         request<AdminKycQueueItem[]>(API_PATHS.adminKycQueue, {}, token),
       // FR-TH-02: per-submission detail. Each call audit-logs the passbook
