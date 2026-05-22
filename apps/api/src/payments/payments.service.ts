@@ -232,18 +232,22 @@ export class PaymentsService {
 
   private buildPromptPayPayload(amountThb: number): string {
     const merchantId = process.env.PROMPTPAY_MERCHANT_ID;
-    if (!merchantId) {
-      if (process.env.NODE_ENV === "production") {
-        throw new Error(
-          "PROMPTPAY_MERCHANT_ID is not set — cannot generate PromptPay QR. Configure it in the production env (10-digit mobile, 13-digit NID, or 15-digit e-wallet id).",
-        );
-      }
-      // Dev fallback so localhost flows keep working without config.
-      // Production throws above so a missing env never silently ships
-      // an unscannable QR.
-      return `promptpay-stub:amount=${amountThb}`;
+    if (merchantId) {
+      return encodePromptPayPayload({ merchantId, amountThb });
     }
-    return encodePromptPayPayload({ merchantId, amountThb });
+    // TEMP (FR-PM-01): the payment dialog hard-codes a static PromptPay QR
+    // image (see payment-dialog.tsx, commit 5379d2b) and never renders this
+    // payload, so a missing PROMPTPAY_MERCHANT_ID must NOT hard-500 the
+    // create-intent path. Return the stub in every environment until escrow
+    // goes live. At that point: set PROMPTPAY_MERCHANT_ID, drop the static
+    // QR in the dialog, and restore the production throw below so a misconfig
+    // can never silently ship an unscannable QR.
+    if (process.env.NODE_ENV === "production") {
+      this.logger.warn(
+        "PROMPTPAY_MERCHANT_ID is not set — using the PromptPay stub. Expected while the payment dialog shows a hard-coded QR image; configure the env before escrow goes live.",
+      );
+    }
+    return `promptpay-stub:amount=${amountThb}`;
   }
 
   /**
