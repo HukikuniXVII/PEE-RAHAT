@@ -15,6 +15,6 @@ export const metadata = {
 //   - gated by NODE_ENV → returns 404 in production builds, so this
 //     never ships to real users
 export default function DesignPreviewPage() {
-  if (process.env.NODE_ENV === "development") notFound();
+  if (process.env.NODE_ENV === "production") notFound();
   return <DesignPreview />;
 }
