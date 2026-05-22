@@ -122,18 +122,16 @@ export class TutorsService {
   }
 
   async search(query: TutorSearchQuery): Promise<TutorSearchResult> {
-    // FR-TH-17: search lists every verified tutor — including those who
-    // haven't connected a Google account. A missing Google OAuth no longer
-    // hides the tutor: Meet generation at payment-confirm is best-effort
-    // (PaymentsService.tryGenerateMeet logs + swallows the failure, the
-    // booking stays paid, and admin regenerates the link later via
-    // /admin/bookings/:id/regenerate-meet).
-    // Gate (FR-TH-02): tutors without bank info can't be paid, so they
-    // stay hidden — a booking for them would block on payout.
+    // Search lists every tutor except those currently suspended — the
+    // earlier `isVerified` + `bankAccountNumber` gates were dropped so all
+    // tutors are discoverable. Caveats kept in mind:
+    //  - a tutor without bank info on file can't be paid, so a booking for
+    //    them blocks at payout until an admin adds it (FR-TH-02);
+    //  - a missing Google OAuth is fine — Meet generation at payment-
+    //    confirm is best-effort (regenerate via
+    //    /admin/bookings/:id/regenerate-meet).
     const where: Prisma.TutorProfileWhereInput = {
-      isVerified: true,
-      bankAccountNumber: { not: null },
-      // Report system: a currently-suspended tutor is hidden from search.
+      // A currently-suspended tutor stays hidden from search (FR-CM-05).
       NOT: { user: { suspendedUntil: { gt: new Date() } } },
     };
     if (query.subject) {
