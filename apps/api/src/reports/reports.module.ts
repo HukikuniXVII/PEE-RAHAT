@@ -3,6 +3,7 @@ import { Module } from "@nestjs/common";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { AdminReportsController } from "./admin-reports.controller";
 import { AdminReportsService } from "./admin-reports.service";
+import { ReportCronService } from "./report-cron.service";
 import { ReportPriorityService } from "./report-priority.service";
 import { ReportRateLimitService } from "./report-rate-limit.service";
 import { ReportResolutionService } from "./report-resolution.service";
@@ -31,6 +32,7 @@ import { TargetResolverService } from "./target-resolver.service";
     ReportResolutionService,
     ReportsService,
     AdminReportsService,
+    ReportCronService,
   ],
   exports: [
     TargetResolverService,
@@ -38,6 +40,7 @@ import { TargetResolverService } from "./target-resolver.service";
     ReportRateLimitService,
     ReportResolutionService,
     ReportsService,
+    ReportCronService,
   ],
 })
 export class ReportsModule {}

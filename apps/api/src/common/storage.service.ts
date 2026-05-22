@@ -185,6 +185,24 @@ export class StorageService {
   }
 
   /**
+   * Report-system evidence cleanup (FR-CM-05 / PDPA): permanently delete
+   * one stored object. Bucket is inferred from the key prefix. Dev with no
+   * S3 config is a no-op.
+   */
+  async deleteObject(objectKey: string): Promise<void> {
+    if (!this.client || !this.config) {
+      this.logger.warn(`deleteObject(${objectKey}): no S3 config — skipping`);
+      return;
+    }
+    const bucket = objectKey.startsWith("kyc/")
+      ? this.config.kycBucket
+      : this.config.sheetsBucket;
+    await this.client.send(
+      new DeleteObjectCommand({ Bucket: bucket, Key: objectKey }),
+    );
+  }
+
+  /**
    * NFR-03 cold archive: copy a KYC object out of the primary bucket into
    * the long-term archive bucket and delete the original. Idempotent —
    * CopyObject overwrites at the destination and DeleteObject is a no-op
