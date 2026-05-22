@@ -23,6 +23,7 @@ import {
   Bookmark,
   Calculator as CalculatorIcon,
   ChevronLeft,
+  ExternalLink,
   Filter,
   Pin,
   Search,
@@ -317,6 +318,7 @@ export function TcasCalculator({ programs, calendar }: Props) {
         {page === "home" ? (
           <HomePage
             tiles={sortedTiles}
+            allPrograms={programs}
             programsInRound={programsInRound}
             totalInRound={programsInRound.length}
             calendar={calendar}
@@ -424,7 +426,7 @@ function Chrome({
 
   return (
     <div className="space-y-3 mb-5">
-      <div className="grid grid-cols-2 gap-2 rounded-2xl p-1.5 bg-grape-soft border border-violet-100">
+      <div className="grid grid-cols-2 gap-2 rounded-full p-1.5 bg-grape-soft border border-violet-100">
         {(
           [
             { v: "kku-netsat", label: "NETSAT", sub: "มข. รอบ 2 โควตา" },
@@ -568,6 +570,7 @@ function Chrome({
 
 function HomePage(props: {
   tiles: UnifiedProgram[];
+  allPrograms: UnifiedProgram[];
   programsInRound: UnifiedProgram[];
   totalInRound: number;
   calendar: CalendarFile;
@@ -587,6 +590,7 @@ function HomePage(props: {
 }) {
   const {
     tiles,
+    allPrograms,
     programsInRound,
     totalInRound,
     calendar,
@@ -604,6 +608,21 @@ function HomePage(props: {
     onTogglePin,
     onPickProgram,
   } = props;
+
+  const PAGE_SIZE = 24;
+  const [pageNum, setPageNum] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(tiles.length / PAGE_SIZE));
+  const currentPage = Math.min(Math.max(1, pageNum), totalPages);
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const visibleTiles = tiles.slice(pageStart, pageStart + PAGE_SIZE);
+
+  // Reset to page 1 whenever the filter pipeline produces a new tiles
+  // array — happens on tab switch, filter changes, sort changes, and
+  // search query changes. Without this the user could land on page 5
+  // and see fewer items than the page-size when filters narrow.
+  useEffect(() => {
+    setPageNum(1);
+  }, [tiles]);
 
   return (
     <div
@@ -676,7 +695,7 @@ function HomePage(props: {
           className="grid gap-4"
           style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}
         >
-          {tiles.slice(0, 24).map((p) => (
+          {visibleTiles.map((p) => (
             <ProgramCard
               key={p.id}
               program={p}
@@ -693,10 +712,49 @@ function HomePage(props: {
           </p>
         )}
 
-        {tiles.length > 24 && (
-          <p className="thai text-[11px] text-ink-mute mt-4 text-center">
-            แสดง 24 จาก {tiles.length.toLocaleString()} หลักสูตร — ใช้ช่องค้นหาด้านบน หรือปรับตัวกรองเพื่อเจาะลึก
-          </p>
+        {totalPages > 1 && (
+          <nav
+            aria-label="ตัวเลือกหน้า"
+            className="mt-6 flex items-center justify-center gap-2"
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setPageNum(Math.max(1, currentPage - 1));
+                if (typeof window !== "undefined") {
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }
+              }}
+              disabled={currentPage === 1}
+              className="thai text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-white border border-violet-100 text-grape-deep hover:border-violet-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              ‹ ก่อนหน้า
+            </button>
+
+            <span className="thai text-[12px] text-ink-soft tabular-nums px-3 py-1.5 rounded-lg bg-grape-soft/60">
+              หน้า{" "}
+              <strong className="text-grape-deep">{currentPage}</strong>
+              {" / "}
+              <span className="text-grape-deep">{totalPages}</span>
+              <span className="text-ink-mute font-normal">
+                {" "}· {tiles.length.toLocaleString()} หลักสูตร
+              </span>
+            </span>
+
+            <button
+              type="button"
+              onClick={() => {
+                setPageNum(Math.min(totalPages, currentPage + 1));
+                if (typeof window !== "undefined") {
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }
+              }}
+              disabled={currentPage === totalPages}
+              className="thai text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-white border border-violet-100 text-grape-deep hover:border-violet-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              ถัดไป ›
+            </button>
+          </nav>
         )}
 
         <p className="thai text-[10.5px] mt-3 text-ink-mute">
@@ -704,7 +762,102 @@ function HomePage(props: {
         </p>
       </main>
 
-      <CalendarWidget calendar={calendar} tab={tab} />
+      <aside className="space-y-4">
+        <PinnedWidget
+          pinned={pinned}
+          programs={allPrograms}
+          onPick={onPickProgram}
+          onUnpin={onTogglePin}
+        />
+        <CalendarWidget calendar={calendar} tab={tab} />
+      </aside>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────
+// PinnedWidget — shows the user's pinned-for-comparison programs in
+// the right rail. Pins are kept across tab switches (KKU ↔ TCAS) so
+// the widget treats them as a personal bookmark list independent of
+// the current round filter.
+// ────────────────────────────────────────────────────────────────────
+
+function PinnedWidget({
+  pinned,
+  programs,
+  onPick,
+  onUnpin,
+}: {
+  pinned: Set<string>;
+  programs: UnifiedProgram[];
+  onPick: (id: string) => void;
+  onUnpin: (id: string) => void;
+}) {
+  const items = programs.filter((p) => pinned.has(p.id));
+
+  return (
+    <div className="bg-white rounded-2xl border border-violet-100 p-3 shadow-[0_4px_12px_-8px_rgba(85,65,139,0.18)]">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="thai text-[11px] font-bold text-grape-deep uppercase tracking-wider flex items-center gap-1.5">
+          <Pin size={11} className="text-dusty-grape" />
+          ปักหมุด
+        </h3>
+        {items.length > 0 && (
+          <span className="text-[10px] tabular-nums px-1.5 py-0.5 rounded bg-grape-soft text-grape-deep font-bold">
+            {items.length}/3
+          </span>
+        )}
+      </div>
+
+      {items.length === 0 ? (
+        <p className="thai text-[10.5px] text-ink-mute leading-relaxed">
+          ยังไม่มีหลักสูตรที่ปักหมุด — กดไอคอน{" "}
+          <Pin size={9} className="inline-block align-baseline" />{" "}
+          บนการ์ดเพื่อเก็บไว้เปรียบเทียบ (สูงสุด 3)
+        </p>
+      ) : (
+        <ul className="space-y-1.5">
+          {items.map((p) => (
+            <li
+              key={p.id}
+              className="relative group rounded-lg border border-violet-100 bg-white hover:border-violet-200 transition-colors"
+            >
+              <button
+                type="button"
+                onClick={() => onPick(p.id)}
+                className="block w-full text-left px-2 py-1.5 pr-6 min-w-0"
+              >
+                <p className="thai text-[11px] font-bold text-grape-deep truncate">
+                  {p.programName}
+                </p>
+                <p className="thai text-[9.5px] text-ink-mute truncate">
+                  {p.faculty} · {uniDisplayName(p.university)}
+                </p>
+                {p.history?.min != null && (
+                  <p className="text-[9.5px] mt-0.5 text-ink-soft">
+                    ขั้นต่ำปีก่อน{" "}
+                    <span className="tabular-nums font-bold text-grape-deep">
+                      {p.history.min.toFixed(2)}
+                    </span>
+                  </p>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUnpin(p.id);
+                }}
+                aria-label="ถอนปักหมุด"
+                title="ถอนปักหมุด"
+                className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full inline-flex items-center justify-center text-ink-mute hover:text-violet-500 hover:bg-violet-100/60"
+              >
+                <X size={10} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -2159,11 +2312,25 @@ function PieWeightCard({ program }: { program: UnifiedProgram }) {
 
   return (
     <div className="bg-white rounded-2xl border border-[rgba(85,65,139,0.08)] shadow-[0_1px_0_rgba(85,65,139,0.04),0_12px_28px_-18px_rgba(85,65,139,0.25)] p-4">
-      <div className="flex items-center gap-2 mb-1">
-        <span className="text-[14px]">🥧</span>
-        <p className="thai text-[12.5px] font-bold text-grape-deep">
-          สัดส่วนวิชาที่ใช้
-        </p>
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-[14px]">🥧</span>
+          <p className="thai text-[12.5px] font-bold text-grape-deep truncate">
+            สัดส่วนวิชาที่ใช้
+          </p>
+        </div>
+        {program.sourceUrl && (
+          <a
+            href={program.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="thai shrink-0 text-[10px] font-semibold text-dusty-grape hover:text-violet-700 inline-flex items-center gap-0.5"
+            title="เปิดดูประกาศต้นฉบับ"
+          >
+            ดูแหล่งข้อมูล
+            <ExternalLink size={10} />
+          </a>
+        )}
       </div>
       <p className="thai text-[10.5px] mb-2 text-ink-mute">
         น้ำหนักการคำนวณคะแนน
