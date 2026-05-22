@@ -23,6 +23,7 @@ import {
   Bookmark,
   Calculator as CalculatorIcon,
   ChevronLeft,
+  ExternalLink,
   Filter,
   Pin,
   Search,
@@ -39,6 +40,7 @@ import {
   type Zone,
   calculateWeightedScore,
   classifyZone,
+  examCodeLabel,
   zoneLabel,
 } from "@/lib/tcas-unified";
 
@@ -118,7 +120,21 @@ const UNI_SHORT: Record<string, string> = {
   สถาบันเทคโนโลยีพระจอมเกล้าเจ้าคุณทหารลาดกระบัง: "สจล.",
 };
 function shortUni(name: string): string {
-  return UNI_SHORT[name] ?? name.replace(/^มหาวิทยาลัย/, "ม.").slice(0, 14);
+  // Defensive: trim + NFC-normalize so JSON-source and source-code keys
+  // always compare equal even if one side picks up combining-mark drift.
+  const cleaned = name.trim().normalize("NFC");
+  return UNI_SHORT[cleaned] ?? cleaned.replace(/^มหาวิทยาลัย/, "ม.").slice(0, 14);
+}
+
+// Filter-display name: full Thai name with the redundant "มหาวิทยาลัย"
+// removed (handles both prefix and suffix — e.g. "มหาวิทยาลัยขอนแก่น" →
+// "ขอนแก่น", "จุฬาลงกรณ์มหาวิทยาลัย" → "จุฬาลงกรณ์"). Names without the
+// word (e.g. "สถาบันเทคโนโลยี…", "ราชวิทยาลัยจุฬาภรณ์") are returned
+// unchanged. Used in the FilterSidebar uni list so the muted full-name
+// column is actually distinguishable across rows instead of every line
+// starting with the same truncated "มหาวิทยาลัย…".
+function uniDisplayName(name: string): string {
+  return name.trim().normalize("NFC").replace(/มหาวิทยาลัย/g, "").trim();
 }
 
 function similarityScore(a: UnifiedProgram, b: UnifiedProgram): number {
@@ -150,6 +166,20 @@ function formatRange(start: string | null, end: string | null): string {
   if (!start) return "ยังไม่กำหนด";
   if (!end || end === start) return formatThaiDate(start);
   return `${formatThaiDate(start)} – ${formatThaiDate(end)}`;
+}
+
+// Pagination window — show all pages when total ≤ 7, else show the
+// first, the last, the current ± 1 neighbour, and ellipses between.
+// Keeps the control compact regardless of the underlying list size.
+function pageNumbersToShow(
+  current: number,
+  total: number,
+): Array<number | "…"> {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  if (current <= 4) return [1, 2, 3, 4, 5, "…", total];
+  if (current >= total - 3)
+    return [1, "…", total - 4, total - 3, total - 2, total - 1, total];
+  return [1, "…", current - 1, current, current + 1, "…", total];
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -196,6 +226,15 @@ export function TcasCalculator({ programs, calendar }: Props) {
   );
   const [selectedUnis, setSelectedUnis] = useState<Set<string>>(new Set());
   const [minGpaxBucket, setMinGpaxBucket] = useState<number>(0);
+
+  // Reset the university filter when switching tabs — NETSAT only has
+  // KKU programs while TCAS R3 has 73 unis. Carrying a selection across
+  // tabs almost always hides the new tab's programs (e.g. selecting
+  // "มข." on NETSAT, then switching to TCAS, would show only the ~293
+  // KKU R3 programs out of 7,489 — looks like the filter is broken).
+  useEffect(() => {
+    setSelectedUnis(new Set());
+  }, [tab]);
 
   // Pinned-for-comparison IDs (per the V1 design's compare dock). Cap at
   // 3 per the handoff spec — additional pin attempts silently no-op.
@@ -293,6 +332,7 @@ export function TcasCalculator({ programs, calendar }: Props) {
         {page === "home" ? (
           <HomePage
             tiles={sortedTiles}
+            allPrograms={programs}
             programsInRound={programsInRound}
             totalInRound={programsInRound.length}
             calendar={calendar}
@@ -400,7 +440,7 @@ function Chrome({
 
   return (
     <div className="space-y-3 mb-5">
-      <div className="grid grid-cols-2 gap-2 rounded-2xl p-1.5 bg-grape-soft border border-violet-100">
+      <div className="grid grid-cols-2 gap-2 rounded-full p-1.5 bg-grape-soft border border-violet-100">
         {(
           [
             { v: "kku-netsat", label: "NETSAT", sub: "มข. รอบ 2 โควตา" },
@@ -544,6 +584,7 @@ function Chrome({
 
 function HomePage(props: {
   tiles: UnifiedProgram[];
+  allPrograms: UnifiedProgram[];
   programsInRound: UnifiedProgram[];
   totalInRound: number;
   calendar: CalendarFile;
@@ -563,6 +604,7 @@ function HomePage(props: {
 }) {
   const {
     tiles,
+    allPrograms,
     programsInRound,
     totalInRound,
     calendar,
@@ -581,6 +623,21 @@ function HomePage(props: {
     onPickProgram,
   } = props;
 
+  const PAGE_SIZE = 24;
+  const [pageNum, setPageNum] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(tiles.length / PAGE_SIZE));
+  const currentPage = Math.min(Math.max(1, pageNum), totalPages);
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const visibleTiles = tiles.slice(pageStart, pageStart + PAGE_SIZE);
+
+  // Reset to page 1 whenever the filter pipeline produces a new tiles
+  // array — happens on tab switch, filter changes, sort changes, and
+  // search query changes. Without this the user could land on page 5
+  // and see fewer items than the page-size when filters narrow.
+  useEffect(() => {
+    setPageNum(1);
+  }, [tiles]);
+
   return (
     <div
       className="grid gap-4"
@@ -598,17 +655,42 @@ function HomePage(props: {
       />
 
       <main className="flex flex-col min-w-0">
+        <ActiveFilterBanner
+          tab={tab}
+          tilesCount={tiles.length}
+          totalInRound={totalInRound}
+          activeCategories={activeCategories}
+          selectedUnis={selectedUnis}
+          minGpaxBucket={minGpaxBucket}
+          onClearCategory={(key) => {
+            const next = new Set(activeCategories);
+            next.delete(key);
+            setActiveCategories(next);
+          }}
+          onClearUni={(short) => {
+            const next = new Set(selectedUnis);
+            next.delete(short);
+            setSelectedUnis(next);
+          }}
+          onClearGpax={() => setMinGpaxBucket(0)}
+          onResetAll={onResetFilters}
+        />
+
         <div className="flex items-center justify-between mb-3">
           <p className="thai text-[12px] text-ink-soft">
-            พบ{" "}
+            แสดง{" "}
+            <span className="font-bold text-grape-deep tabular-nums">
+              {Math.min(tiles.length, 24).toLocaleString()}
+            </span>{" "}
+            จาก{" "}
             <span className="font-bold text-grape-deep tabular-nums">
               {tiles.length.toLocaleString()}
             </span>{" "}
-            หลักสูตรในกลุ่ม "{tab === "kku-netsat" ? "NETSAT" : "TCAS"}" ·{" "}
-            <span className="font-bold text-emerald-700 tabular-nums">
-              {totalInRound.toLocaleString()}
-            </span>{" "}
-            ทั้งหมด
+            หลักสูตรที่ตรงเงื่อนไข
+            <span className="text-ink-mute ml-1">
+              (ทั้งหมดในรอบ {tab === "kku-netsat" ? "NETSAT" : "TCAS"}:{" "}
+              {totalInRound.toLocaleString()})
+            </span>
           </p>
           <select
             value={sortKey}
@@ -627,7 +709,7 @@ function HomePage(props: {
           className="grid gap-4"
           style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}
         >
-          {tiles.slice(0, 24).map((p) => (
+          {visibleTiles.map((p) => (
             <ProgramCard
               key={p.id}
               program={p}
@@ -644,9 +726,76 @@ function HomePage(props: {
           </p>
         )}
 
-        {tiles.length > 24 && (
-          <p className="thai text-[11px] text-ink-mute mt-4 text-center">
-            แสดง 24 จาก {tiles.length.toLocaleString()} หลักสูตร — ใช้ช่องค้นหาด้านบน หรือปรับตัวกรองเพื่อเจาะลึก
+        {totalPages > 1 && (
+          <nav
+            aria-label="ตัวเลือกหน้า"
+            className="mt-6 flex items-center justify-center gap-1.5 flex-wrap"
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setPageNum(Math.max(1, currentPage - 1));
+                if (typeof window !== "undefined") {
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }
+              }}
+              disabled={currentPage === 1}
+              className="thai text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-white border border-violet-100 text-grape-deep hover:border-violet-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              ‹ ย้อนกลับ
+            </button>
+
+            {pageNumbersToShow(currentPage, totalPages).map((n, i) =>
+              n === "…" ? (
+                <span
+                  key={`gap-${i}`}
+                  aria-hidden
+                  className="text-ink-mute text-[12px] px-1"
+                >
+                  …
+                </span>
+              ) : (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => {
+                    setPageNum(n);
+                    if (typeof window !== "undefined") {
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }
+                  }}
+                  aria-current={n === currentPage ? "page" : undefined}
+                  className={cn(
+                    "thai text-[12px] font-semibold tabular-nums min-w-[32px] h-8 rounded-lg transition-colors",
+                    n === currentPage
+                      ? "bg-violet-500 text-white shadow-[0_4px_10px_-4px_rgba(85,65,139,0.45)]"
+                      : "bg-white border border-violet-100 text-grape-deep hover:border-violet-300",
+                  )}
+                >
+                  {n}
+                </button>
+              ),
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                setPageNum(Math.min(totalPages, currentPage + 1));
+                if (typeof window !== "undefined") {
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }
+              }}
+              disabled={currentPage === totalPages}
+              className="thai text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-white border border-violet-100 text-grape-deep hover:border-violet-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              ถัดไป ›
+            </button>
+          </nav>
+        )}
+
+        {totalPages > 1 && (
+          <p className="thai text-[10.5px] mt-2 text-center text-ink-mute tabular-nums">
+            {tiles.length.toLocaleString()} หลักสูตร · {PAGE_SIZE} หลักสูตรต่อหน้า
           </p>
         )}
 
@@ -655,8 +804,220 @@ function HomePage(props: {
         </p>
       </main>
 
-      <CalendarWidget calendar={calendar} tab={tab} />
+      <aside className="space-y-4">
+        <PinnedWidget
+          pinned={pinned}
+          programs={allPrograms}
+          onPick={onPickProgram}
+          onUnpin={onTogglePin}
+        />
+        <CalendarWidget calendar={calendar} tab={tab} />
+      </aside>
     </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────
+// PinnedWidget — shows the user's pinned-for-comparison programs in
+// the right rail. Pins are kept across tab switches (KKU ↔ TCAS) so
+// the widget treats them as a personal bookmark list independent of
+// the current round filter.
+// ────────────────────────────────────────────────────────────────────
+
+function PinnedWidget({
+  pinned,
+  programs,
+  onPick,
+  onUnpin,
+}: {
+  pinned: Set<string>;
+  programs: UnifiedProgram[];
+  onPick: (id: string) => void;
+  onUnpin: (id: string) => void;
+}) {
+  const items = programs.filter((p) => pinned.has(p.id));
+
+  return (
+    <div className="bg-white rounded-2xl border border-violet-100 p-3 shadow-[0_4px_12px_-8px_rgba(85,65,139,0.18)]">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="thai text-[11px] font-bold text-grape-deep uppercase tracking-wider flex items-center gap-1.5">
+          <Pin size={11} className="text-dusty-grape" />
+          ปักหมุด
+        </h3>
+        {items.length > 0 && (
+          <span className="text-[10px] tabular-nums px-1.5 py-0.5 rounded bg-grape-soft text-grape-deep font-bold">
+            {items.length}/3
+          </span>
+        )}
+      </div>
+
+      {items.length === 0 ? (
+        <p className="thai text-[10.5px] text-ink-mute leading-relaxed">
+          ยังไม่มีหลักสูตรที่ปักหมุด — กดไอคอน{" "}
+          <Pin size={9} className="inline-block align-baseline" />{" "}
+          บนการ์ดเพื่อเก็บไว้เปรียบเทียบ (สูงสุด 3)
+        </p>
+      ) : (
+        <ul className="space-y-1.5">
+          {items.map((p) => (
+            <li
+              key={p.id}
+              className="relative group rounded-lg border border-violet-100 bg-white hover:border-violet-200 transition-colors"
+            >
+              <button
+                type="button"
+                onClick={() => onPick(p.id)}
+                className="block w-full text-left px-2 py-1.5 pr-6 min-w-0"
+              >
+                <p className="thai text-[11px] font-bold text-grape-deep truncate">
+                  {p.programName}
+                </p>
+                <p className="thai text-[9.5px] text-ink-mute truncate">
+                  {p.faculty} · {uniDisplayName(p.university)}
+                </p>
+                {p.history?.min != null && (
+                  <p className="text-[9.5px] mt-0.5 text-ink-soft">
+                    ขั้นต่ำปีก่อน{" "}
+                    <span className="tabular-nums font-bold text-grape-deep">
+                      {p.history.min.toFixed(2)}
+                    </span>
+                  </p>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUnpin(p.id);
+                }}
+                aria-label="ถอนปักหมุด"
+                title="ถอนปักหมุด"
+                className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full inline-flex items-center justify-center text-ink-mute hover:text-violet-500 hover:bg-violet-100/60"
+              >
+                <X size={10} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Active-filter banner (surfaces the current filter state so the
+// number on the count line and the cards in the grid feel obviously
+// connected — without this, narrowing 7,489 → 197 looked the same as
+// "filter not applied" to many users).
+// ────────────────────────────────────────────────────────────────────
+
+function ActiveFilterBanner({
+  tab,
+  tilesCount,
+  totalInRound,
+  activeCategories,
+  selectedUnis,
+  minGpaxBucket,
+  onClearCategory,
+  onClearUni,
+  onClearGpax,
+  onResetAll,
+}: {
+  tab: RoundFilter;
+  tilesCount: number;
+  totalInRound: number;
+  activeCategories: Set<string>;
+  selectedUnis: Set<string>;
+  minGpaxBucket: number;
+  onClearCategory: (key: string) => void;
+  onClearUni: (short: string) => void;
+  onClearGpax: () => void;
+  onResetAll: () => void;
+}) {
+  const hasAny =
+    activeCategories.size > 0 ||
+    selectedUnis.size > 0 ||
+    minGpaxBucket > 0;
+  if (!hasAny) return null;
+
+  const matchEmpty = tilesCount === 0;
+
+  return (
+    <div
+      className={cn(
+        "mb-3 rounded-2xl border px-4 py-3 flex flex-wrap items-center gap-2",
+        matchEmpty
+          ? "bg-rose-50/70 border-rose-200"
+          : "bg-accent-500/15 border-accent-500/40",
+      )}
+    >
+      <span
+        className={cn(
+          "thai text-[12px] font-bold",
+          matchEmpty ? "text-rose-700" : "text-grape-deep",
+        )}
+      >
+        {matchEmpty
+          ? "⚠️ ไม่มีหลักสูตรตรงตัวกรอง"
+          : `🔍 ตัวกรองกำลังทำงาน — แสดง ${tilesCount.toLocaleString()} จาก ${totalInRound.toLocaleString()} หลักสูตรในรอบ ${tab === "kku-netsat" ? "NETSAT" : "TCAS"}`}
+      </span>
+
+      <div className="flex flex-wrap items-center gap-1.5 ml-auto">
+        {[...activeCategories].map((key) => {
+          const cat = CATEGORIES.find((c) => c.key === key);
+          if (!cat) return null;
+          return (
+            <FilterChip
+              key={`cat-${key}`}
+              label={`${cat.icon} ${cat.labelTh}`}
+              onClear={() => onClearCategory(key)}
+            />
+          );
+        })}
+        {[...selectedUnis].map((short) => (
+          <FilterChip
+            key={`uni-${short}`}
+            label={short}
+            onClear={() => onClearUni(short)}
+          />
+        ))}
+        {minGpaxBucket > 0 && (
+          <FilterChip
+            label={`GPAX ≥ ${minGpaxBucket.toFixed(2)}`}
+            onClear={onClearGpax}
+          />
+        )}
+        <button
+          type="button"
+          onClick={onResetAll}
+          className="thai ml-1 text-[11px] font-bold underline underline-offset-2 text-grape-deep hover:text-violet-500"
+        >
+          ล้างทั้งหมด
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function FilterChip({
+  label,
+  onClear,
+}: {
+  label: string;
+  onClear: () => void;
+}) {
+  return (
+    <span className="thai inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full text-[11px] font-bold bg-violet-500 text-white">
+      {label}
+      <button
+        type="button"
+        onClick={onClear}
+        aria-label={`ลบตัวกรอง ${label}`}
+        className="w-3.5 h-3.5 rounded-full inline-flex items-center justify-center bg-white/25 hover:bg-white/40 transition-colors"
+      >
+        <X size={9} />
+      </button>
+    </span>
   );
 }
 
@@ -702,7 +1063,7 @@ function FilterSidebar({
       const s = shortUni(p.university);
       const existing = m.get(s);
       if (existing) existing.count += 1;
-      else m.set(s, { short: s, full: p.university, count: 1 });
+      else m.set(s, { short: s, full: uniDisplayName(p.university), count: 1 });
     }
     return Array.from(m.values()).sort((a, b) => b.count - a.count);
   }, [programs]);
@@ -880,29 +1241,36 @@ function UniFilterGroup({
 
       {selected.size > 0 && (
         <div className="flex flex-wrap gap-1 mb-2">
-          {[...selected].map((code) => (
-            <button
-              key={code}
-              type="button"
-              onClick={() => toggle(code)}
-              className="thai text-[10px] font-semibold pl-2 pr-1 py-0.5 rounded-full inline-flex items-center gap-1 bg-violet-500 text-white"
-            >
-              {code}
-              <span className="w-3 h-3 rounded-full inline-flex items-center justify-center bg-white/20">
-                <X size={7} />
-              </span>
-            </button>
-          ))}
+          {[...selected].map((code) => {
+            const match = uniList.find((u) => u.short === code);
+            const label = match?.full || code;
+            return (
+              <button
+                key={code}
+                type="button"
+                onClick={() => toggle(code)}
+                className="thai text-[10px] font-semibold pl-2 pr-1 py-0.5 rounded-full inline-flex items-center gap-1 bg-violet-500 text-white"
+              >
+                {label}
+                <span className="w-3 h-3 rounded-full inline-flex items-center justify-center bg-white/20">
+                  <X size={7} />
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
 
-      <div className="rounded-lg overflow-hidden bg-violet-100/30 max-h-[220px] overflow-y-auto custom-scrollbar">
+      <div className="rounded-lg overflow-hidden bg-violet-100/30 max-h-[260px] overflow-y-auto custom-scrollbar">
         {filtered.length === 0 ? (
           <p className="thai text-[10.5px] py-3 text-center text-ink-mute">
             ไม่พบมหา'ลัย "{q}"
           </p>
         ) : (
-          filtered.slice(0, 20).map((u) => {
+          // Render the full list (scrollable container handles overflow).
+          // Previously capped at 20 → most TCAS R3 unis (73 total) were
+          // unreachable without typing the exact name first.
+          filtered.map((u) => {
             const on = selected.has(u.short);
             return (
               <label
@@ -916,11 +1284,8 @@ function UniFilterGroup({
                   onChange={() => toggle(u.short)}
                   style={{ accentColor: "#55418B" }}
                 />
-                <span className="thai text-[10.5px] font-bold text-grape-deep min-w-[52px]">
-                  {u.short}
-                </span>
-                <span className="thai text-[9.5px] flex-1 truncate text-ink-mute">
-                  {u.full}
+                <span className="thai text-[11px] font-bold text-grape-deep flex-1 truncate">
+                  {u.full || u.short}
                 </span>
                 <span className="text-[9.5px] tabular-nums text-ink-mute">
                   {u.count}
@@ -930,11 +1295,6 @@ function UniFilterGroup({
           })
         )}
       </div>
-      {filtered.length > 20 && (
-        <p className="thai text-[10px] mt-1 text-center text-soft-periwinkle">
-          พิมพ์เพิ่มเพื่อค้นหาในอีก {filtered.length - 20} มหา'ลัย
-        </p>
-      )}
     </div>
   );
 }
@@ -1085,7 +1445,7 @@ function ProgramCard({
                 key={`${w.examCode}-${i}`}
                 className={WEIGHT_SEGMENT_COLORS[i % WEIGHT_SEGMENT_COLORS.length]}
                 style={{ width: `${w.weightPercent}%` }}
-                title={`${w.rawSubjectName || w.examCode} ${w.weightPercent.toFixed(0)}%`}
+                title={`${w.rawSubjectName || examCodeLabel(w.examCode)} ${w.weightPercent.toFixed(0)}%`}
               />
             ))}
           </div>
@@ -1095,7 +1455,7 @@ function ProgramCard({
                 key={`${w.examCode}-${i}`}
                 className="thai text-[10px] px-1.5 py-0.5 rounded bg-[#F5F2FA] text-ink-soft"
               >
-                {w.rawSubjectName || w.examCode}{" "}
+                {w.rawSubjectName || examCodeLabel(w.examCode)}{" "}
                 <span className="tabular-nums font-semibold text-grape-deep">
                   {w.weightPercent.toFixed(0)}%
                 </span>
@@ -1235,6 +1595,11 @@ function CalendarWidget({
 
   const today = useMemo(() => new Date(), []);
   type Event = {
+    // ISO `YYYY-MM-DD` start date kept on the event so the list can sort
+    // chronologically; previously sorted by the formatted Thai display
+    // string, which collated alphabetically by month name instead of by
+    // date and produced a non-time-ordered timeline.
+    sortKey: string;
     date: string;
     title: string;
     status: "done" | "current" | "upcoming";
@@ -1249,6 +1614,7 @@ function CalendarWidget({
       const status: Event["status"] =
         today > end ? "done" : today >= start ? "current" : "upcoming";
       events.push({
+        sortKey: e.date_start,
         date: formatRange(e.date_start, e.date_end),
         title: e.title_th,
         status,
@@ -1265,12 +1631,14 @@ function CalendarWidget({
     const status: Event["status"] =
       today > end ? "done" : today >= start ? "current" : "upcoming";
     events.push({
+      sortKey: e.date_start,
       date: formatRange(e.date_start, e.date_end),
       title: e.title_th,
       status,
     });
   }
-  events.sort((a, b) => a.date.localeCompare(b.date));
+  // Ascending chronological: oldest at top, newest at bottom.
+  events.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 
   return (
     <aside className="rounded-2xl bg-white p-4 self-start sticky top-24 border border-[rgba(85,65,139,0.10)] shadow-[0_1px_0_rgba(85,65,139,0.04),0_18px_40px_-22px_rgba(85,65,139,0.25)] flex flex-col">
@@ -1415,7 +1783,16 @@ function DetailPage({
     );
   }
 
-  const { total: myScore } = calculateWeightedScore(program.weights, scores);
+  // PRIORITY_SCORE ("ลำดับการเลือก") is computed by TCAS from the
+  // applicant's rank list, not entered by the student. Assume 100 (1st
+  // choice) so the projected total isn't artificially deflated for
+  // programs that weight it — historical min/max in the data already
+  // includes admitted students' actual rank-of-choice values.
+  const scoresForCalc = { ...scores, PRIORITY_SCORE: scores.PRIORITY_SCORE ?? 100 };
+  const { total: myScore } = calculateWeightedScore(
+    program.weights,
+    scoresForCalc,
+  );
   const zone = classifyZone(myScore, program.history);
 
   const history = program.history;
@@ -1435,6 +1812,7 @@ function DetailPage({
     feasible: boolean;
   };
   const advice: Advice[] = program.weights
+    .filter((w) => w.examCode !== "PRIORITY_SCORE")
     .map((w) => {
       const cur = scores[w.examCode] ?? 0;
       const headroom = 100 - cur;
@@ -1590,41 +1968,54 @@ function ScoreInputRow({
       </p>
 
       <div className="flex flex-wrap gap-1.5">
-        {program.weights.map((w) => {
-          const val = scores[w.examCode];
-          return (
-            <label
-              key={w.examCode}
-              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 bg-white border border-[rgba(85,65,139,0.10)] focus-within:border-violet-300 focus-within:shadow-focus"
-            >
-              <span className="thai text-[11px] text-ink-soft">
-                {w.rawSubjectName || w.examCode}
-              </span>
-              <span className="thai text-[10px] px-1 rounded bg-grape-soft text-grape-deep font-bold">
-                {w.weightPercent.toFixed(0)}%
-              </span>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                step={0.01}
-                value={val ?? ""}
-                onChange={(e) => {
-                  const raw = e.target.value;
-                  if (raw === "") {
-                    setScore(w.examCode, Number.NaN);
-                    return;
-                  }
-                  const n = Number(raw);
-                  if (!Number.isNaN(n)) setScore(w.examCode, n);
-                }}
-                placeholder="—"
-                className="font-bold text-[13px] text-grape-deep tabular-nums w-12 text-right bg-transparent outline-none placeholder:text-ink-mute placeholder:font-normal"
-              />
-            </label>
-          );
-        })}
+        {program.weights
+          .filter((w) => w.examCode !== "PRIORITY_SCORE")
+          .map((w) => {
+            const val = scores[w.examCode];
+            return (
+              <label
+                key={w.examCode}
+                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 bg-white border border-[rgba(85,65,139,0.10)] focus-within:border-violet-300 focus-within:shadow-focus"
+              >
+                <span className="thai text-[11px] text-ink-soft">
+                  {w.rawSubjectName || examCodeLabel(w.examCode)}
+                </span>
+                <span className="thai text-[10px] px-1 rounded bg-grape-soft text-grape-deep font-bold">
+                  {w.weightPercent.toFixed(0)}%
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.01}
+                  value={val ?? ""}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === "") {
+                      setScore(w.examCode, Number.NaN);
+                      return;
+                    }
+                    const n = Number(raw);
+                    if (!Number.isNaN(n)) setScore(w.examCode, n);
+                  }}
+                  placeholder="—"
+                  className="font-bold text-[13px] text-grape-deep tabular-nums w-12 text-right bg-transparent outline-none placeholder:text-ink-mute placeholder:font-normal"
+                />
+              </label>
+            );
+          })}
       </div>
+      {(() => {
+        const priority = program.weights.find(
+          (w) => w.examCode === "PRIORITY_SCORE",
+        );
+        if (!priority) return null;
+        return (
+          <p className="thai text-[10.5px] text-ink-mute mt-2 italic">
+            + ลำดับการเลือก {priority.weightPercent.toFixed(0)}% (คำนวณจากการจัดอันดับใน TCAS — ไม่ต้องกรอก)
+          </p>
+        );
+      })()}
     </div>
   );
 }
@@ -1765,7 +2156,7 @@ function ZoneAdviceCard({
                   </span>
                   <div className="flex-1 min-w-0">
                     <p className="thai text-[13px] font-bold truncate">
-                      {a.weight.rawSubjectName || a.weight.examCode}
+                      {a.weight.rawSubjectName || examCodeLabel(a.weight.examCode)}
                     </p>
                     <p className="thai text-[10.5px] text-white/70">
                       น้ำหนัก{" "}
@@ -1971,11 +2362,25 @@ function PieWeightCard({ program }: { program: UnifiedProgram }) {
 
   return (
     <div className="bg-white rounded-2xl border border-[rgba(85,65,139,0.08)] shadow-[0_1px_0_rgba(85,65,139,0.04),0_12px_28px_-18px_rgba(85,65,139,0.25)] p-4">
-      <div className="flex items-center gap-2 mb-1">
-        <span className="text-[14px]">🥧</span>
-        <p className="thai text-[12.5px] font-bold text-grape-deep">
-          สัดส่วนวิชาที่ใช้
-        </p>
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-[14px]">🥧</span>
+          <p className="thai text-[12.5px] font-bold text-grape-deep truncate">
+            สัดส่วนวิชาที่ใช้
+          </p>
+        </div>
+        {program.sourceUrl && (
+          <a
+            href={program.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="thai shrink-0 text-[10px] font-semibold text-dusty-grape hover:text-violet-700 inline-flex items-center gap-0.5"
+            title="เปิดดูประกาศต้นฉบับ"
+          >
+            ดูแหล่งข้อมูล
+            <ExternalLink size={10} />
+          </a>
+        )}
       </div>
       <p className="thai text-[10.5px] mb-2 text-ink-mute">
         น้ำหนักการคำนวณคะแนน
@@ -2032,7 +2437,7 @@ function PieWeightCard({ program }: { program: UnifiedProgram }) {
               style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}
             />
             <span className="thai text-[11px] flex-1 truncate text-ink">
-              {w.rawSubjectName || w.examCode}
+              {w.rawSubjectName || examCodeLabel(w.examCode)}
             </span>
             <span className="text-[11px] tabular-nums font-bold text-grape-deep">
               {w.weightPercent.toFixed(0)}%

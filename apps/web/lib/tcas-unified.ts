@@ -83,8 +83,14 @@ export function mapTcasProgram(
   p: TcasProgram,
   stat: TcasStatRecord | undefined,
 ): UnifiedProgram {
+  // TCAS R3 raw data has many programs sharing `external_id` because that
+  // ID identifies the program/faculty, not the specific track. Folding
+  // `project_id` into the React key keeps each track distinct. Final
+  // dedupe happens in page.tsx (`mapTcasProgram` is many-to-one with the
+  // raw rows, since the scrape contains literal byte-identical duplicates
+  // — same external_id + project_id repeated 10–20 times).
   return {
-    id: `tcas-${p.external_id}`,
+    id: `tcas-${p.external_id}-${p.project_id ?? ""}`,
     source: "tcas-r3",
     university: p.university,
     faculty: p.faculty,
@@ -212,6 +218,47 @@ const CATEGORY_LABEL: Record<SubjectCategory, string> = {
   NETSAT: "NETSAT",
   Other: "อื่นๆ",
 };
+
+// TCAS69 exam-code → Thai display name (raw_subject_name is empty in the
+// scraped quota, so the UI used to fall back to showing the raw code like
+// "A_LV_61"). Codes match mytcas.com's official A-Level / TGAT / TPAT set.
+const EXAM_CODE_LABEL_TH: Record<string, string> = {
+  TGAT: "TGAT ความถนัดทั่วไป",
+  TGAT1: "TGAT1 ภาษาอังกฤษ",
+  TGAT2: "TGAT2 การคิดอย่างมีเหตุผล",
+  TGAT3: "TGAT3 สมรรถนะการทำงาน",
+  TPAT1: "TPAT1 กสพท",
+  TPAT2: "TPAT2 ศิลปกรรม",
+  TPAT3: "TPAT3 วิทย์-วิศวะ-เทคโน",
+  TPAT4: "TPAT4 สถาปัตย์",
+  TPAT5: "TPAT5 ครุศาสตร์",
+  A_LV_61: "คณิตศาสตร์ประยุกต์ 1",
+  A_LV_62: "คณิตศาสตร์ประยุกต์ 2",
+  A_LV_63: "วิทยาศาสตร์ประยุกต์",
+  A_LV_64: "ฟิสิกส์",
+  A_LV_65: "เคมี",
+  A_LV_66: "ชีววิทยา",
+  A_LV_70: "สังคมศึกษา",
+  A_LV_81: "ภาษาไทย",
+  A_LV_82: "ภาษาอังกฤษ",
+  A_LV_83: "ภาษาฝรั่งเศส",
+  A_LV_84: "ภาษาเยอรมัน",
+  A_LV_85: "ภาษาญี่ปุ่น",
+  A_LV_86: "ภาษาเกาหลี",
+  A_LV_87: "ภาษาจีน",
+  A_LV_88: "ภาษาบาลี",
+  A_LV_89: "ภาษาสเปน",
+  NETSAT: "NETSAT",
+  // TCAS R3-only: not a test the student sits — TCAS computes it from
+  // where the applicant ranks this program in their up-to-10 choice list.
+  // See PRIORITY_SCORE notes in app/tcas/_components/tcas-calculator.tsx
+  // (hidden from the score-input row; shown in weight chips/pie/tooltips).
+  PRIORITY_SCORE: "ลำดับการเลือก",
+};
+
+export function examCodeLabel(examCode: string): string {
+  return EXAM_CODE_LABEL_TH[examCode] ?? examCode;
+}
 
 export function categoryFor(examCode: string): SubjectCategory {
   if (examCode.startsWith("TGAT")) return "TGAT";
