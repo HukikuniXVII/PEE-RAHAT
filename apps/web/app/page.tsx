@@ -22,11 +22,13 @@ export default async function HomePage() {
       {/* ── Section 1: Hero ──
          The snap-scroll hides sections 2–3 inside an inner scroll container,
          so crawlers + Google OAuth verification only ever see this section.
-         LandingFooter carries the purpose line + privacy link here too. */}
+         LandingFooter renders here in `slim` mode so the home page still
+         exposes a crawlable Privacy-policy link; the full footer lives in
+         the last section below. */}
       <section className="landing-page h-screen snap-start snap-always flex flex-col">
         <Nav />
         <Hero />
-        <LandingFooter tagline="พี่รหัส (Pee Rahat) คือแพลตฟอร์มจับคู่น้อง ม.ปลาย กับติวเตอร์รุ่นพี่จากมหาวิทยาลัยชั้นนำ จองคาบเรียนออนไลน์และชำระเงินผ่านระบบพักเงินตัวกลางที่ปลอดภัย" />
+        <LandingFooter slim />
       </section>
 
       {/* ── Section 2: อะไรคือพี่รหัส? + ฟีเจอร์ ── */}
