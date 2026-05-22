@@ -2,8 +2,15 @@ import { Injectable } from "@nestjs/common";
 
 import { PrismaService } from "../prisma/prisma.service";
 
-export type AdminAuditTargetType = "tutor" | "kyc" | "payout";
-export type AdminAuditAction = "view_passbook" | "reveal_bank";
+export type AdminAuditTargetType = "tutor" | "kyc" | "payout" | "report";
+export type AdminAuditAction =
+  | "view_passbook"
+  | "reveal_bank"
+  | "assign_report"
+  | "update_report_status"
+  | "resolve_report"
+  | "mark_report_duplicate"
+  | "add_report_note";
 
 @Injectable()
 export class AuditLogService {

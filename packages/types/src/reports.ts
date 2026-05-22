@@ -293,6 +293,12 @@ export const markDuplicateSchema = z.object({
 });
 export type MarkDuplicateDto = z.infer<typeof markDuplicateSchema>;
 
+/** Free-form admin-only internal note on a report. */
+export const addReportNoteSchema = z.object({
+  text: z.string().trim().min(1).max(REPORT_DESCRIPTION_MAX),
+});
+export type AddReportNoteDto = z.infer<typeof addReportNoteSchema>;
+
 // ─── Response shapes ───────────────────────────────────────────────────────
 
 /** Returned by POST /reports. */

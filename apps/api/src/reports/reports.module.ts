@@ -1,5 +1,7 @@
 import { Module } from "@nestjs/common";
 
+import { AdminReportsController } from "./admin-reports.controller";
+import { AdminReportsService } from "./admin-reports.service";
 import { ReportPriorityService } from "./report-priority.service";
 import { ReportRateLimitService } from "./report-rate-limit.service";
 import { ReportResolutionService } from "./report-resolution.service";
@@ -19,13 +21,14 @@ import { TargetResolverService } from "./target-resolver.service";
  * are not imported here.
  */
 @Module({
-  controllers: [ReportsController],
+  controllers: [ReportsController, AdminReportsController],
   providers: [
     TargetResolverService,
     ReportPriorityService,
     ReportRateLimitService,
     ReportResolutionService,
     ReportsService,
+    AdminReportsService,
   ],
   exports: [
     TargetResolverService,
