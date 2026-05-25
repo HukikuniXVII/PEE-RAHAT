@@ -2,10 +2,12 @@ import { Module } from "@nestjs/common";
 
 import { ChatModule } from "../chat/chat.module";
 import { GoogleCalendarModule } from "../integrations/google-calendar/google-calendar.module";
+import { NotificationsModule } from "../notifications/notifications.module";
 import { PaymentsModule } from "../payments/payments.module";
 import { BookingsController } from "./bookings.controller";
 import { BookingsService } from "./bookings.service";
 import { GroupSessionService } from "./group-session.service";
+import { InvitesController } from "./invites.controller";
 import { PostponeQueue } from "./postpone.queue";
 import { PostponeService } from "./postpone.service";
 
@@ -30,8 +32,13 @@ import { PostponeService } from "./postpone.service";
  * through a forwardRef at that point).
  */
 @Module({
-  imports: [ChatModule, PaymentsModule, GoogleCalendarModule],
-  controllers: [BookingsController],
+  imports: [
+    ChatModule,
+    PaymentsModule,
+    GoogleCalendarModule,
+    NotificationsModule,
+  ],
+  controllers: [BookingsController, InvitesController],
   providers: [BookingsService, GroupSessionService, PostponeService, PostponeQueue],
   exports: [BookingsService, GroupSessionService, PostponeService],
 })

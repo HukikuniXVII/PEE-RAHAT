@@ -637,6 +637,12 @@ enum NotificationType {
   report_content_removed
   report_reporter_warned
   report_sla_overdue
+  // FR-TH-18 group sessions. Emitted by GroupSessionService + the cron
+  // failure jobs in step 10. See migration 20260525_group_notification_types.
+  group_invite_responded
+  group_ready_for_review
+  group_decision
+  group_status_changed
 }
 
 model Notification {

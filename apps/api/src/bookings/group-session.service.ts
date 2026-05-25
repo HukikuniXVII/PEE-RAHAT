@@ -6,10 +6,12 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
+import type { InviteSummaryDto } from "@peerahat/types";
 import type { RefundReason } from "@prisma/client";
 import { Prisma } from "@prisma/client";
-import { addHours } from "date-fns";
+import { addHours, subHours } from "date-fns";
 
+import { NotificationService } from "../notifications/notification.service";
 import { encodePromptPayPayload } from "../payments/promptpay";
 import { PrismaService } from "../prisma/prisma.service";
 import { BookingsService } from "./bookings.service";
@@ -33,6 +35,7 @@ export class GroupSessionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly bookings: BookingsService,
+    private readonly notifications: NotificationService,
   ) {}
 
   // ── Host: invite a batch of emails ────────────────────────────────────
@@ -184,7 +187,7 @@ export class GroupSessionService {
       booking.durationMinutes,
     );
 
-    const updated = await this.prisma.$transaction(
+    const { updated, movedToTutorReview } = await this.prisma.$transaction(
       async (tx) => {
         const next = await tx.bookingParticipant.update({
           where: { id: participant.id },
@@ -193,10 +196,9 @@ export class GroupSessionService {
         const all = await tx.bookingParticipant.findMany({
           where: { bookingId: booking.id },
         });
-        if (shouldMoveToTutorReview(all, booking.capacity)) {
-          await this.moveToTutorReview(tx, booking.id);
-        }
-        return next;
+        const moved = shouldMoveToTutorReview(all, booking.capacity);
+        if (moved) await this.moveToTutorReview(tx, booking.id);
+        return { updated: next, movedToTutorReview: moved };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
@@ -207,8 +209,35 @@ export class GroupSessionService {
         bookingId: booking.id,
         participantId: updated.id,
         userId: user.id,
+        movedToTutorReview,
       }),
     );
+
+    // Notifications are best-effort (notify swallows errors) — fired post-tx
+    // so a delivery failure can never roll back the accept.
+    await this.notifications.notify({
+      userId: booking.studentId, // host
+      type: "group_invite_responded",
+      title: "เพื่อนตอบรับคำเชิญแล้ว",
+      body: `${user.displayName} เข้าร่วมคลาสกลุ่มของคุณ`,
+      linkUrl: `/bookings/${booking.id}/group`,
+    });
+
+    if (movedToTutorReview) {
+      const tutor = await this.prisma.tutorProfile.findUnique({
+        where: { id: booking.tutorId },
+        select: { userId: true },
+      });
+      if (tutor) {
+        await this.notifications.notify({
+          userId: tutor.userId,
+          type: "group_ready_for_review",
+          title: "กลุ่มพร้อมรอตรวจสอบ",
+          body: "กลุ่มของผู้ใช้รายหนึ่งครบจำนวนแล้ว — โปรดพิจารณาอนุมัติ",
+          linkUrl: `/bookings/${booking.id}`,
+        });
+      }
+    }
 
     return this.toParticipantRow(updated, user);
   }
@@ -255,6 +284,16 @@ export class GroupSessionService {
         reason: reason ?? null,
       }),
     );
+
+    await this.notifications.notify({
+      userId: booking.studentId, // host
+      type: "group_invite_responded",
+      title: "เพื่อนปฏิเสธคำเชิญ",
+      body: reason
+        ? `${user.displayName} ปฏิเสธคำเชิญ: ${reason}`
+        : `${user.displayName} ปฏิเสธคำเชิญเข้าร่วมคลาสกลุ่มของคุณ`,
+      linkUrl: `/bookings/${booking.id}/group`,
+    });
 
     return this.toParticipantRow(updated, user);
   }
@@ -510,6 +549,107 @@ export class GroupSessionService {
     );
   }
 
+  // ── Public landing: GET /invites/:code ────────────────────────────────
+  /**
+   * Thin payload for the public /invites/:code page. Intentionally PDPA-safe:
+   * NO participant emails, NO participant list — only the host's display
+   * name + the class details an invitee needs to decide.
+   */
+  async getInviteSummary(code: string): Promise<InviteSummaryDto> {
+    const booking = await this.prisma.booking.findUnique({
+      where: { inviteCode: code },
+      include: {
+        student: { select: { displayName: true, avatarUrl: true } },
+        tutor: {
+          select: {
+            id: true,
+            university: true,
+            faculty: true,
+            user: { select: { displayName: true, avatarUrl: true } },
+          },
+        },
+        participants: { select: { status: true } },
+      },
+    });
+    if (!booking || !booking.inviteCode || !booking.inviteExpiresAt) {
+      throw new NotFoundException("Invite not found");
+    }
+    if (booking.sessionType !== "group" || !booking.groupStatus) {
+      throw new NotFoundException("Invite not found");
+    }
+    return {
+      inviteCode: booking.inviteCode,
+      bookingId: booking.id,
+      groupStatus: booking.groupStatus,
+      scheduledAt: booking.scheduledAt.toISOString(),
+      durationMinutes: booking.durationMinutes,
+      amountThb: booking.amountThb,
+      subject: booking.subject as InviteSummaryDto["subject"],
+      capacity: booking.capacity,
+      acceptedCount: booking.participants.filter(
+        (p) => p.status === "accepted" || p.status === "paid",
+      ).length,
+      inviteExpiresAt: booking.inviteExpiresAt.toISOString(),
+      host: {
+        displayName: booking.student?.displayName ?? "",
+        avatarUrl: booking.student?.avatarUrl ?? undefined,
+      },
+      tutor: {
+        tutorId: booking.tutor.id,
+        displayName: booking.tutor.user.displayName,
+        avatarUrl: booking.tutor.user.avatarUrl ?? undefined,
+        university: booking.tutor.university,
+        faculty: booking.tutor.faculty,
+      },
+    };
+  }
+
+  // ── Host: extend invite expiry ────────────────────────────────────────
+  /**
+   * Bumps inviteExpiresAt by +24h, capped at scheduledAt (an invite that
+   * extends past the class start time would be useless). Host-only;
+   * forming-state only.
+   */
+  async extendInvite(supabaseId: string, bookingId: string) {
+    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
+    if (!user) throw new BadRequestException();
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+    });
+    if (!booking) throw new NotFoundException();
+    if (booking.studentId !== user.id) {
+      throw new ForbiddenException("Only the host can extend the invite");
+    }
+    if (booking.sessionType !== "group") {
+      throw new BadRequestException("Not a group booking");
+    }
+    if (booking.groupStatus !== "forming") {
+      throw new BadRequestException(
+        "Can only extend while the group is forming",
+      );
+    }
+    if (!booking.inviteExpiresAt) {
+      throw new BadRequestException("Invite has no expiry to extend");
+    }
+
+    // Cap at scheduledAt - 1h: an invite that runs to within an hour of the
+    // class would land paid invitees on a Meet they barely planned for.
+    const ceiling = subHours(booking.scheduledAt, 1);
+    const proposed = addHours(booking.inviteExpiresAt, 24);
+    const next = proposed > ceiling ? ceiling : proposed;
+    if (next <= booking.inviteExpiresAt) {
+      throw new BadRequestException(
+        "การเชิญใกล้ถึงเวลาคลาสแล้ว ไม่สามารถขยายเวลาได้",
+      );
+    }
+
+    await this.prisma.booking.update({
+      where: { id: booking.id },
+      data: { inviteExpiresAt: next },
+    });
+    return { inviteExpiresAt: next.toISOString() };
+  }
+
   // ── helpers ───────────────────────────────────────────────────────────
   private async requireBookingByInviteCode(code: string) {
     const booking = await this.prisma.booking.findUnique({
@@ -520,14 +660,35 @@ export class GroupSessionService {
     return booking;
   }
 
-  /** Public participant listing — used by /bookings/:id/participants in step 5. */
-  async listParticipants(bookingId: string) {
+  /**
+   * Public participant listing. Auth-scoped at the controller layer — host
+   * + tutor see emails; accepted/paid invitees see other rows but with
+   * emails masked.
+   */
+  async listParticipants(bookingId: string, viewerUserId?: string) {
     const rows = await this.prisma.bookingParticipant.findMany({
       where: { bookingId },
       include: { student: true },
       orderBy: [{ role: "asc" }, { invitedAt: "asc" }],
     });
-    return rows.map((r) => this.toParticipantRow(r, r.student));
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { tutor: { select: { userId: true } } },
+    });
+    const isHostOrTutor =
+      viewerUserId &&
+      booking &&
+      (booking.studentId === viewerUserId ||
+        booking.tutor.userId === viewerUserId);
+    return rows.map((r) => {
+      const row = this.toParticipantRow(r, r.student);
+      // Privacy: only host + tutor see invitee emails. Even paid invitees
+      // see participant names + statuses but not each other's emails.
+      if (!isHostOrTutor) {
+        return { ...row, email: undefined };
+      }
+      return row;
+    });
   }
 
   private toParticipantRow(

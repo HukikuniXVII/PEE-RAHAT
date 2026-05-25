@@ -86,6 +86,13 @@ export const notificationTypeSchema = z.enum([
   "report_content_removed",
   "report_reporter_warned",
   "report_sla_overdue",
+  // FR-TH-18 — group session lifecycle. host & invitee & tutor see these
+  // in their in-app notification feed; the in-app deep link points back
+  // at the booking or /invite/{code} as appropriate.
+  "group_invite_responded",
+  "group_ready_for_review",
+  "group_decision",
+  "group_status_changed",
 ]);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
 

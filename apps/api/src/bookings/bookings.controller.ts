@@ -13,6 +13,8 @@ import {
   bookingReportSchema,
   createBookingSchema,
   type CreateBookingDto,
+  type InviteParticipantsDto,
+  inviteParticipantsSchema,
   type PostponeRequestDto,
   postponeRequestSchema,
   type ProposeSlotDto,
@@ -24,7 +26,9 @@ import { SupabaseAuthGuard } from "../auth/auth.guard";
 import type { SupabaseJwtPayload } from "../auth/supabase-jwt.strategy";
 import { parseAvailabilityWindow } from "../common/availability-window";
 import { UserThrottlerGuard } from "../common/user-throttler.guard";
+import { PrismaService } from "../prisma/prisma.service";
 import { BookingsService } from "./bookings.service";
+import { GroupSessionService } from "./group-session.service";
 import { PostponeService } from "./postpone.service";
 
 @Controller("bookings")
@@ -33,6 +37,8 @@ export class BookingsController {
   constructor(
     private readonly bookings: BookingsService,
     private readonly postpone: PostponeService,
+    private readonly groupSessions: GroupSessionService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Get()
@@ -76,6 +82,65 @@ export class BookingsController {
   @Post(":id/accept")
   accept(@CurrentUser() user: SupabaseJwtPayload, @Param("id") id: string) {
     return this.bookings.accept(user.sub, id);
+  }
+
+  // ── FR-TH-18: host-side group session routes ───────────────────────────
+  // Throttling: invite + extend share the same 10/min bucket as create —
+  // realistic host usage stays well below.
+  @Post(":id/invite")
+  @UseGuards(UserThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  inviteToGroup(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") id: string,
+    @Body() raw: unknown,
+  ) {
+    const dto: InviteParticipantsDto = inviteParticipantsSchema.parse(raw);
+    return this.groupSessions.invite(user.sub, id, dto.emails);
+  }
+
+  @Post(":id/invite/extend")
+  extendInvite(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") id: string,
+  ) {
+    return this.groupSessions.extendInvite(user.sub, id);
+  }
+
+  // Auth-scoped at the service: any participant (host + accepted invitees)
+  // or the tutor can read; non-host/non-tutor see participant emails
+  // masked. The endpoint enforces the participant-or-tutor check before
+  // returning anything.
+  @Get(":id/participants")
+  async listParticipants(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") id: string,
+  ) {
+    const me = await this.prisma.user.findUnique({
+      where: { supabaseId: user.sub },
+      select: { id: true },
+    });
+    if (!me) {
+      // requireAuth at the guard level should prevent this, but guard the
+      // public surface anyway — return empty rather than 500.
+      return [];
+    }
+    const booking = await this.prisma.booking.findUnique({
+      where: { id },
+      include: {
+        tutor: { select: { userId: true } },
+        participants: { where: { studentId: me.id }, select: { id: true } },
+      },
+    });
+    if (!booking) {
+      // 404-shaped — but throwing here would leak existence. Empty array
+      // is consistent with "not yours, nothing to see".
+      return [];
+    }
+    const isParticipant = booking.participants.length > 0;
+    const isTutor = booking.tutor.userId === me.id;
+    if (!isParticipant && !isTutor) return [];
+    return this.groupSessions.listParticipants(id, me.id);
   }
 
   // FR-PM-05: student-reported booking inside the 24h report window.
