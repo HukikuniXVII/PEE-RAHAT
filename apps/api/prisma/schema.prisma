@@ -54,6 +54,11 @@ model User {
   loginAuditLogs            LoginAuditLog[]
   adminAuditLogs            AdminAuditLog[]   @relation("AdminAuditLogs")
   postponeRequestsInitiated PostponeRequest[]
+  // FR-TH-18 group sessions: a user can be a host or invitee on any
+  // number of bookings, and participates in any number of group chat
+  // threads (1-on-1 threads still use the explicit student / tutor FKs).
+  bookingParticipations     BookingParticipant[]
+  chatThreadParticipations  ChatThreadParticipant[] @relation("ChatThreadParticipations")
 }
 
 model StudentProfile {
@@ -187,6 +192,41 @@ enum BookingStatus {
   cancelled_tutor_initiated
 }
 
+// ─── FR-TH-18 group sessions ───────────────────────────────────────────────
+
+enum SessionType {
+  one_on_one
+  group
+}
+
+// Group-only lifecycle. Null for one_on_one bookings.
+//   forming      — host paid, waiting on invitees to accept their seats
+//   tutor_review — every seat accepted; tutor decides go / no-go
+//   confirmed    — tutor approved AND every invitee has paid; Meet generated
+//   failed       — any failure mode; every paid participant 100% refunded
+enum GroupStatus {
+  forming
+  tutor_review
+  confirmed
+  failed
+}
+
+enum ParticipantRole {
+  host
+  invited
+}
+
+// Per-seat lifecycle inside a group session. For 1-on-1 bookings the host's
+// participant row mirrors booking.status (paid when the booking is paid,
+// accepted otherwise) — see the FR-TH-18 backfill migration.
+enum ParticipantStatus {
+  invited
+  accepted
+  declined
+  paid
+  expired
+}
+
 model Booking {
   id                 String           @id @default(uuid())
   studentId          String
@@ -212,13 +252,50 @@ model Booking {
 
   createdAt          DateTime         @default(now())
 
+  // FR-TH-18: group session augmentations. For one_on_one bookings these
+  // stay at their defaults (sessionType=one_on_one, capacity=1, every
+  // group-only column null), so 1-on-1 callers see no behavioural change.
+  // `amountThb` is the per-seat price — each participant pays their own.
+  sessionType     SessionType  @default(one_on_one)
+  capacity        Int          @default(1)
+  groupStatus     GroupStatus?
+  inviteCode      String?      @unique
+  inviteExpiresAt DateTime?
+
   paymentIntent PaymentIntent?
   review        TutorReview?
   chatThread    ChatThread?
   refundLedgers RefundLedger[]
+  participants  BookingParticipant[]
 
   @@index([tutorId, status])
   @@index([studentId, status])
+  @@index([groupStatus])
+}
+
+// FR-TH-18: one row per seat in a booking. 1-on-1 bookings carry exactly
+// one participant (role=host, studentId = the booking's student). Group
+// bookings carry one host plus 2-9 invited rows up to `Booking.capacity`.
+// PaymentIntent linkage flows through here for invitees so the existing
+// `PaymentIntent.bookingId @unique` invariant (one host intent per booking)
+// is preserved without disturbing the 1-on-1 PaymentsService path.
+model BookingParticipant {
+  id              String            @id @default(cuid())
+  bookingId       String
+  booking         Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  studentId       String
+  student         User              @relation(fields: [studentId], references: [id])
+  role            ParticipantRole
+  status          ParticipantStatus @default(invited)
+  paymentIntentId String?           @unique
+  paymentIntent   PaymentIntent?    @relation(fields: [paymentIntentId], references: [id])
+  invitedAt       DateTime          @default(now())
+  acceptedAt      DateTime?
+  paidAt          DateTime?
+
+  @@unique([bookingId, studentId])
+  @@index([bookingId, status])
+  @@index([studentId])
 }
 
 model TutorReview {
@@ -642,6 +719,11 @@ model PaymentIntent {
   payoutId           String?
   payout             Payout?         @relation(fields: [payoutId], references: [id], onDelete: SetNull)
   refundLedgers      RefundLedger[]
+  // FR-TH-18: backref. For 1-on-1 + the host's group intent this is the
+  // single inverse of BookingParticipant.paymentIntentId; for invitee
+  // intents PaymentIntent.bookingId stays null and the booking is reached
+  // through BookingParticipant only.
+  participant        BookingParticipant?
   createdAt          DateTime        @default(now())
 
   @@index([payoutId])
@@ -675,20 +757,46 @@ model Payout {
 
 model ChatThread {
   id                String       @id @default(uuid())
-  studentId         String
-  student           User         @relation("StudentChat", fields: [studentId], references: [id])
+  // FR-TH-18: studentId nullable so a group thread can omit the
+  // 1-on-1 student-tutor pair. Postgres treats NULL as distinct in
+  // unique constraints, so multiple group rows (null, tutorId) coexist
+  // without colliding with each other or with 1-on-1 rows.
+  studentId         String?
+  student           User?        @relation("StudentChat", fields: [studentId], references: [id])
   tutorId           String
   tutor             TutorProfile @relation("TutorChat", fields: [tutorId], references: [id])
   bookingId         String?      @unique
   booking           Booking?     @relation(fields: [bookingId], references: [id])
+  // FR-TH-18: discriminator. one_on_one threads keep using
+  // studentLastReadAt / tutorLastReadAt; group threads read through the
+  // ChatThreadParticipant junction table instead.
+  sessionType       SessionType  @default(one_on_one)
   studentLastReadAt DateTime?
   tutorLastReadAt   DateTime?
   closedAt          DateTime?
   createdAt         DateTime     @default(now())
 
-  messages ChatMessage[]
+  messages     ChatMessage[]
+  participants ChatThreadParticipant[]
 
   @@unique([studentId, tutorId])
+}
+
+// FR-TH-18: many-to-many between users and group threads. Authoritative
+// for group threads. For 1-on-1 threads it's also backfilled so unread
+// counts can use a single code path going forward, but the existing
+// studentLastReadAt / tutorLastReadAt columns remain readable for now.
+model ChatThreadParticipant {
+  id         String     @id @default(cuid())
+  threadId   String
+  thread     ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User       @relation("ChatThreadParticipations", fields: [userId], references: [id])
+  lastReadAt DateTime?
+  joinedAt   DateTime   @default(now())
+
+  @@unique([threadId, userId])
+  @@index([userId])
 }
 
 model ChatMessage {
@@ -786,6 +894,11 @@ enum RefundReason {
   postpone_unresponsive
   postpone_tutor_initiated_no_agreement
   admin_manual
+  // FR-TH-18: group session failure modes. All three pay 100% refund to
+  // every paid participant. No tutor defectCount increment.
+  group_rejected_by_tutor
+  group_invite_expired
+  group_payment_incomplete
 }
 
 model RefundLedger {

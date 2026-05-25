@@ -32,7 +32,14 @@ export class ChatService {
     });
     return Promise.all(
       rows.map(async (t) => {
-        const isStudentSide = t.studentId === user.id;
+        // FR-TH-18: ChatThread.studentId is nullable for group threads, but
+        // those aren't created until Step 8 (confirmGroup) and are handled
+        // by a separate code path in Step 9. Every row matched here is a
+        // one-on-one thread with studentId set — assert to satisfy the
+        // existing ChatThread DTO (string, not nullable).
+        const studentId = t.studentId!;
+        const student = t.student!;
+        const isStudentSide = studentId === user.id;
         const counterparty = isStudentSide
           ? {
               displayName: t.tutor.user.displayName,
@@ -42,8 +49,8 @@ export class ChatService {
               subtitle: `${t.tutor.faculty} • ${t.tutor.university}`,
             }
           : {
-              displayName: t.student.displayName,
-              avatarUrl: t.student.avatarUrl ?? undefined,
+              displayName: student.displayName,
+              avatarUrl: student.avatarUrl ?? undefined,
               role: "student" as const,
             };
         const lastReadAt = isStudentSide
@@ -56,7 +63,7 @@ export class ChatService {
         );
         return {
           id: t.id,
-          studentId: t.studentId,
+          studentId,
           tutorId: t.tutorId,
           bookingId: t.bookingId ?? undefined,
           lastMessagePreview: t.messages[0]?.body ?? "",
@@ -115,7 +122,10 @@ export class ChatService {
         tutor: { include: { user: true } },
       },
     });
-    const isStudentSide = full.studentId === user.id;
+    // FR-TH-18: see threadsForUser — Step 9 widens this for group threads.
+    const studentId = full.studentId!;
+    const student = full.student!;
+    const isStudentSide = studentId === user.id;
     const counterparty = isStudentSide
       ? {
           displayName: full.tutor.user.displayName,
@@ -125,8 +135,8 @@ export class ChatService {
           subtitle: `${full.tutor.faculty} • ${full.tutor.university}`,
         }
       : {
-          displayName: full.student.displayName,
-          avatarUrl: full.student.avatarUrl ?? undefined,
+          displayName: student.displayName,
+          avatarUrl: student.avatarUrl ?? undefined,
           role: "student" as const,
         };
     const lastReadAt = isStudentSide
@@ -135,7 +145,7 @@ export class ChatService {
     const unreadCount = await this.unreadCountFor(full.id, user.id, lastReadAt);
     return {
       id: full.id,
-      studentId: full.studentId,
+      studentId,
       tutorId: full.tutorId,
       bookingId: full.bookingId ?? undefined,
       lastMessagePreview: full.messages[0]?.body ?? "",
@@ -188,8 +198,10 @@ export class ChatService {
         existing.studentLastReadAt,
       );
       return {
+        // FR-TH-18: studentId is non-null for this 1-on-1 lookup —
+        // the WHERE clause matched on student.id, so it can't be null.
         id: existing.id,
-        studentId: existing.studentId,
+        studentId: existing.studentId!,
         tutorId: existing.tutorId,
         bookingId: existing.bookingId ?? undefined,
         lastMessagePreview: existing.messages[0]?.body ?? "",
@@ -206,7 +218,7 @@ export class ChatService {
     });
     return {
       id: created.id,
-      studentId: created.studentId,
+      studentId: created.studentId!,
       tutorId: created.tutorId,
       bookingId: created.bookingId ?? undefined,
       lastMessagePreview: "",
