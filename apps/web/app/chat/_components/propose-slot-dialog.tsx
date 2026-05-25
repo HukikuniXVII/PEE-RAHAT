@@ -136,6 +136,7 @@ export function ProposeSlotDialog({
             duration={duration}
             onDuration={setDuration}
             busy={busy}
+            minLeadHours={MIN_NEW_SLOT_HOURS}
           />
 
           {scheduledAt && tooSoon && (

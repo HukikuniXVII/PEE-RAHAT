@@ -42,7 +42,7 @@ function buildDays() {
   base.setHours(0, 0, 0, 0);
   return Array.from({ length: 7 }, (_, offset) => {
     const d = new Date(base);
-    d.setDate(base.getDate() + offset + 1);
+    d.setDate(base.getDate() + offset);
     return {
       iso: d.toISOString().slice(0, 10),
       weekday: d.toLocaleDateString("th-TH", { weekday: "short" }),
@@ -66,6 +66,7 @@ function isSlotBusy(
 ): boolean {
   const start = combineDateAndMinute(dateIso, slot).getTime();
   const end = start + SLOT_STEP_MIN * 60_000;
+  if (end <= Date.now()) return true;
   return busy.some((b) => {
     const bs = Date.parse(b.start);
     const be = Date.parse(b.end);
