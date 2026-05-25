@@ -5,12 +5,19 @@ import type {
   AdminPassbookView,
   AdminPaymentRow,
   AdminPayoutDetail,
-  AdminReport,
   PaymentItemType,
   PaymentStatus,
 } from "@peerahat/types";
 
-import type { AdminRevealedBankInfo, BankName } from "@peerahat/types";
+import type {
+  AdminBankChangeItem,
+  AdminRevealedBankInfo,
+  AdminUserPage,
+  AdminUserRow,
+  BankName,
+  UpdateAdminUserDto,
+  UserRole,
+} from "@peerahat/types";
 
 import { AuditLogService } from "../common/audit-log.service";
 import { CryptoService } from "../common/crypto.service";
@@ -242,6 +249,361 @@ export class AdminService {
       accountNumber: this.crypto.decrypt(tutor.bankAccountNumber),
       accountName: tutor.bankAccountName,
     };
+  }
+
+  // ── FR-TH-02 (rev): bank-change approval queue ─────────────────────
+  /**
+   * List every tutor with a pending bank edit awaiting review. Returns
+   * full account numbers (server-side decrypt) — every entry on this
+   * list represents an admin's intent to review.
+   */
+  async listBankChanges(): Promise<AdminBankChangeItem[]> {
+    const rows = await this.prisma.tutorProfile.findMany({
+      where: { pendingBankSubmittedAt: { not: null } },
+      orderBy: { pendingBankSubmittedAt: "asc" },
+      include: {
+        user: {
+          select: { id: true, displayName: true, email: true },
+        },
+      },
+    });
+    return rows.map((row) => ({
+      tutorId: row.id,
+      userId: row.user.id,
+      displayName: row.user.displayName,
+      email: row.user.email,
+      university: row.university,
+      current:
+        row.bankAccountNumber && row.bankName && row.bankAccountName && row.bankUpdatedAt
+          ? {
+              bankName: row.bankName as BankName,
+              accountNumber: this.crypto.decrypt(row.bankAccountNumber),
+              accountName: row.bankAccountName,
+              updatedAt: row.bankUpdatedAt.toISOString(),
+            }
+          : null,
+      pending: {
+        bankName: row.pendingBankName as BankName,
+        accountNumber: this.crypto.decrypt(row.pendingBankAccountNumber!),
+        accountName: row.pendingBankAccountName!,
+        idName: row.pendingIdName ?? row.pendingBankAccountName!,
+        passbookObjectKey: row.pendingPassbookObjectKey,
+        submittedAt: row.pendingBankSubmittedAt!.toISOString(),
+      },
+    }));
+  }
+
+  /**
+   * Approve a pending bank change: copy pending → live columns, clear
+   * the pending columns. Also writes the new account into the latest
+   * verified KycSubmission so the admin queue stays in sync. Audit-
+   * logged like revealBank.
+   */
+  async approveBankChange(
+    adminUserId: string,
+    tutorId: string,
+    requesterIp: string,
+  ): Promise<AdminBankChangeItem> {
+    const tutor = await this.prisma.tutorProfile.findUnique({
+      where: { id: tutorId },
+    });
+    if (!tutor) throw new NotFoundException("Tutor not found");
+    if (!tutor.pendingBankSubmittedAt) {
+      throw new BadRequestException("No pending bank change for this tutor");
+    }
+    const latestKyc = await this.prisma.kycSubmission.findFirst({
+      where: { userId: tutor.userId, status: "verified" },
+      orderBy: { reviewedAt: "desc" },
+    });
+    const now = new Date();
+    await this.prisma.$transaction([
+      this.prisma.tutorProfile.update({
+        where: { id: tutorId },
+        data: {
+          bankName: tutor.pendingBankName,
+          bankAccountNumber: tutor.pendingBankAccountNumber,
+          bankAccountName: tutor.pendingBankAccountName,
+          passbookObjectKey:
+            tutor.pendingPassbookObjectKey ?? tutor.passbookObjectKey,
+          bankUpdatedAt: now,
+          pendingBankName: null,
+          pendingBankAccountNumber: null,
+          pendingBankAccountName: null,
+          pendingPassbookObjectKey: null,
+          pendingIdName: null,
+          pendingBankSubmittedAt: null,
+        },
+      }),
+      // Keep the canonical KycSubmission row in sync so admin queues
+      // (payouts, KYC detail) reflect the new bank info.
+      ...(latestKyc
+        ? [
+            this.prisma.kycSubmission.update({
+              where: { id: latestKyc.id },
+              data: {
+                idName: tutor.pendingIdName ?? latestKyc.idName,
+                bankName: tutor.pendingBankName,
+                bankAccountNumber: tutor.pendingBankAccountNumber,
+                bankAccountName: tutor.pendingBankAccountName,
+                passbookObjectKey:
+                  tutor.pendingPassbookObjectKey ??
+                  latestKyc.passbookObjectKey,
+              },
+            }),
+          ]
+        : []),
+    ]);
+    await this.prisma.loginAuditLog.create({
+      data: {
+        userId: adminUserId,
+        ip: requesterIp,
+        userAgent: `admin-approve-bank-change:tutor=${tutorId}`,
+      },
+    });
+    // Return a synthetic row showing the now-live + cleared-pending state.
+    const fresh = await this.prisma.tutorProfile.findUnique({
+      where: { id: tutorId },
+      include: {
+        user: { select: { id: true, displayName: true, email: true } },
+      },
+    });
+    if (!fresh) throw new NotFoundException("Tutor disappeared mid-approve");
+    return {
+      tutorId: fresh.id,
+      userId: fresh.user.id,
+      displayName: fresh.user.displayName,
+      email: fresh.user.email,
+      university: fresh.university,
+      current:
+        fresh.bankAccountNumber && fresh.bankName && fresh.bankAccountName && fresh.bankUpdatedAt
+          ? {
+              bankName: fresh.bankName as BankName,
+              accountNumber: this.crypto.decrypt(fresh.bankAccountNumber),
+              accountName: fresh.bankAccountName,
+              updatedAt: fresh.bankUpdatedAt.toISOString(),
+            }
+          : null,
+      pending: {
+        // No longer pending — return the just-approved snapshot for the
+        // admin UI's success state.
+        bankName: fresh.bankName as BankName,
+        accountNumber: fresh.bankAccountNumber
+          ? this.crypto.decrypt(fresh.bankAccountNumber)
+          : "",
+        accountName: fresh.bankAccountName ?? "",
+        idName: latestKyc?.idName ?? "",
+        passbookObjectKey: fresh.passbookObjectKey,
+        submittedAt: now.toISOString(),
+      },
+    };
+  }
+
+  /**
+   * Reject a pending bank change: clear the pending columns without
+   * touching the live bank info. Audit-logged.
+   */
+  async rejectBankChange(
+    adminUserId: string,
+    tutorId: string,
+    requesterIp: string,
+  ): Promise<void> {
+    const tutor = await this.prisma.tutorProfile.findUnique({
+      where: { id: tutorId },
+      select: { id: true, pendingBankSubmittedAt: true },
+    });
+    if (!tutor) throw new NotFoundException("Tutor not found");
+    if (!tutor.pendingBankSubmittedAt) {
+      throw new BadRequestException("No pending bank change for this tutor");
+    }
+    await this.prisma.tutorProfile.update({
+      where: { id: tutorId },
+      data: {
+        pendingBankName: null,
+        pendingBankAccountNumber: null,
+        pendingBankAccountName: null,
+        pendingPassbookObjectKey: null,
+        pendingIdName: null,
+        pendingBankSubmittedAt: null,
+      },
+    });
+    await this.prisma.loginAuditLog.create({
+      data: {
+        userId: adminUserId,
+        ip: requesterIp,
+        userAgent: `admin-reject-bank-change:tutor=${tutorId}`,
+      },
+    });
+  }
+
+  // ── Admin account-management (testing tool) ────────────────────────
+  /**
+   * List every User row with auxiliary counters so an admin can spot
+   * which accounts are safe to delete. Paginated; `q` filters by email
+   * or displayName (case-insensitive contains).
+   */
+  async listUsers({
+    page = 1,
+    pageSize = 25,
+    q,
+  }: {
+    page?: number;
+    pageSize?: number;
+    q?: string;
+  }): Promise<AdminUserPage> {
+    const safePage = Math.max(1, page);
+    const safePageSize = Math.min(100, Math.max(1, pageSize));
+    const where = q
+      ? {
+          OR: [
+            { email: { contains: q, mode: "insensitive" as const } },
+            { displayName: { contains: q, mode: "insensitive" as const } },
+          ],
+        }
+      : {};
+    const [rows, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: (safePage - 1) * safePageSize,
+        take: safePageSize,
+        select: {
+          id: true,
+          supabaseId: true,
+          email: true,
+          displayName: true,
+          role: true,
+          avatarUrl: true,
+          createdAt: true,
+          tutorProfile: { select: { id: true } },
+          studentProfile: { select: { userId: true } },
+          _count: { select: { bookingsAsStudent: true } },
+        },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+    return {
+      items: rows.map((r) => ({
+        id: r.id,
+        supabaseId: r.supabaseId,
+        email: r.email,
+        displayName: r.displayName,
+        role: r.role as UserRole,
+        avatarUrl: r.avatarUrl,
+        createdAt: r.createdAt.toISOString(),
+        hasTutorProfile: !!r.tutorProfile,
+        hasStudentProfile: !!r.studentProfile,
+        bookingCount: r._count.bookingsAsStudent,
+      })),
+      total,
+      page: safePage,
+      pageSize: safePageSize,
+    };
+  }
+
+  /**
+   * Patch a user's displayName and/or role. Guard rails:
+   *  - Refuse to demote the acting admin's own role (the admin can't
+   *    lock themselves out of /admin).
+   *  - Audit log every change.
+   */
+  async updateUserAsAdmin(
+    adminUserId: string,
+    targetUserId: string,
+    dto: UpdateAdminUserDto,
+    requesterIp: string,
+  ): Promise<AdminUserRow> {
+    if (
+      targetUserId === adminUserId &&
+      dto.role &&
+      dto.role !== "admin"
+    ) {
+      throw new BadRequestException(
+        "ไม่สามารถลด role ของบัญชีตัวเองได้",
+      );
+    }
+    const target = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+    });
+    if (!target) throw new NotFoundException("User not found");
+    await this.prisma.user.update({
+      where: { id: targetUserId },
+      data: {
+        ...(dto.displayName !== undefined
+          ? { displayName: dto.displayName }
+          : {}),
+        ...(dto.role !== undefined ? { role: dto.role } : {}),
+      },
+    });
+    await this.prisma.loginAuditLog.create({
+      data: {
+        userId: adminUserId,
+        ip: requesterIp,
+        userAgent: `admin-update-user:target=${targetUserId}:fields=${Object.keys(dto).join(",")}`,
+      },
+    });
+    // Re-read with the counters so the client gets a fresh row back.
+    const fresh = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: {
+        id: true,
+        supabaseId: true,
+        email: true,
+        displayName: true,
+        role: true,
+        avatarUrl: true,
+        createdAt: true,
+        tutorProfile: { select: { id: true } },
+        studentProfile: { select: { userId: true } },
+        _count: { select: { bookingsAsStudent: true } },
+      },
+    });
+    if (!fresh) throw new NotFoundException("User disappeared mid-update");
+    return {
+      id: fresh.id,
+      supabaseId: fresh.supabaseId,
+      email: fresh.email,
+      displayName: fresh.displayName,
+      role: fresh.role as UserRole,
+      avatarUrl: fresh.avatarUrl,
+      createdAt: fresh.createdAt.toISOString(),
+      hasTutorProfile: !!fresh.tutorProfile,
+      hasStudentProfile: !!fresh.studentProfile,
+      bookingCount: fresh._count.bookingsAsStudent,
+    };
+  }
+
+  /**
+   * Hard-delete a user. Existing Prisma onDelete: Cascade relations
+   * drop TutorProfile, StudentProfile, KycSubmission, bookings as
+   * student, etc. The Supabase auth row stays — admin must delete that
+   * separately in the Supabase dashboard.
+   *
+   * Refuses to delete the acting admin's own account (would log them
+   * out and leave the system without an admin if they were the last).
+   */
+  async deleteUserAsAdmin(
+    adminUserId: string,
+    targetUserId: string,
+    requesterIp: string,
+  ): Promise<void> {
+    if (targetUserId === adminUserId) {
+      throw new BadRequestException(
+        "ไม่สามารถลบบัญชีของตัวเองได้",
+      );
+    }
+    const target = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { id: true, email: true },
+    });
+    if (!target) throw new NotFoundException("User not found");
+    await this.prisma.user.delete({ where: { id: targetUserId } });
+    await this.prisma.loginAuditLog.create({
+      data: {
+        userId: adminUserId,
+        ip: requesterIp,
+        userAgent: `admin-delete-user:target=${targetUserId}:email=${target.email}`,
+      },
+    });
   }
 
   // FR-TH-02: queue includes 5-minute signed GETs for the three photos so

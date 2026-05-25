@@ -142,6 +142,30 @@ export function ProfileEditForm({
   const pending =
     update.isPending || saveAccount.isPending || uploadAvatar.isPending;
 
+  // Track whether the user has changed anything since the last save.
+  // RHF covers the bio/uni/faculty/rate/subjects/introVideoUrl fields;
+  // displayName + avatarUrl live as separate state so we compare them
+  // against the initial props directly. The confirm/cancel buttons gate
+  // on this so the user can't accidentally re-submit an unchanged form.
+  const accountDirty =
+    displayName.trim() !== initialDisplayName ||
+    (avatarUrl.trim() || undefined) !== (initialAvatarUrl || undefined);
+  const isDirty = form.formState.isDirty || accountDirty;
+
+  function handleCancel() {
+    form.reset({
+      bio: tutor.bio,
+      university: tutor.university,
+      faculty: tutor.faculty,
+      hourlyRate: tutor.hourlyRate,
+      subjects: tutor.subjects,
+      introVideoUrl: tutor.introVideoUrl ?? undefined,
+    });
+    setDisplayName(initialDisplayName);
+    setAvatarUrl(initialAvatarUrl);
+    setSaved(false);
+  }
+
   return (
     <form onSubmit={onSubmit} className="space-y-8">
       <div className="space-y-2">
@@ -314,15 +338,33 @@ export function ProfileEditForm({
 
         <UnavailabilityEditor />
 
-        <Button
-          type="submit"
-          variant="secondary"
-          size="lg"
-          disabled={pending}
-          className="w-full"
-        >
-          {pending ? "กำลังบันทึก…" : "บันทึก"}
-        </Button>
+        <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="lg"
+            onClick={handleCancel}
+            disabled={pending || !isDirty}
+            className="sm:flex-1 sm:basis-1/3"
+          >
+            ยกเลิกการแก้ไข
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            size="lg"
+            disabled={pending || !isDirty}
+            className="sm:flex-1 sm:basis-2/3"
+          >
+            {pending ? "กำลังบันทึก…" : "ยืนยันและบันทึก"}
+          </Button>
+        </div>
+
+        {!isDirty && !saved && (
+          <p className="thai text-[11.5px] text-ink-mute text-center">
+            แก้ไขข้อมูลใดข้อมูลหนึ่งเพื่อเปิดปุ่มบันทึก
+          </p>
+        )}
 
         {saved && !pending && !error && (
           <p className="flex items-center justify-center gap-2 text-sm text-emerald-600 font-medium">

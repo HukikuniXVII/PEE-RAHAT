@@ -39,6 +39,13 @@ export const API_PATHS = {
     `/admin/bookings/${id}/regenerate-meet`,
   adminRevealTutorBank: (tutorId: string) =>
     `/admin/tutors/${tutorId}/bank/reveal`,
+  adminBankChanges: "/admin/tutors/bank-changes",
+  adminApproveBankChange: (tutorId: string) =>
+    `/admin/tutors/${tutorId}/bank/approve`,
+  adminRejectBankChange: (tutorId: string) =>
+    `/admin/tutors/${tutorId}/bank/reject`,
+  adminUsers: "/admin/users",
+  adminUserById: (id: string) => `/admin/users/${id}`,
   adminPayouts: "/admin/payouts",
   adminPayoutById: (id: string) => `/admin/payouts/${id}`,
   adminComputePayouts: "/admin/payouts/compute",

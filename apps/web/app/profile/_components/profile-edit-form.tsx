@@ -91,6 +91,20 @@ export function ProfileEditForm({ initialUser }: Props) {
   const displayName = form.watch("displayName") ?? initialUser.displayName;
   const pending = save.isPending || uploadAvatar.isPending;
 
+  // Cancel / Confirm gating — same pattern as the tutor edit form. RHF
+  // tracks displayName + avatarUrl dirty state (avatar upload calls
+  // setValue with shouldDirty:true); the separate avatarUrl state is
+  // just for the preview, so a single isDirty check covers everything.
+  const isDirty = form.formState.isDirty;
+
+  function handleCancel() {
+    form.reset({
+      displayName: initialUser.displayName,
+      avatarUrl: initialUser.avatarUrl ?? undefined,
+    });
+    setAvatarUrl(initialUser.avatarUrl ?? "");
+  }
+
   return (
     <Card variant="frosted" className="p-8 md:p-10">
       <form onSubmit={onSubmit} className="space-y-8">
@@ -198,32 +212,38 @@ export function ProfileEditForm({ initialUser }: Props) {
             type="button"
             variant="ghost-brand"
             size="brand-md"
-            onClick={() => router.back()}
-            disabled={pending}
+            onClick={handleCancel}
+            disabled={pending || !isDirty}
           >
-            ยกเลิก
+            ยกเลิกการแก้ไข
           </Button>
           <Button
             type="submit"
             variant="primary"
             size="brand-md"
-            disabled={pending}
+            disabled={pending || !isDirty}
           >
             {save.isPending ? (
               <>
                 <Loader2 size={14} className="animate-spin" />
                 กำลังบันทึก...
               </>
-            ) : save.isSuccess ? (
+            ) : save.isSuccess && !isDirty ? (
               <>
                 <CheckCircle2 size={14} />
                 บันทึกแล้ว
               </>
             ) : (
-              "บันทึก"
+              "ยืนยันและบันทึก"
             )}
           </Button>
         </div>
+
+        {!isDirty && !save.isSuccess && (
+          <p className="thai text-[11.5px] text-ink-mute text-center -mt-1">
+            แก้ไขข้อมูลใดข้อมูลหนึ่งเพื่อเปิดปุ่มบันทึก
+          </p>
+        )}
       </form>
     </Card>
   );

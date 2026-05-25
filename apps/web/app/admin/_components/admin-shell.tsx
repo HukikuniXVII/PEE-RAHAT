@@ -5,9 +5,11 @@ import {
   BadgeCheck,
   Banknote,
   GraduationCap,
+  Landmark,
   Palette,
   Receipt,
   ShieldAlert,
+  Users,
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
@@ -19,8 +21,14 @@ import { usePathname } from "next/navigation";
 const IS_DEV = process.env.NODE_ENV !== "production";
 
 const ADMIN_ITEMS = [
+  { href: "/admin/users", label: "บัญชีผู้ใช้ (ทดสอบ)", icon: Users },
   { href: "/admin/kyc", label: "ตรวจสอบ KYC", icon: BadgeCheck },
   { href: "/admin/payments", label: "ตรวจสลิป", icon: Receipt },
+  {
+    href: "/admin/tutors/bank-changes",
+    label: "อนุมัติแก้ไขบัญชี",
+    icon: Landmark,
+  },
   { href: "/admin/payouts", label: "Payouts", icon: Banknote },
   { href: "/admin/reports", label: "Reports Queue", icon: ShieldAlert },
   { href: "/admin/tcas/import/criteria", label: "นำเข้า TCAS (AI)", icon: GraduationCap },

@@ -37,7 +37,7 @@ function formatSlotLabel(minutes: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
-export function buildDayChips(): {
+export function buildDayChips(includeToday = true): {
   iso: string;
   weekday: string;
   day: string;
@@ -51,7 +51,9 @@ export function buildDayChips(): {
   }[] = [];
   const base = new Date();
   base.setHours(0, 0, 0, 0);
-  for (let offset = 1; offset <= 7; offset++) {
+  const start = includeToday ? 0 : 1;
+  const end = start + 6;
+  for (let offset = start; offset <= end; offset++) {
     const d = new Date(base);
     d.setDate(base.getDate() + offset);
     out.push({
@@ -62,6 +64,14 @@ export function buildDayChips(): {
     });
   }
   return out;
+}
+
+function formatLeadHelper(minLeadHours: number): string {
+  if (minLeadHours >= 24 && minLeadHours % 24 === 0) {
+    const days = minLeadHours / 24;
+    return `จองล่วงหน้าอย่างน้อย ${days} วัน`;
+  }
+  return `จองล่วงหน้าอย่างน้อย ${minLeadHours} ชั่วโมง`;
 }
 
 export function combineDateAndMinute(
@@ -96,12 +106,15 @@ interface Props {
   onDuration?: (d: DurationMinutes) => void;
   /** Hide the duration row when the consumer manages duration externally. */
   hideDuration?: boolean;
-  /** Shown above the day chips. Defaults to the booking-form copy. */
+  /** Shown above the day chips. Defaults derived from minLeadHours. */
   helperText?: string;
   /** Intervals that already consume a slot — student or tutor side. The
    *  picker will grey any 30-min slot whose [slot, slot+duration) window
    *  overlaps any of these. */
   busy?: BusySlot[];
+  /** Minimum hours from now a slot must start. Default 1h (initial booking
+   *  flow); propose-slot path passes 24 to keep its existing rule. */
+  minLeadHours?: number;
 }
 
 export function SlotPicker({
@@ -112,14 +125,23 @@ export function SlotPicker({
   duration,
   onDuration,
   hideDuration,
-  helperText = "จองล่วงหน้าอย่างน้อย 1 วัน",
+  helperText,
   busy = [],
+  minLeadHours = 1,
 }: Props) {
-  const days = buildDayChips();
+  const includeToday = minLeadHours < 24;
+  const days = buildDayChips(includeToday);
+  const resolvedHelperText = helperText ?? formatLeadHelper(minLeadHours);
   // Grey based on the selected duration when known; otherwise the minimum
   // 30-min footprint. This is a UX assist — assertNoOverlap on the server
   // is the source of truth.
   const greyDuration = duration ?? SLOT_STEP_MIN;
+  const minStartMs = Date.now() + minLeadHours * 60 * 60 * 1000;
+
+  function isTooSoon(slot: number): boolean {
+    if (!dateIso) return false;
+    return Date.parse(combineDateAndMinute(dateIso, slot)) < minStartMs;
+  }
 
   function isBusy(slot: number): boolean {
     if (!dateIso) return false;
@@ -136,7 +158,7 @@ export function SlotPicker({
           <CalendarClock size={14} />
           เลือกวัน
         </label>
-        <p className="text-[11px] text-slate-500">{helperText}</p>
+        <p className="text-[11px] text-slate-500">{resolvedHelperText}</p>
         <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-2 snap-x">
           {days.map((d) => {
             const active = d.iso === dateIso;
@@ -172,7 +194,7 @@ export function SlotPicker({
           <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
             {SLOT_MINUTES.map((min) => {
               const active = min === slotMinutes;
-              const disabled = isBusy(min);
+              const disabled = isBusy(min) || isTooSoon(min);
               return (
                 <button
                   key={min}

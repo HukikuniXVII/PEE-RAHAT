@@ -11,6 +11,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CheckCircle2,
+  Clock,
   ImageIcon,
   Info,
   Loader2,
@@ -105,8 +106,63 @@ export function BankEditCard({ initial }: Props) {
     );
   }
 
+  const pending = bank.pending;
+
   return (
     <>
+      {pending && (
+        <section className="bg-amber-50/70 rounded-[40px] border-2 border-amber-300 shadow-[0_8px_24px_-16px_rgba(217,119,6,0.35)] p-6 md:p-8 space-y-3">
+          <div className="flex items-start gap-3">
+            <span className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-700 inline-flex items-center justify-center shrink-0">
+              <Clock size={20} strokeWidth={2.2} />
+            </span>
+            <div className="space-y-1 min-w-0">
+              <h3 className="thai text-base font-black text-amber-900">
+                ส่งให้ทีมงานตรวจสอบแล้ว — รออนุมัติ
+              </h3>
+              <p className="thai text-[12px] text-amber-800/90 leading-relaxed">
+                การเปลี่ยนแปลงด้านล่างจะมีผลหลังแอดมินอนุมัติ (ภายใน 24 ชม.)
+                บัญชีปัจจุบันยังใช้รับเงินอยู่จนกว่าจะอนุมัติ
+              </p>
+            </div>
+          </div>
+          <dl className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+            <div className="bg-white rounded-2xl border border-amber-100 p-3">
+              <dt className="thai text-[10px] font-black uppercase tracking-widest text-amber-700">
+                ข้อมูลใหม่ที่รอตรวจ
+              </dt>
+              <dd className="thai text-sm font-bold text-amber-900 mt-1">
+                {BANK_LABEL[pending.bankName]}
+              </dd>
+              <dd className="text-[12px] font-mono text-amber-900/80 tracking-wider">
+                •••• •••• {pending.accountLast4}
+              </dd>
+              <dd className="thai text-[12px] text-amber-800">
+                {pending.accountName}
+              </dd>
+              <dd className="thai text-[10px] text-amber-700/70 pt-1">
+                ส่งเมื่อ{" "}
+                {new Date(pending.submittedAt).toLocaleString("th-TH")}
+              </dd>
+            </div>
+            <div className="bg-white/60 rounded-2xl border border-slate-200 p-3">
+              <dt className="thai text-[10px] font-black uppercase tracking-widest text-slate-500">
+                บัญชีปัจจุบัน (ยังใช้งานอยู่)
+              </dt>
+              <dd className="thai text-sm font-bold text-slate-700 mt-1">
+                {BANK_LABEL[bank.bankName]}
+              </dd>
+              <dd className="text-[12px] font-mono text-slate-600 tracking-wider">
+                •••• •••• {bank.accountLast4}
+              </dd>
+              <dd className="thai text-[12px] text-slate-500">
+                {bank.accountName}
+              </dd>
+            </div>
+          </dl>
+        </section>
+      )}
+
       <section className="bg-white rounded-[40px] border border-slate-200 shadow-sm p-8 space-y-5">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
@@ -133,16 +189,19 @@ export function BankEditCard({ initial }: Props) {
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200"
+          disabled={!!pending}
+          className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          title={pending ? "มีการเปลี่ยนแปลงรออนุมัติอยู่" : undefined}
         >
           <Pencil size={14} />
-          แก้ไขข้อมูลบัญชี
+          {pending ? "รอแอดมินอนุมัติ" : "แก้ไขข้อมูลบัญชี"}
         </button>
 
         <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-100 rounded-2xl">
           <Info className="text-amber-600 shrink-0 mt-0.5" size={14} />
           <p className="text-[11px] text-amber-700 leading-relaxed">
-            การเปลี่ยนแปลงข้อมูลบัญชีจะมีผลกับการโอนเงินรอบถัดไป (ทุกวันที่ 15 และ 30)
+            การแก้ไขข้อมูลบัญชีต้องผ่านการตรวจสอบจากทีมงานก่อนมีผล (ภายใน 24 ชม.)
+            บัญชีปัจจุบันจะใช้รับเงินรอบถัดไปจนกว่าการเปลี่ยนแปลงจะถูกอนุมัติ
           </p>
         </div>
       </section>
@@ -220,7 +279,9 @@ function BankEditDialog({
       return createApiClient().tutors.bank.update(dto);
     },
     onSuccess: () => {
-      toast.success("อัปเดตข้อมูลบัญชีแล้ว");
+      toast.success(
+        "ส่งให้ทีมงานตรวจสอบแล้ว — รออนุมัติภายใน 24 ชม.",
+      );
       onSaved();
     },
     onError: (e) => toast.error(e.message),

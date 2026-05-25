@@ -24,7 +24,6 @@ import type { Prisma } from "@prisma/client";
 import { BookingsService, type BusySlot } from "../bookings/bookings.service";
 import { CryptoService } from "../common/crypto.service";
 import { PrismaService } from "../prisma/prisma.service";
-import { normalizeName } from "../kyc/kyc.service";
 
 @Injectable()
 export class TutorsService {
@@ -417,14 +416,54 @@ export class TutorsService {
       accountLast4: accountNumber.slice(-4),
       accountName: tutor.bankAccountName,
       updatedAt: tutor.bankUpdatedAt.toISOString(),
+      pending: this.buildPendingBankInfo(tutor),
     };
   }
 
   /**
-   * FR-TH-02: tutor edits their bank info after KYC approval. Server
-   * re-runs the bankAccountName === idName check (against the *latest
-   * verified* KycSubmission). Also writes back to that KycSubmission so
-   * admin queues stay in sync.
+   * Build the public-safe pending payload from the encrypted columns.
+   * Returns null when no pending edit is awaiting review. Same masking
+   * rules as the live MaskedBankInfo — only last-4 of the account number
+   * is ever exposed.
+   */
+  private buildPendingBankInfo(tutor: {
+    pendingBankName: string | null;
+    pendingBankAccountNumber: string | null;
+    pendingBankAccountName: string | null;
+    pendingIdName: string | null;
+    pendingBankSubmittedAt: Date | null;
+  }) {
+    if (
+      !tutor.pendingBankName ||
+      !tutor.pendingBankAccountNumber ||
+      !tutor.pendingBankAccountName ||
+      !tutor.pendingBankSubmittedAt
+    ) {
+      return null;
+    }
+    const accountNumber = this.crypto.decrypt(tutor.pendingBankAccountNumber);
+    return {
+      bankName: tutor.pendingBankName as MaskedBankInfo["bankName"],
+      accountLast4: accountNumber.slice(-4),
+      accountName: tutor.pendingBankAccountName,
+      idName: tutor.pendingIdName ?? tutor.pendingBankAccountName,
+      submittedAt: tutor.pendingBankSubmittedAt.toISOString(),
+    };
+  }
+
+  /**
+   * FR-TH-02 (rev): tutor edits their bank info after KYC approval.
+   * Writes the change to the `pending*` columns instead of the live
+   * fields and awaits an admin approve/reject via
+   * /admin/tutors/:id/bank/approve|reject. The live bank stays
+   * authoritative for payouts and search visibility until the change is
+   * approved — so an in-flight edit never blocks payouts or hides the
+   * tutor from search.
+   *
+   * Removed in this revision: the client-side and server-side
+   * normalizeName(bankAccountName) === normalizeName(idName) check.
+   * Admin reviewers compare the passbook image to the ID-name manually
+   * during the approve step.
    */
   async updateMyBank(
     supabaseId: string,
@@ -442,61 +481,48 @@ export class TutorsService {
     }
 
     const bankAccountName = dto.bank.bankAccountName.trim();
-    // Legacy tutors verified before FR-TH-02 don't have idName on their
-    // KycSubmission — the column was added later. First bank-info entry
-    // for them accepts an idName from the dto (or falls back to the
-    // bankAccountName) and back-fills the KYC row. Subsequent edits enforce
-    // the canonical-name match using that back-filled value.
-    let canonicalIdName = latestKyc.idName;
-    if (!canonicalIdName) {
-      canonicalIdName = (dto.idName ?? bankAccountName).trim();
-      if (canonicalIdName.length < 2) {
-        throw new BadRequestException(
-          "ระบุชื่อ-นามสกุลตามบัตรประชาชนเพื่อบันทึกข้อมูลบัญชี",
-        );
-      }
-    }
-
-    if (normalizeName(bankAccountName) !== normalizeName(canonicalIdName)) {
+    // Carry idName forward — use the dto value if provided, otherwise
+    // fall back to the existing canonical name on the latest KYC. This
+    // lets a tutor whose legal name changed update both at once.
+    const idName = (dto.idName ?? latestKyc.idName ?? bankAccountName).trim();
+    if (idName.length < 2) {
       throw new BadRequestException(
-        "ชื่อบัญชีธนาคารต้องตรงกับชื่อในบัตรประชาชน",
+        "ระบุชื่อ-นามสกุลตามบัตรประชาชนเพื่อบันทึกข้อมูลบัญชี",
       );
     }
+
     const encryptedAccount = this.crypto.encrypt(dto.bank.bankAccountNumber);
-    const now = new Date();
 
-    await this.prisma.$transaction([
-      this.prisma.tutorProfile.update({
-        where: { id: tutor.id },
-        data: {
-          passbookObjectKey: dto.passbookObjectKey,
-          bankName: dto.bank.bankName,
-          bankAccountNumber: encryptedAccount,
-          bankAccountName,
-          bankUpdatedAt: now,
-        },
-      }),
-      this.prisma.kycSubmission.update({
-        where: { id: latestKyc.id },
-        data: {
-          // Back-fill the canonical idName for legacy KYC rows on first
-          // bank entry — subsequent edits go through the match check
-          // against this value.
-          ...(latestKyc.idName ? {} : { idName: canonicalIdName }),
-          passbookObjectKey: dto.passbookObjectKey,
-          bankName: dto.bank.bankName,
-          bankAccountNumber: encryptedAccount,
-          bankAccountName,
-        },
-      }),
-    ]);
+    await this.prisma.tutorProfile.update({
+      where: { id: tutor.id },
+      data: {
+        pendingBankName: dto.bank.bankName,
+        pendingBankAccountNumber: encryptedAccount,
+        pendingBankAccountName: bankAccountName,
+        pendingPassbookObjectKey: dto.passbookObjectKey,
+        pendingIdName: idName,
+        pendingBankSubmittedAt: new Date(),
+      },
+    });
 
-    return {
-      bankName: dto.bank.bankName,
-      accountLast4: dto.bank.bankAccountNumber.slice(-4),
-      accountName: bankAccountName,
-      updatedAt: now.toISOString(),
-    };
+    // Return the LIVE bank info — the response shape stays the same for
+    // the tutor's bank page, with a populated `pending` payload so the
+    // UI can render the "awaiting review" banner.
+    return (
+      (await this.getMyBank(supabaseId)) ?? {
+        bankName: dto.bank.bankName,
+        accountLast4: dto.bank.bankAccountNumber.slice(-4),
+        accountName: bankAccountName,
+        updatedAt: new Date().toISOString(),
+        pending: {
+          bankName: dto.bank.bankName,
+          accountLast4: dto.bank.bankAccountNumber.slice(-4),
+          accountName: bankAccountName,
+          idName,
+          submittedAt: new Date().toISOString(),
+        },
+      }
+    );
   }
 
   private async requireTutorBySupabaseId(supabaseId: string) {
