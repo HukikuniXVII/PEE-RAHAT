@@ -46,11 +46,18 @@ const MANUAL_ACCEPT_DEADLINE_HOURS = 24;
  *  message for that fix. */
 const MIN_BOOKING_LEAD_MINUTES = 0;
 
-/** FR-TH-18: invitee acceptance window. The forming group fails (and the
- *  host gets a 100% refund) at scheduledAt - GROUP_INVITE_WINDOW_HOURS if
- *  any seat is still unaccepted by then. Separate from the "must book in
- *  advance" guard, which uses a calendar-day boundary (startOfTomorrowBangkok). */
+/** FR-TH-18: invitee acceptance window default. The forming group fails
+ *  (and the host gets a 100% refund) at min(scheduledAt - this, scheduledAt
+ *  - INVITE_MIN_BUFFER_HOURS) if any seat is still unaccepted by then.
+ *  Separate from the "must book in advance" guard, which uses a calendar-
+ *  day boundary (startOfTomorrowBangkok). */
 const GROUP_INVITE_WINDOW_HOURS = 24;
+
+/** Floor for inviteExpiresAt — the invite must always end at least this
+ *  many hours BEFORE class so invitees who haven't responded still leave
+ *  the host time to react. Same-day-tomorrow bookings can't honour the
+ *  24h default; they shrink to this. */
+const INVITE_MIN_BUFFER_HOURS = 1;
 
 // Crockford Base32 alphabet (no I, L, O, U). 5 random bytes (40 bits) →
 // 8 characters. With 32^8 ≈ 1.1×10^12 codes, collision probability is
@@ -72,6 +79,18 @@ function generateInviteCode(): string {
     }
   }
   return out;
+}
+
+/**
+ * FR-TH-18: pick inviteExpiresAt for a group booking. Prefers the 24h
+ * default, but falls back to scheduledAt - 1h when that's in the past
+ * (close-to-class bookings) — never returns a timestamp <= now so the
+ * invite isn't born expired.
+ */
+function clampInviteExpiry(scheduledAt: Date): Date {
+  const defaultExpiry = subHours(scheduledAt, GROUP_INVITE_WINDOW_HOURS);
+  if (defaultExpiry > new Date()) return defaultExpiry;
+  return subHours(scheduledAt, INVITE_MIN_BUFFER_HOURS);
 }
 
 /**
@@ -329,9 +348,14 @@ export class BookingsService {
                 ? {
                     groupStatus: "forming",
                     inviteCode: generateInviteCode(),
-                    inviteExpiresAt: subHours(
+                    // Default to 24h before class, but clamp so the window
+                    // never ends in the past (close-to-class bookings) or
+                    // closer to class than INVITE_MIN_BUFFER_HOURS. Example:
+                    // tomorrow 09:00 booked today 10:00 → default would
+                    // be today 09:00 (1h ago), so we shrink to tomorrow
+                    // 08:00 instead (22h window).
+                    inviteExpiresAt: clampInviteExpiry(
                       new Date(input.scheduledAt),
-                      GROUP_INVITE_WINDOW_HOURS,
                     ),
                   }
                 : {}),
