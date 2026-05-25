@@ -171,7 +171,8 @@
       "Bash(Select-Object Name)",
       "Bash(Sort-Object Name -Descending)",
       "Bash(Select-Object -First 10)",
-      "Bash(grep -E \"\\\\.tsx?$\")"
+      "Bash(grep -E \"\\\\.tsx?$\")",
+      "Bash(git pull *)"
     ]
   },
   "enableAllProjectMcpServers": true,
