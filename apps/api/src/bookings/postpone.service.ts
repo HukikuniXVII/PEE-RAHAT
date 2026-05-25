@@ -11,7 +11,11 @@ import type {
   PostponeOutcome,
   PostponeRequest,
 } from "@prisma/client";
-import type { PostponeRequestDto, ProposeSlotDto } from "@peerahat/types";
+import {
+  type PostponeRequestDto,
+  type ProposeSlotDto,
+  startOfTomorrowBangkok,
+} from "@peerahat/types";
 import { addHours, differenceInMilliseconds } from "date-fns";
 
 import { ChatService } from "../chat/chat.service";
@@ -23,7 +27,6 @@ import { PostponeQueue } from "./postpone.queue";
 
 const CHAT_WINDOW_HOURS = 2;
 const SHORT_NOTICE_HOURS = 12;
-const MIN_NEW_SLOT_HOURS = 24;
 const ALLOWED_DURATIONS = new Set([30, 60, 90, 120]);
 
 @Injectable()
@@ -129,10 +132,11 @@ export class PostponeService implements OnModuleInit {
     if (Number.isNaN(proposedAt.getTime())) {
       throw new BadRequestException("scheduledAt is not a valid datetime");
     }
-    const minRunAt = addHours(new Date(), MIN_NEW_SLOT_HOURS);
-    if (proposedAt.getTime() < minRunAt.getTime()) {
+    // FR-TH-12: proposed slot must land on a day after today (Asia/Bangkok).
+    // Calendar-day boundary, not rolling 24h — see startOfTomorrowBangkok.
+    if (proposedAt < startOfTomorrowBangkok()) {
       throw new BadRequestException(
-        `Proposed slot must be at least ${MIN_NEW_SLOT_HOURS}h in the future`,
+        "Proposed slot must start on a day after today (Asia/Bangkok)",
       );
     }
 

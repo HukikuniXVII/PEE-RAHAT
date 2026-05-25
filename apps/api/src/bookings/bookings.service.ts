@@ -9,7 +9,11 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import type { BookingReportDto, CreateBookingDto } from "@peerahat/types";
-import { GROUP_MAX_CAPACITY, GROUP_MIN_CAPACITY } from "@peerahat/types";
+import {
+  GROUP_MAX_CAPACITY,
+  GROUP_MIN_CAPACITY,
+  startOfTomorrowBangkok,
+} from "@peerahat/types";
 import { Prisma } from "@prisma/client";
 import { addHours, subHours } from "date-fns";
 
@@ -35,7 +39,8 @@ const MANUAL_ACCEPT_DEADLINE_HOURS = 24;
 
 /** FR-TH-18: invitee acceptance window. The forming group fails (and the
  *  host gets a 100% refund) at scheduledAt - GROUP_INVITE_WINDOW_HOURS if
- *  any seat is still unaccepted by then. */
+ *  any seat is still unaccepted by then. Separate from the "must book in
+ *  advance" guard, which uses a calendar-day boundary (startOfTomorrowBangkok). */
 const GROUP_INVITE_WINDOW_HOURS = 24;
 
 // Crockford Base32 alphabet (no I, L, O, U). 5 random bytes (40 bits) →
@@ -255,14 +260,13 @@ export class BookingsService {
           `จำนวนคนในกลุ่มต้องอยู่ระหว่าง ${GROUP_MIN_CAPACITY}-${GROUP_MAX_CAPACITY} คน`,
         );
       }
-      // Invite window can't end in the past — meaningful for tutors whose
-      // calendar opens < 24h ahead. Reject rather than silently truncate.
-      if (
-        subHours(new Date(input.scheduledAt), GROUP_INVITE_WINDOW_HOURS) <=
-        new Date()
-      ) {
+      // FR-TH-18: group classes must be booked at least one calendar day
+      // ahead (Asia/Bangkok). At 23:00 BKK you can still book for 00:30 the
+      // next day; at 01:00 BKK you can't book anything later today. The 24h
+      // invitee-acceptance window (inviteExpiresAt below) is a separate rule.
+      if (new Date(input.scheduledAt) < startOfTomorrowBangkok()) {
         throw new BadRequestException(
-          "เวลาเริ่มคลาสต้องห่างจากปัจจุบันอย่างน้อย 24 ชั่วโมง สำหรับคลาสกลุ่ม",
+          "คลาสกลุ่มต้องเริ่มตั้งแต่วันพรุ่งนี้เป็นต้นไป",
         );
       }
     }

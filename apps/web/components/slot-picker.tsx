@@ -67,12 +67,15 @@ export function buildDayChips(includeToday = true): {
 }
 
 function formatLeadHelper(minLeadHours: number): string {
+  if (minLeadHours <= 0) return "เลือกเวลาที่สะดวก";
   if (minLeadHours >= 24 && minLeadHours % 24 === 0) {
     const days = minLeadHours / 24;
     return `จองล่วงหน้าอย่างน้อย ${days} วัน`;
   }
   return `จองล่วงหน้าอย่างน้อย ${minLeadHours} ชั่วโมง`;
 }
+
+const NEXT_DAY_HELPER = "ต้องเริ่มเรียนตั้งแต่วันพรุ่งนี้เป็นต้นไป";
 
 export function combineDateAndMinute(
   dateIso: string,
@@ -113,8 +116,13 @@ interface Props {
    *  overlaps any of these. */
   busy?: BusySlot[];
   /** Minimum hours from now a slot must start. Default 1h (initial booking
-   *  flow); propose-slot path passes 24 to keep its existing rule. */
+   *  flow). Ignored when `minStart` is set. Pass 0 to drop the lead-time
+   *  restriction entirely. */
   minLeadHours?: number;
+  /** Absolute earliest moment (UTC) a slot may start. Overrides
+   *  `minLeadHours` when provided — used by callers that need a calendar-day
+   *  boundary (e.g. Asia/Bangkok next-day) rather than a rolling window. */
+  minStart?: Date;
 }
 
 export function SlotPicker({
@@ -128,15 +136,31 @@ export function SlotPicker({
   helperText,
   busy = [],
   minLeadHours = 1,
+  minStart,
 }: Props) {
-  const includeToday = minLeadHours < 24;
-  const days = buildDayChips(includeToday);
-  const resolvedHelperText = helperText ?? formatLeadHelper(minLeadHours);
   // Grey based on the selected duration when known; otherwise the minimum
   // 30-min footprint. This is a UX assist — assertNoOverlap on the server
   // is the source of truth.
   const greyDuration = duration ?? SLOT_STEP_MIN;
-  const minStartMs = Date.now() + minLeadHours * 60 * 60 * 1000;
+  // minStart wins when set — it expresses a calendar-day boundary that
+  // can't be reduced to a fixed rolling-hours window.
+  const minStartMs =
+    minStart !== undefined
+      ? minStart.getTime()
+      : Date.now() + minLeadHours * 60 * 60 * 1000;
+  const endOfToday = (() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + 1);
+    return d.getTime();
+  })();
+  const includeToday = minStartMs < endOfToday;
+  const days = buildDayChips(includeToday);
+  const resolvedHelperText =
+    helperText ??
+    (minStart !== undefined
+      ? NEXT_DAY_HELPER
+      : formatLeadHelper(minLeadHours));
 
   function isTooSoon(slot: number): boolean {
     if (!dateIso) return false;

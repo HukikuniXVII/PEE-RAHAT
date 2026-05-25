@@ -5,6 +5,7 @@ import {
   type BusySlot,
   type ProposeSlotDto,
   proposeSlotSchema,
+  startOfTomorrowBangkok,
 } from "@peerahat/types";
 import {
   Button,
@@ -23,8 +24,6 @@ import {
   combineDateAndMinute,
 } from "@/components/slot-picker";
 import { createApiClient } from "@/lib/api-client";
-
-const MIN_NEW_SLOT_HOURS = 24;
 
 interface Props {
   bookingId: string;
@@ -51,11 +50,14 @@ export function ProposeSlotDialog({
     [dateIso, slotMinutes],
   );
 
+  // FR-TH-12: proposed slot must land on a day after today (Asia/Bangkok).
+  // Recomputed every render — cheap, and avoids stale boundaries if the
+  // dialog stays open across a midnight rollover.
+  const minStart = startOfTomorrowBangkok();
   const tooSoon = useMemo(() => {
     if (!scheduledAt) return true;
-    const minMs = Date.now() + MIN_NEW_SLOT_HOURS * 60 * 60 * 1000;
-    return new Date(scheduledAt).getTime() < minMs;
-  }, [scheduledAt]);
+    return new Date(scheduledAt).getTime() < minStart.getTime();
+  }, [scheduledAt, minStart]);
 
   // FR-TH-15: grey conflicting slots (caller + tutor side). assertNoOverlap
   // server-side excludes the booking we're postponing via excludeBookingId,
@@ -121,7 +123,7 @@ export function ProposeSlotDialog({
           <div className="space-y-2">
             <DialogTitle>เสนอเวลาใหม่</DialogTitle>
             <DialogDescription className="text-xs">
-              ต้องล่วงหน้าอย่างน้อย 24 ชั่วโมงจากตอนนี้
+              ต้องเริ่มเรียนตั้งแต่วันพรุ่งนี้เป็นต้นไป
             </DialogDescription>
           </div>
 
@@ -136,12 +138,12 @@ export function ProposeSlotDialog({
             duration={duration}
             onDuration={setDuration}
             busy={busy}
-            minLeadHours={MIN_NEW_SLOT_HOURS}
+            minStart={minStart}
           />
 
           {scheduledAt && tooSoon && (
             <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-2xl px-3 py-2">
-              เวลาที่เลือกใกล้เกินไป — ต้องล่วงหน้าอย่างน้อย 24 ชั่วโมง
+              เวลาที่เลือกเร็วเกินไป — ต้องเริ่มตั้งแต่วันพรุ่งนี้เป็นต้นไป
             </p>
           )}
 

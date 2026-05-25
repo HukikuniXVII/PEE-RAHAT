@@ -11,6 +11,7 @@ import {
   type Subject,
   type Tutor,
   createBookingSchema,
+  startOfTomorrowBangkok,
 } from "@peerahat/types";
 import { Button, cn } from "@peerahat/ui";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -238,6 +239,13 @@ export function BookingForm({ tutor, onClose }: Props) {
                 duration={duration}
                 hideDuration
                 busy={busy}
+                // FR-TH-18: group classes must start on a day after today
+                // (Asia/Bangkok). 1-on-1 has no lead-time restriction for
+                // now — the server doesn't enforce one either.
+                minLeadHours={sessionType === "group" ? undefined : 0}
+                minStart={
+                  sessionType === "group" ? startOfTomorrowBangkok() : undefined
+                }
               />
               <StepFooter
                 onBack={() => goTo(1)}
