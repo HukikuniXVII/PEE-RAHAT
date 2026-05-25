@@ -3,6 +3,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   SUBJECT_LABELS,
+  THAI_FACULTIES,
+  THAI_UNIVERSITIES,
   type Subject,
   type TutorOnboardingDto,
   subjectSchema,
@@ -14,6 +16,8 @@ import { Sparkles } from "lucide-react";
 import { useForm } from "react-hook-form";
 
 import { createApiClient } from "@/lib/api-client";
+
+import { SelectWithOther } from "../../_components/select-with-other";
 
 const SUBJECT_OPTIONS = subjectSchema.options as readonly Subject[];
 
@@ -85,19 +89,25 @@ export function ProfileStep({ onCompleted }: Props) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="มหาวิทยาลัย" error={form.formState.errors.university?.message}>
-            <input
-              type="text"
-              placeholder="เช่น จุฬาลงกรณ์มหาวิทยาลัย"
-              className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-              {...form.register("university")}
+            <SelectWithOther
+              value={form.watch("university") ?? ""}
+              onChange={(next) =>
+                form.setValue("university", next, { shouldValidate: true })
+              }
+              options={THAI_UNIVERSITIES}
+              emptyLabel="เลือกมหาวิทยาลัย"
+              otherPlaceholder="ระบุชื่อมหาวิทยาลัย"
             />
           </Field>
           <Field label="คณะ" error={form.formState.errors.faculty?.message}>
-            <input
-              type="text"
-              placeholder="เช่น วิศวกรรมศาสตร์"
-              className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-              {...form.register("faculty")}
+            <SelectWithOther
+              value={form.watch("faculty") ?? ""}
+              onChange={(next) =>
+                form.setValue("faculty", next, { shouldValidate: true })
+              }
+              options={THAI_FACULTIES}
+              emptyLabel="เลือกคณะ"
+              otherPlaceholder="ระบุชื่อคณะ"
             />
           </Field>
         </div>

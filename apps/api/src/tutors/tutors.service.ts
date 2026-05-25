@@ -130,9 +130,16 @@ export class TutorsService {
     //  - a missing Google OAuth is fine — Meet generation at payment-
     //    confirm is best-effort (regenerate via
     //    /admin/bookings/:id/regenerate-meet).
+    // A currently-suspended tutor stays hidden from search (FR-CM-05).
+    // Written as an explicit OR rather than `NOT { gt: now }` because Prisma
+    // translates the NOT form into `NOT EXISTS (... WHERE suspendedUntil >
+    // now)`, which silently drops rows where suspendedUntil IS NULL — i.e.
+    // every never-suspended tutor.
+    const now = new Date();
     const where: Prisma.TutorProfileWhereInput = {
-      // A currently-suspended tutor stays hidden from search (FR-CM-05).
-      NOT: { user: { suspendedUntil: { gt: new Date() } } },
+      user: {
+        OR: [{ suspendedUntil: null }, { suspendedUntil: { lte: now } }],
+      },
     };
     if (query.subject) {
       where.subjects = { has: query.subject };

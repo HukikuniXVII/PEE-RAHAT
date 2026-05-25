@@ -61,6 +61,56 @@ export const SUBJECT_LABELS: Record<Subject, string> = {
   Spanish: "ภาษาสเปน",
 };
 
+// Top-tier Thai universities offered as quick-pick dropdown options on
+// the tutor onboarding + profile-edit forms. Tutors at any other
+// institution can still pick "อื่นๆ" and type the name in free text,
+// so the underlying `university` field stays an open string.
+export const THAI_UNIVERSITIES: readonly string[] = [
+  "จุฬาลงกรณ์มหาวิทยาลัย",
+  "มหาวิทยาลัยมหิดล",
+  "มหาวิทยาลัยธรรมศาสตร์",
+  "มหาวิทยาลัยเกษตรศาสตร์",
+  "มหาวิทยาลัยเชียงใหม่",
+  "มหาวิทยาลัยขอนแก่น",
+  "มหาวิทยาลัยสงขลานครินทร์",
+  "มหาวิทยาลัยศิลปากร",
+  "มหาวิทยาลัยศรีนครินทรวิโรฒ",
+  "มหาวิทยาลัยเทคโนโลยีพระจอมเกล้าธนบุรี",
+  "สถาบันเทคโนโลยีพระจอมเกล้าเจ้าคุณทหารลาดกระบัง",
+  "มหาวิทยาลัยเทคโนโลยีพระจอมเกล้าพระนครเหนือ",
+  "มหาวิทยาลัยรามคำแหง",
+  "มหาวิทยาลัยสุโขทัยธรรมาธิราช",
+  "มหาวิทยาลัยบูรพา",
+  "มหาวิทยาลัยอัสสัมชัญ",
+] as const;
+
+// Common Thai faculty names — single shared list, not cascaded per
+// university. Same "อื่นๆ" fallback as THAI_UNIVERSITIES so tutors in
+// niche faculties can still enter their own value.
+export const THAI_FACULTIES: readonly string[] = [
+  "วิศวกรรมศาสตร์",
+  "แพทยศาสตร์",
+  "ทันตแพทยศาสตร์",
+  "เภสัชศาสตร์",
+  "พยาบาลศาสตร์",
+  "สัตวแพทยศาสตร์",
+  "สาธารณสุขศาสตร์",
+  "วิทยาศาสตร์",
+  "เทคโนโลยีสารสนเทศ",
+  "อักษรศาสตร์/มนุษยศาสตร์",
+  "ศิลปศาสตร์",
+  "สังคมศาสตร์",
+  "รัฐศาสตร์",
+  "นิติศาสตร์",
+  "เศรษฐศาสตร์",
+  "บริหารธุรกิจ/บัญชี",
+  "ครุศาสตร์/ศึกษาศาสตร์",
+  "สถาปัตยกรรมศาสตร์",
+  "ศิลปกรรมศาสตร์",
+  "นิเทศศาสตร์",
+  "เกษตรศาสตร์",
+] as const;
+
 // Long-form descriptors for TPAT codes. Pair with SUBJECT_LABELS via
 // `title` (tooltip) so the chip text stays short.
 export const SUBJECT_TOOLTIPS: Partial<Record<Subject, string>> = {
