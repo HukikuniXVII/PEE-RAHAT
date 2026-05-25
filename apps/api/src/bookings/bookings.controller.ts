@@ -19,6 +19,8 @@ import {
   postponeRequestSchema,
   type ProposeSlotDto,
   proposeSlotSchema,
+  type TutorRejectGroupDto,
+  tutorRejectGroupSchema,
 } from "@peerahat/types";
 
 import { CurrentUser } from "../auth/current-user.decorator";
@@ -56,6 +58,16 @@ export class BookingsController {
     return this.bookings
       .listBusyForUser(user.sub, fromDate, toDate)
       .then((busy) => ({ busy }));
+  }
+
+  // ── FR-TH-18: tutor approval inbox ─────────────────────────────────────
+  // Lists every group booking the calling user (must be the tutor) has in
+  // tutor_review. Frontend renders this as an inbox card on the dashboard.
+  // Placed BEFORE :id so /bookings/group-pending doesn't get swallowed by
+  // the :id catch-all route.
+  @Get("group-pending")
+  groupPending(@CurrentUser() user: SupabaseJwtPayload) {
+    return this.groupSessions.listPendingForTutor(user.sub);
   }
 
   @Get(":id")
@@ -105,6 +117,28 @@ export class BookingsController {
     @Param("id") id: string,
   ) {
     return this.groupSessions.extendInvite(user.sub, id);
+  }
+
+  // Tutor approves the composed group. Creates per-invitee PaymentIntents;
+  // groupStatus stays tutor_review until the last invitee pays.
+  @Post(":id/group-approve")
+  groupApprove(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") id: string,
+  ) {
+    return this.groupSessions.approveGroup(user.sub, id);
+  }
+
+  // Tutor rejects the group → failGroup(group_rejected_by_tutor) → 100%
+  // refund to host (only paid participant in tutor_review state).
+  @Post(":id/group-reject")
+  groupReject(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") id: string,
+    @Body() raw: unknown,
+  ) {
+    const dto: TutorRejectGroupDto = tutorRejectGroupSchema.parse(raw);
+    return this.groupSessions.rejectGroup(user.sub, id, dto.reason);
   }
 
   // Auth-scoped at the service: any participant (host + accepted invitees)

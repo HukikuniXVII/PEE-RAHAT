@@ -380,6 +380,25 @@ export class GroupSessionService {
       }),
     );
 
+    // Notify host that the tutor approved. Each invitee is also notified
+    // so they know to pay; reusing group_decision keeps the surface small.
+    await this.notifications.notify({
+      userId: booking.studentId,
+      type: "group_decision",
+      title: "ติวเตอร์อนุมัติคลาสกลุ่มแล้ว",
+      body: "เพื่อนของคุณกำลังชำระเงิน — คลาสจะยืนยันเมื่อทุกคนชำระครบ",
+      linkUrl: `/bookings/${bookingId}/group`,
+    });
+    for (const p of invitees) {
+      await this.notifications.notify({
+        userId: p.studentId,
+        type: "group_decision",
+        title: "ติวเตอร์อนุมัติคลาสกลุ่มแล้ว",
+        body: "ชำระเงินภายใน 24 ชั่วโมงเพื่อยืนยันที่นั่งของคุณ",
+        linkUrl: `/bookings/${bookingId}/group`,
+      });
+    }
+
     return this.listParticipants(booking.id);
   }
 
@@ -409,7 +428,17 @@ export class GroupSessionService {
       }),
     );
 
+    // failGroup writes refund rows + marks the booking cancelled. Notify
+    // the host with the tutor's reason after the refund has been recorded
+    // so the link doesn't dead-end if the host taps it immediately.
     await this.failGroup(bookingId, "group_rejected_by_tutor");
+    await this.notifications.notify({
+      userId: booking.studentId,
+      type: "group_decision",
+      title: "ติวเตอร์ไม่อนุมัติคลาสกลุ่ม",
+      body: `เหตุผล: ${reason} — คุณจะได้รับเงินคืนเต็มจำนวนภายใน 1-3 วันทำการ`,
+      linkUrl: `/bookings/${bookingId}`,
+    });
   }
 
   // ── Slip-verify worker callback (wired in step 7) ─────────────────────
@@ -648,6 +677,59 @@ export class GroupSessionService {
       data: { inviteExpiresAt: next },
     });
     return { inviteExpiresAt: next.toISOString() };
+  }
+
+  // ── Tutor inbox: GET /bookings/group-pending ──────────────────────────
+  /**
+   * Lists every group booking the calling tutor currently has in
+   * tutor_review. Returns the same Booking shape as listForUser/findById
+   * so the frontend can reuse its existing booking-row components.
+   */
+  async listPendingForTutor(supabaseId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { supabaseId },
+      select: { id: true, tutorProfile: { select: { id: true } } },
+    });
+    if (!user?.tutorProfile) return [];
+    const rows = await this.prisma.booking.findMany({
+      where: {
+        tutorId: user.tutorProfile.id,
+        sessionType: "group",
+        groupStatus: "tutor_review",
+      },
+      include: {
+        participants: {
+          include: {
+            student: {
+              select: { id: true, displayName: true, avatarUrl: true },
+            },
+          },
+        },
+      },
+      orderBy: { scheduledAt: "asc" },
+    });
+    return rows.map((b) => ({
+      ...b,
+      hasReview: false,
+      viewerSide: "tutor" as const,
+      participants: b.participants.map((p) => ({
+        id: p.id,
+        bookingId: p.bookingId,
+        studentId: p.studentId,
+        displayName: p.student.displayName,
+        avatarUrl: p.student.avatarUrl ?? undefined,
+        // tutor sees emails — but listPendingForTutor doesn't include them
+        // in this projection by default (the tutor doesn't strictly need
+        // them on the inbox card; the detail view loads them via
+        // /bookings/:id/participants which does include emails for tutor).
+        email: undefined,
+        role: p.role,
+        status: p.status,
+        invitedAt: p.invitedAt.toISOString(),
+        acceptedAt: p.acceptedAt?.toISOString(),
+        paidAt: p.paidAt?.toISOString(),
+      })),
+    }));
   }
 
   // ── helpers ───────────────────────────────────────────────────────────
