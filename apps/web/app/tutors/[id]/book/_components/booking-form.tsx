@@ -1,10 +1,13 @@
 "use client";
 
 import {
+  GROUP_MAX_CAPACITY,
+  GROUP_MIN_CAPACITY,
   SUBJECT_LABELS,
   type Booking,
   type BusySlot,
   type CreateBookingDto,
+  type SessionType,
   type Subject,
   type Tutor,
   createBookingSchema,
@@ -19,8 +22,11 @@ import {
   Clock,
   GraduationCap,
   Loader2,
+  Minus,
+  Plus,
   ReceiptText,
   ShieldCheck,
+  Users,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
@@ -79,6 +85,10 @@ export function BookingForm({ tutor, onClose }: Props) {
   const [consent, setConsent] = useState(false);
   const [booking, setBooking] = useState<Booking | null>(null);
   const [requestedStep, setRequestedStep] = useState<Step>(1);
+  // FR-TH-18: session type + capacity live alongside subject/duration in
+  // step 1. Default to 1-on-1; a group toggle reveals the capacity stepper.
+  const [sessionType, setSessionType] = useState<SessionType>("one_on_one");
+  const [capacity, setCapacity] = useState<number>(1);
 
   const scheduledAt = dateIso !== null && slotMinutes !== null
     ? combineDateAndMinute(dateIso, slotMinutes)
@@ -160,6 +170,11 @@ export function BookingForm({ tutor, onClose }: Props) {
       subject,
       scheduledAt,
       durationMinutes: duration,
+      // FR-TH-18: include sessionType + capacity. The zod schema's
+      // superRefine enforces "1-on-1 ⇒ capacity=1" and
+      // "group ⇒ capacity ∈ [2,10]" before the request fires.
+      sessionType,
+      capacity,
     };
     const parsed = createBookingSchema.safeParse(dto);
     if (!parsed.success) return;
@@ -188,6 +203,13 @@ export function BookingForm({ tutor, onClose }: Props) {
                 onSubject={setSubject}
                 duration={duration}
                 onDuration={setDuration}
+                sessionType={sessionType}
+                onSessionType={(t) => {
+                  setSessionType(t);
+                  setCapacity(t === "group" ? GROUP_MIN_CAPACITY : 1);
+                }}
+                capacity={capacity}
+                onCapacity={setCapacity}
               />
               <StepFooter
                 onNext={() => goTo(2)}
@@ -389,15 +411,99 @@ function StepOne({
   onSubject,
   duration,
   onDuration,
+  sessionType,
+  onSessionType,
+  capacity,
+  onCapacity,
 }: {
   tutor: Tutor;
   subject: Subject;
   onSubject: (s: Subject) => void;
   duration: DurationMinutes;
   onDuration: (d: DurationMinutes) => void;
+  sessionType: SessionType;
+  onSessionType: (t: SessionType) => void;
+  capacity: number;
+  onCapacity: (n: number) => void;
 }) {
+  const perSeat = Math.round((tutor.hourlyRate * duration) / 60);
   return (
     <>
+      <section className="space-y-3">
+        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+          <Users size={14} />
+          ประเภทคลาส
+        </label>
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+          {(["one_on_one", "group"] as const).map((t) => {
+            const active = t === sessionType;
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => onSessionType(t)}
+                className={cn(
+                  "py-4 px-4 rounded-2xl border text-sm font-bold transition-all text-left space-y-1",
+                  active
+                    ? "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-100"
+                    : "bg-slate-50 text-slate-700 border-slate-100 hover:border-indigo-300",
+                )}
+              >
+                <p>{t === "one_on_one" ? "1-on-1" : "กลุ่ม 2-10 คน"}</p>
+                <p
+                  className={cn(
+                    "text-[11px] font-medium",
+                    active ? "text-indigo-100" : "text-slate-400",
+                  )}
+                >
+                  {t === "one_on_one"
+                    ? "เรียนตัวต่อตัวกับติวเตอร์"
+                    : "เชิญเพื่อนมาเรียนด้วยกัน เฉลี่ยค่าเรียน"}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+        {sessionType === "group" && (
+          <div className="flex items-center gap-3 pt-2">
+            <span className="text-xs font-bold text-slate-500">
+              จำนวนคน
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  onCapacity(Math.max(GROUP_MIN_CAPACITY, capacity - 1))
+                }
+                disabled={capacity <= GROUP_MIN_CAPACITY}
+                className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-40 flex items-center justify-center"
+                aria-label="ลดจำนวน"
+              >
+                <Minus size={14} />
+              </button>
+              <span className="w-10 text-center text-lg font-black text-grape-deep">
+                {capacity}
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  onCapacity(Math.min(GROUP_MAX_CAPACITY, capacity + 1))
+                }
+                disabled={capacity >= GROUP_MAX_CAPACITY}
+                className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-40 flex items-center justify-center"
+                aria-label="เพิ่มจำนวน"
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+            <span className="text-[11px] text-slate-400 ml-auto">
+              คนละ ฿{perSeat.toLocaleString()} • รวม ฿
+              {(perSeat * capacity).toLocaleString()}
+            </span>
+          </div>
+        )}
+      </section>
+
       <section className="space-y-3">
         <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
           <GraduationCap size={14} />
@@ -597,12 +703,29 @@ function StepFour({ tutor, booking }: { tutor: Tutor; booking: Booking }) {
         </p>
       </div>
 
+      {/* FR-TH-18: group bookings land on the host management page where
+          the invite link + participant table live. 1-on-1 stays on the
+          dashboard. */}
+      {booking.sessionType === "group" && (
+        <div className="bg-violet-50 rounded-2xl border border-violet-100 p-4 flex items-start gap-3 text-left">
+          <Users size={18} className="text-violet-600 mt-0.5 shrink-0" />
+          <p className="text-xs text-violet-800 leading-relaxed">
+            เปิดหน้าจัดการกลุ่มเพื่อแชร์ลิงก์เชิญเพื่อนและดูสถานะคำเชิญ
+          </p>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row gap-3">
         <Link
-          href="/bookings"
+          href={
+            (booking.sessionType === "group"
+              ? `/bookings/${booking.id}/group`
+              : "/bookings") as never
+          }
           className="flex-1 px-6 py-4 bg-indigo-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all text-center"
         >
-          ดูในแดชบอร์ด
+          {booking.sessionType === "group"
+            ? "ไปจัดการกลุ่ม + เชิญเพื่อน"
+            : "ดูในแดชบอร์ด"}
         </Link>
         <Link
           href="/tutors"

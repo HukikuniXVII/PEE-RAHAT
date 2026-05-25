@@ -18,7 +18,12 @@ import {
   type KycReviewDecision,
   type ApiError,
   type Booking,
+  type BookingParticipant,
   type BookingReportDto,
+  type DeclineInviteDto,
+  type InviteParticipantsDto,
+  type InviteSummaryDto,
+  type TutorRejectGroupDto,
   type ChatMessage,
   type ChatThread,
   type CommunityPost,
@@ -600,6 +605,58 @@ export function createApiClient(opts: ApiClientOptions = {}) {
             token,
           ),
       },
+      // FR-TH-18: group session host + tutor surface.
+      invite: (id: string, dto: InviteParticipantsDto) =>
+        request<BookingParticipant[]>(
+          API_PATHS.inviteToBooking(id),
+          { method: "POST", body: JSON.stringify(dto) },
+          token,
+        ),
+      extendInvite: (id: string) =>
+        request<{ inviteExpiresAt: string }>(
+          API_PATHS.extendBookingInvite(id),
+          { method: "POST" },
+          token,
+        ),
+      participants: (id: string) =>
+        request<BookingParticipant[]>(
+          API_PATHS.bookingParticipants(id),
+          {},
+          token,
+        ),
+      groupPending: () =>
+        request<Booking[]>(API_PATHS.bookingsGroupPending, {}, token),
+      groupApprove: (id: string) =>
+        request<BookingParticipant[]>(
+          API_PATHS.bookingGroupApprove(id),
+          { method: "POST" },
+          token,
+        ),
+      groupReject: (id: string, dto: TutorRejectGroupDto) =>
+        request<void>(
+          API_PATHS.bookingGroupReject(id),
+          { method: "POST", body: JSON.stringify(dto) },
+          token,
+        ),
+    },
+    // FR-TH-18: public + invitee-side invite routes. The summary GET is
+    // PUBLIC so the request runs unauthenticated when called server-side
+    // for the /invite/[code] landing.
+    invites: {
+      summary: (code: string) =>
+        request<InviteSummaryDto>(API_PATHS.inviteSummary(code), {}, token),
+      accept: (code: string) =>
+        request<BookingParticipant>(
+          API_PATHS.inviteAccept(code),
+          { method: "POST" },
+          token,
+        ),
+      decline: (code: string, dto: DeclineInviteDto) =>
+        request<BookingParticipant>(
+          API_PATHS.inviteDecline(code),
+          { method: "POST", body: JSON.stringify(dto) },
+          token,
+        ),
     },
     sheets: {
       list: (

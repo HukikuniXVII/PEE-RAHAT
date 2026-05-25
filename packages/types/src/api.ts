@@ -104,4 +104,14 @@ export const API_PATHS = {
   chatThreadWithTutor: (tutorId: string) => `/chat/threads/with/${tutorId}`,
   chatMessages: (threadId: string) => `/chat/threads/${threadId}/messages`,
   chatThreadRead: (threadId: string) => `/chat/threads/${threadId}/read`,
+  // FR-TH-18 group sessions
+  inviteToBooking: (id: string) => `/bookings/${id}/invite`,
+  extendBookingInvite: (id: string) => `/bookings/${id}/invite/extend`,
+  bookingParticipants: (id: string) => `/bookings/${id}/participants`,
+  bookingsGroupPending: "/bookings/group-pending",
+  bookingGroupApprove: (id: string) => `/bookings/${id}/group-approve`,
+  bookingGroupReject: (id: string) => `/bookings/${id}/group-reject`,
+  inviteSummary: (code: string) => `/invites/${code}`,
+  inviteAccept: (code: string) => `/invites/${code}/accept`,
+  inviteDecline: (code: string) => `/invites/${code}/decline`,
 } as const;
