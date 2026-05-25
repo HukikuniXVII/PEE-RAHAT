@@ -5,6 +5,7 @@ import { GoogleCalendarModule } from "../integrations/google-calendar/google-cal
 import { PaymentsModule } from "../payments/payments.module";
 import { BookingsController } from "./bookings.controller";
 import { BookingsService } from "./bookings.service";
+import { GroupSessionService } from "./group-session.service";
 import { PostponeQueue } from "./postpone.queue";
 import { PostponeService } from "./postpone.service";
 
@@ -20,11 +21,18 @@ import { PostponeService } from "./postpone.service";
  * Payments/Chat/GoogleCalendar points back to BookingsModule, so no
  * forwardRef is needed. If a future change introduces a cycle, prefer
  * extracting the shared piece into its own module over forwardRef.
+ *
+ * FR-TH-18: GroupSessionService is colocated here because it depends on
+ * BookingsService (overlap check for invitees) and shares the same
+ * BookingParticipant / Booking schema surface. Step 7 will make
+ * PaymentsService call it back from uploadSlip — that's safe because
+ * PaymentsModule still doesn't import BookingsModule (the call routes
+ * through a forwardRef at that point).
  */
 @Module({
   imports: [ChatModule, PaymentsModule, GoogleCalendarModule],
   controllers: [BookingsController],
-  providers: [BookingsService, PostponeService, PostponeQueue],
-  exports: [BookingsService, PostponeService],
+  providers: [BookingsService, GroupSessionService, PostponeService, PostponeQueue],
+  exports: [BookingsService, GroupSessionService, PostponeService],
 })
 export class BookingsModule {}
