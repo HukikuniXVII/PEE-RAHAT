@@ -175,6 +175,21 @@ export function SlotPicker({
     return busy.some((b) => intervalsOverlap(startMs, endMs, b.start, b.end));
   }
 
+  /**
+   * Why a slot is disabled — shown as the button's native tooltip (title
+   * attr) on hover and as its aria-label suffix for screen readers. Order
+   * matters: isTooSoon wins for slots in the past (a busy interval there
+   * doesn't help the user pick differently), otherwise the busy reason
+   * is more actionable.
+   */
+  function disableReason(slot: number): string | null {
+    if (isTooSoon(slot)) return "เลยเวลาแล้ว";
+    if (isBusy(slot)) {
+      return `ติวเตอร์หรือคุณติดคลาสช่วงนี้ (${greyDuration} นาที)`;
+    }
+    return null;
+  }
+
   return (
     <div className="space-y-6">
       <section className="space-y-3">
@@ -218,13 +233,17 @@ export function SlotPicker({
           <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
             {SLOT_MINUTES.map((min) => {
               const active = min === slotMinutes;
-              const disabled = isBusy(min) || isTooSoon(min);
+              const reason = disableReason(min);
+              const disabled = reason !== null;
+              const label = formatSlotLabel(min);
               return (
                 <button
                   key={min}
                   type="button"
                   disabled={disabled}
                   onClick={() => onSlot(min)}
+                  title={reason ?? undefined}
+                  aria-label={reason ? `${label} — ${reason}` : label}
                   className={cn(
                     "py-2.5 rounded-2xl border text-xs font-bold transition-all tabular-nums",
                     active
@@ -234,7 +253,7 @@ export function SlotPicker({
                         : "bg-slate-50 text-slate-700 border-slate-100 hover:border-indigo-300",
                   )}
                 >
-                  {formatSlotLabel(min)}
+                  {label}
                 </button>
               );
             })}
