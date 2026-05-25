@@ -162,7 +162,16 @@
       "Bash(npx tsx *)",
       "Bash(findstr \"3000\\\\|3001\\\\|3002\")",
       "Bash(findstr \"node\")",
-      "Bash(findstr \":300\")"
+      "Bash(findstr \":300\")",
+      "Bash(awk -F/ '{print $1}')",
+      "Bash(grep -E '\\\\.\\(spec|e2e-spec\\)\\\\.ts$')",
+      "Read(//f/f/DEV/PEERAHAT/apps/api/**)",
+      "Read(//f/f/DEV/PEERAHAT/apps/api/src/**)",
+      "Bash(chmod 600 ~/.ssh/peerahat_vps)",
+      "Bash(Select-Object Name)",
+      "Bash(Sort-Object Name -Descending)",
+      "Bash(Select-Object -First 10)",
+      "Bash(grep -E \"\\\\.tsx?$\")"
     ]
   },
   "enableAllProjectMcpServers": true,
