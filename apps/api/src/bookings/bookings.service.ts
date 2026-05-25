@@ -37,11 +37,14 @@ const ACTIVE_OVERLAP_STATUSES = [
  *  request before it expires. Named so the FR linkage stays explicit. */
 const MANUAL_ACCEPT_DEADLINE_HOURS = 24;
 
-/** Floor on lead time for any new booking. Sanity guard — prevents bookings
- *  with a scheduledAt in the past (or seconds from now) regardless of
- *  session type. Group bookings have a stricter calendar-next-day rule
- *  (FR-TH-18) that fires first; this catches the 1-on-1 edge case. */
-const MIN_BOOKING_LEAD_MINUTES = 30;
+/** Past-only guard for 1-on-1 booking start times. The slot picker
+ *  greys slots strictly before now (minLeadHours=0), so the server
+ *  matches: rejects scheduledAt < now and accepts everything else.
+ *  Group bookings have a separate calendar-next-day rule (FR-TH-18)
+ *  that fires first. Previously held a 30-min floor that silently
+ *  rejected the slot the picker happily let users pick — see commit
+ *  message for that fix. */
+const MIN_BOOKING_LEAD_MINUTES = 0;
 
 /** FR-TH-18: invitee acceptance window. The forming group fails (and the
  *  host gets a 100% refund) at scheduledAt - GROUP_INVITE_WINDOW_HOURS if
@@ -239,12 +242,13 @@ export class BookingsService {
       );
     }
 
-    // Universal lead-time floor. Group's next-day-BKK check below is
-    // strictly stricter, so this only ever fires for 1-on-1 bookings.
+    // Past-only guard for 1-on-1 (group has the stricter next-day-BKK
+    // check below). MIN_BOOKING_LEAD_MINUTES=0 means scheduledAt just
+    // has to be > now — the picker already enforces this at the UI.
     const minStart = new Date(Date.now() + MIN_BOOKING_LEAD_MINUTES * 60_000);
     if (new Date(input.scheduledAt) < minStart) {
       throw new BadRequestException(
-        `เวลาเริ่มคลาสต้องห่างจากปัจจุบันอย่างน้อย ${MIN_BOOKING_LEAD_MINUTES} นาที`,
+        "เวลาเริ่มคลาสต้องเป็นเวลาในอนาคต",
       );
     }
 
