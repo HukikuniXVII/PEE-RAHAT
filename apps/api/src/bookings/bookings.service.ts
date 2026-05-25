@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+
 import {
   BadRequestException,
   ConflictException,
@@ -7,8 +9,9 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import type { BookingReportDto, CreateBookingDto } from "@peerahat/types";
+import { GROUP_MAX_CAPACITY, GROUP_MIN_CAPACITY } from "@peerahat/types";
 import { Prisma } from "@prisma/client";
-import { addHours } from "date-fns";
+import { addHours, subHours } from "date-fns";
 
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -29,6 +32,33 @@ const ACTIVE_OVERLAP_STATUSES = [
 /** FR-TH-06: Manual-Accept model — tutors have 24h to accept a booking
  *  request before it expires. Named so the FR linkage stays explicit. */
 const MANUAL_ACCEPT_DEADLINE_HOURS = 24;
+
+/** FR-TH-18: invitee acceptance window. The forming group fails (and the
+ *  host gets a 100% refund) at scheduledAt - GROUP_INVITE_WINDOW_HOURS if
+ *  any seat is still unaccepted by then. */
+const GROUP_INVITE_WINDOW_HOURS = 24;
+
+// Crockford Base32 alphabet (no I, L, O, U). 5 random bytes (40 bits) →
+// 8 characters. With 32^8 ≈ 1.1×10^12 codes, collision probability is
+// negligible in practice; the @unique constraint on Booking.inviteCode
+// makes any real collision throw P2002, which we'd surface as a generic
+// 500 rather than retry (acceptable at this volume).
+const INVITE_CODE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+function generateInviteCode(): string {
+  const bytes = randomBytes(5);
+  let bits = 0;
+  let value = 0;
+  let out = "";
+  for (const byte of bytes) {
+    value = (value << 8) | byte;
+    bits += 8;
+    while (bits >= 5) {
+      bits -= 5;
+      out += INVITE_CODE_ALPHABET[(value >>> bits) & 0x1f];
+    }
+  }
+  return out;
+}
 
 /**
  * Half-open interval overlap: [aStart, aEnd) intersects [bStart, bEnd).
@@ -198,9 +228,44 @@ export class BookingsService {
       );
     }
 
+    // FR-TH-18: amountThb is per-seat. A group booking with capacity=4 and
+    // duration 60min charges `tutor.hourlyRate` to each of the 4 participants
+    // individually — never the sum.
     const amountThb = Math.round(
       tutor.hourlyRate * (input.durationMinutes / 60),
     );
+
+    // FR-TH-18: branch on sessionType. Default (undefined or "one_on_one")
+    // keeps every existing 1-on-1 caller behaviourally unchanged. For
+    // "group" we additionally set capacity / groupStatus / inviteCode /
+    // inviteExpiresAt and create the host BookingParticipant inside the
+    // same Serializable transaction so the invariant "every booking has
+    // at least the host participant" holds from creation onward (1-on-1
+    // bookings also get a single host participant — keeps the schema
+    // shape uniform for downstream code).
+    const sessionType = input.sessionType ?? "one_on_one";
+    const isGroup = sessionType === "group";
+    const capacity = isGroup
+      ? (input.capacity ?? GROUP_MIN_CAPACITY)
+      : 1;
+    if (isGroup) {
+      // Defensive — the zod schema's superRefine already enforces this.
+      if (capacity < GROUP_MIN_CAPACITY || capacity > GROUP_MAX_CAPACITY) {
+        throw new BadRequestException(
+          `จำนวนคนในกลุ่มต้องอยู่ระหว่าง ${GROUP_MIN_CAPACITY}-${GROUP_MAX_CAPACITY} คน`,
+        );
+      }
+      // Invite window can't end in the past — meaningful for tutors whose
+      // calendar opens < 24h ahead. Reject rather than silently truncate.
+      if (
+        subHours(new Date(input.scheduledAt), GROUP_INVITE_WINDOW_HOURS) <=
+        new Date()
+      ) {
+        throw new BadRequestException(
+          "เวลาเริ่มคลาสต้องห่างจากปัจจุบันอย่างน้อย 24 ชั่วโมง สำหรับคลาสกลุ่ม",
+        );
+      }
+    }
 
     // FR-TH-15: the overlap SELECTs and the INSERT must share one transaction
     // with Serializable isolation. Without it, two concurrent POSTs for the
@@ -225,7 +290,7 @@ export class BookingsService {
             undefined,
             tx,
           );
-          return tx.booking.create({
+          const booking = await tx.booking.create({
             data: {
               studentId: user.id,
               tutorId: input.tutorId,
@@ -235,8 +300,34 @@ export class BookingsService {
               amountThb,
               acceptDeadlineAt: addHours(new Date(), MANUAL_ACCEPT_DEADLINE_HOURS),
               status: "requested",
+              sessionType,
+              capacity,
+              ...(isGroup
+                ? {
+                    groupStatus: "forming",
+                    inviteCode: generateInviteCode(),
+                    inviteExpiresAt: subHours(
+                      new Date(input.scheduledAt),
+                      GROUP_INVITE_WINDOW_HOURS,
+                    ),
+                  }
+                : {}),
             },
           });
+          // FR-TH-18: host participant row created inline. Status "accepted"
+          // mirrors the migration backfill (booking exists ⇒ host committed,
+          // payment to follow). PaymentIntent linkage happens in step 7 when
+          // slip verification flips status → "paid".
+          await tx.bookingParticipant.create({
+            data: {
+              bookingId: booking.id,
+              studentId: user.id,
+              role: "host",
+              status: "accepted",
+              acceptedAt: new Date(),
+            },
+          });
+          return booking;
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
@@ -250,6 +341,9 @@ export class BookingsService {
           scheduledAt: created.scheduledAt.toISOString(),
           durationMinutes: created.durationMinutes,
           amountThb: created.amountThb,
+          sessionType: created.sessionType,
+          capacity: created.capacity,
+          groupStatus: created.groupStatus,
         }),
       );
       return { ...created, hasReview: false, viewerSide: "student" as const };
