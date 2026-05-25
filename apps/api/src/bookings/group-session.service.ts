@@ -11,6 +11,8 @@ import type { RefundReason } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import { addHours, subHours } from "date-fns";
 
+import { ChatService } from "../chat/chat.service";
+import { GoogleCalendarService } from "../integrations/google-calendar/google-calendar.service";
 import { NotificationService } from "../notifications/notification.service";
 import { encodePromptPayPayload } from "../payments/promptpay";
 import { PrismaService } from "../prisma/prisma.service";
@@ -36,6 +38,8 @@ export class GroupSessionService {
     private readonly prisma: PrismaService,
     private readonly bookings: BookingsService,
     private readonly notifications: NotificationService,
+    private readonly chat: ChatService,
+    private readonly googleCalendar: GoogleCalendarService,
   ) {}
 
   // ── Host: invite a batch of emails ────────────────────────────────────
@@ -486,7 +490,16 @@ export class GroupSessionService {
     );
   }
 
-  // ── Internal: tutor_review → confirmed (step 8 adds chat + Meet) ──────
+  // ── Internal: tutor_review → confirmed ────────────────────────────────
+  /**
+   * The tx flips groupStatus + booking.status synchronously. Chat thread
+   * creation + Meet generation run AFTER the tx commits via
+   * triggerGroupConfirmedSideEffects — both are best-effort and must not
+   * roll back the confirmation: a Google Calendar outage or Prisma error
+   * on the thread create would otherwise leave the group stuck in
+   * tutor_review with every seat paid, which is worse than a missing Meet
+   * link (admin can regenerate the Meet via the existing /admin route).
+   */
   private async confirmGroup(tx: Prisma.TransactionClient, bookingId: string) {
     await tx.booking.update({
       where: { id: bookingId },
@@ -499,7 +512,51 @@ export class GroupSessionService {
     this.logger.log(
       JSON.stringify({ event: "group_confirmed", bookingId }),
     );
-    // TODO step 8: ChatService.createGroupThread(bookingId) + Meet generation.
+    // Side effects fire post-tx — see method note above.
+    // schedule via Promise so the caller's tx commit isn't blocked.
+    void this.triggerGroupConfirmedSideEffects(bookingId);
+  }
+
+  /**
+   * Idempotent. Runs after confirmGroup's tx commits:
+   *   1. Create the group ChatThread (host + paid invitees + tutor).
+   *   2. Mint the Meet link with every participant + tutor as attendees,
+   *      and post the auto link-message into the new thread.
+   * Both calls are safe to retry; admin can also force-regenerate the Meet
+   * via /admin/bookings/:id/regenerate-meet if Google was down.
+   */
+  private async triggerGroupConfirmedSideEffects(bookingId: string) {
+    try {
+      await this.chat.createGroupThread(bookingId);
+    } catch (err) {
+      this.logger.error(
+        `group_thread_create_failed bookingId=${bookingId} err=${String(err)}`,
+      );
+    }
+    try {
+      await this.googleCalendar.attachToBooking(bookingId);
+    } catch (err) {
+      this.logger.error(
+        `group_meet_generate_failed bookingId=${bookingId} err=${String(err)}`,
+      );
+    }
+    // Best-effort fan-out notification to host + invitees.
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        participants: { where: { status: "paid" }, select: { studentId: true } },
+      },
+    });
+    if (!booking) return;
+    for (const p of booking.participants) {
+      await this.notifications.notify({
+        userId: p.studentId,
+        type: "group_status_changed",
+        title: "คลาสกลุ่มของคุณได้รับการยืนยันแล้ว",
+        body: "ทุกคนชำระเงินครบ — กดดูลิงก์ห้องเรียนในแชทกลุ่ม",
+        linkUrl: `/bookings/${bookingId}`,
+      });
+    }
   }
 
   // ── Public: any → failed ──────────────────────────────────────────────

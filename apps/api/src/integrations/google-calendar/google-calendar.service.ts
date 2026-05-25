@@ -67,6 +67,13 @@ export class GoogleCalendarService {
             user: { select: { displayName: true, email: true } },
           },
         },
+        // FR-TH-18: pull every paid participant so group Meet events have
+        // the right attendees. For 1-on-1 this returns the single host
+        // participant — same email we'd get via booking.student.email.
+        participants: {
+          where: { status: "paid" },
+          include: { student: { select: { email: true } } },
+        },
       },
     });
     if (!booking) throw new NotFoundException("Booking not found");
@@ -85,15 +92,32 @@ export class GoogleCalendarService {
       return { meetingUrl: null, eventId: null, reused: false };
     }
 
+    // FR-TH-18: assemble attendees. Group bookings include every paid
+    // participant + the tutor. 1-on-1 falls back to the host's student
+    // email (the participant projection also contains it, but we keep
+    // the legacy field for clarity in the diff). Deduped because the
+    // Meet API rejects duplicate addresses.
+    const isGroup = booking.sessionType === "group";
+    const tutorEmail = booking.tutor.googleEmail ?? booking.tutor.user.email;
+    const attendeeEmails = Array.from(
+      new Set(
+        isGroup
+          ? [
+              ...booking.participants.map((p) => p.student.email),
+              tutorEmail,
+            ]
+          : [booking.student.email, tutorEmail],
+      ),
+    );
+
     const endTime = addMinutes(booking.scheduledAt, booking.durationMinutes);
     const { meetingUrl, eventId } = await this.createMeetLink(booking.tutor.id, {
-      title: `Pee Rahat: ${booking.subject} กับพี่ ${booking.tutor.user.displayName}`,
+      title: isGroup
+        ? `Pee Rahat (กลุ่ม): ${booking.subject} กับพี่ ${booking.tutor.user.displayName}`
+        : `Pee Rahat: ${booking.subject} กับพี่ ${booking.tutor.user.displayName}`,
       startTime: booking.scheduledAt,
       endTime,
-      attendeeEmails: [
-        booking.student.email,
-        booking.tutor.googleEmail ?? booking.tutor.user.email,
-      ],
+      attendeeEmails,
     });
 
     await this.prisma.booking.update({
@@ -127,7 +151,19 @@ export class GoogleCalendarService {
       actorUserId: string;
     },
   ): Promise<void> {
-    const thread = await this.chat.ensureThreadForBooking(bookingId);
+    // FR-TH-18: works for both 1-on-1 and group. 1-on-1 threads were
+    // created on demand by ensureThreadForBooking; group threads are
+    // created up front in GroupSessionService.confirmGroup before this
+    // method ever fires. Fall back to ensureThreadForBooking only when
+    // no thread is found — keeps 1-on-1 backwards compatibility for
+    // bookings whose thread hadn't been initialized yet.
+    let thread = await this.prisma.chatThread.findFirst({
+      where: { bookingId },
+      select: { id: true },
+    });
+    if (!thread) {
+      thread = await this.chat.ensureThreadForBooking(bookingId);
+    }
     const when = format(args.scheduledAt, "d MMM yyyy HH:mm");
     const body = [
       "🟢 ลิงก์ห้องเรียนพร้อมแล้ว",
