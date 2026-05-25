@@ -181,12 +181,21 @@ export class BookingsService {
     if (tutor.userId === user.id) {
       throw new ForbiddenException("ไม่สามารถจองคลาสของตัวเองได้");
     }
-    // Report system: no new bookings against a suspended tutor.
+    // FR-CM-05: no new bookings against a currently-suspended tutor.
     if (
       tutor.user.suspendedUntil &&
       tutor.user.suspendedUntil.getTime() > Date.now()
     ) {
       throw new ForbiddenException("ติวเตอร์รายนี้ถูกพักการใช้งานชั่วคราว");
+    }
+    // FR-TH-04: tutors who skipped the intro-video step at onboarding
+    // stay booking-disabled until they upload one. tutors.search also
+    // excludes them, so this guard is mostly defence in depth — a
+    // deep-link or stale id could still reach here.
+    if (!tutor.introVideoUrl) {
+      throw new ForbiddenException(
+        "ติวเตอร์รายนี้ยังไม่ได้เปิดรับการจอง (รอคลิปแนะนำตัว)",
+      );
     }
 
     const amountThb = Math.round(

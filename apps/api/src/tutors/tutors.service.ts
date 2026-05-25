@@ -122,21 +122,25 @@ export class TutorsService {
   }
 
   async search(query: TutorSearchQuery): Promise<TutorSearchResult> {
-    // Search lists every tutor except those currently suspended — the
-    // earlier `isVerified` + `bankAccountNumber` gates were dropped so all
-    // tutors are discoverable. Caveats kept in mind:
-    //  - a tutor without bank info on file can't be paid, so a booking for
-    //    them blocks at payout until an admin adds it (FR-TH-02);
-    //  - a missing Google OAuth is fine — Meet generation at payment-
-    //    confirm is best-effort (regenerate via
-    //    /admin/bookings/:id/regenerate-meet).
-    // A currently-suspended tutor stays hidden from search (FR-CM-05).
-    // Written as an explicit OR rather than `NOT { gt: now }` because Prisma
-    // translates the NOT form into `NOT EXISTS (... WHERE suspendedUntil >
-    // now)`, which silently drops rows where suspendedUntil IS NULL — i.e.
-    // every never-suspended tutor.
+    // Visibility gates, merged from FR-TH-02 (suspension) + FR-TH-04
+    // (intro video). The earlier `isVerified` + `bankAccountNumber`
+    // gates were intentionally dropped in 63c3c5e + a67bb4c so all non-
+    // suspended tutors are discoverable; an unbanked tutor still blocks
+    // at payout until an admin adds bank info, which is the right
+    // failure point.
+    //
+    // FR-CM-05 (suspension): written as an explicit OR rather than
+    // `NOT { gt: now }` because Prisma translates the NOT form into
+    // `NOT EXISTS (... WHERE suspendedUntil > now)`, which silently
+    // drops rows where suspendedUntil IS NULL — i.e. every never-
+    // suspended tutor.
+    //
+    // FR-TH-04 (intro video): tutors without an intro video stay
+    // hidden. Same field powers the booking-create guard in
+    // BookingsService.create as defence in depth.
     const now = new Date();
     const where: Prisma.TutorProfileWhereInput = {
+      introVideoUrl: { not: null },
       user: {
         OR: [{ suspendedUntil: null }, { suspendedUntil: { lte: now } }],
       },
