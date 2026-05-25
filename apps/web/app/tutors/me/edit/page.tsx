@@ -5,7 +5,9 @@ import { createApiClient } from "@/lib/api-client";
 
 import { BankStatusBanner } from "./_components/bank-status-banner";
 import { GoogleCalendarCard } from "./_components/google-calendar-card";
+import { ProfileCompletionPanel } from "./_components/profile-completion-panel";
 import { ProfileEditForm } from "./_components/profile-edit-form";
+import { VideoPendingBanner } from "./_components/video-pending-banner";
 
 export default async function TutorProfileEditPage() {
   const token = await requireAuth("/tutors/me/edit");
@@ -25,7 +27,11 @@ export default async function TutorProfileEditPage() {
           อัปเดตข้อมูลของคุณเพื่อให้นักเรียนรู้จักคุณมากขึ้น
         </p>
       </header>
-      <GoogleCalendarCard tutor={tutor} />
+      <ProfileCompletionPanel tutor={tutor} />
+      {!tutor.introVideoUrl && <VideoPendingBanner />}
+      <div id="google-calendar-section">
+        <GoogleCalendarCard tutor={tutor} />
+      </div>
       <BankStatusBanner />
       <ProfileEditForm
         tutor={tutor}

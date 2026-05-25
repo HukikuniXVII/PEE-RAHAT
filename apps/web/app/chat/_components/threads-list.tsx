@@ -4,11 +4,12 @@ import type { ChatThread } from "@peerahat/types";
 import { cn } from "@peerahat/ui";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, MessagesSquare, Search, ShieldCheck } from "lucide-react";
-import type { Route } from "next";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { createApiClient } from "@/lib/api-client";
+
+import { ChatRoom } from "./chat-room";
 
 interface Props {
   initialThreads: ChatThread[];
@@ -50,6 +51,14 @@ export function ThreadsList({ initialThreads }: Props) {
   });
   const allThreads = data ?? initialThreads;
   const [search, setSearch] = useState("");
+  // Split-pane state: clicking a thread row activates it inline in the
+  // right column. The deep-link route /chat/thread/[id] still exists for
+  // SSR + share-links but is no longer used as the primary interaction.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedThread = useMemo(
+    () => allThreads.find((t) => t.id === selectedId) ?? null,
+    [allThreads, selectedId],
+  );
 
   const threads = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -112,11 +121,9 @@ export function ThreadsList({ initialThreads }: Props) {
     );
   }
 
-  // Populated state mirrors the empty state's split layout so the page
-  // does not visually re-flow when the first thread arrives. Left column
-  // holds the conversation list + search; right column is a placeholder
-  // until the future split-pane chat view lands (today, opening a thread
-  // still navigates to /chat/thread/[id]).
+  // Split-pane layout: left = conversation list, right = active chat
+  // (or a placeholder when nothing is selected). Mirrors the empty state
+  // so the page doesn't visually re-flow when the first thread arrives.
   return (
     <div className="grid lg:grid-cols-[280px_1fr] gap-6">
       <aside className="space-y-3 min-w-0">
@@ -143,18 +150,23 @@ export function ThreadsList({ initialThreads }: Props) {
         {threads.map((thread) => {
           const isStudentSide = thread.counterparty.role === "tutor";
           const hasUnread = thread.unreadCount > 0;
+          const isActive = thread.id === selectedId;
           return (
-            <Link
+            <button
               key={thread.id}
-              href={`/chat/thread/${thread.id}` as Route}
-              className="block"
+              type="button"
+              onClick={() => setSelectedId(thread.id)}
+              aria-pressed={isActive}
+              className="block w-full text-left"
             >
               <div
                 className={cn(
                   "flex items-center gap-3 p-3 rounded-[20px] border transition-all shadow-[0_4px_12px_-8px_rgba(85,65,139,0.18)]",
-                  hasUnread
-                    ? "bg-grape-soft/60 border-violet-200 hover:border-violet-300"
-                    : "bg-white border-violet-100 hover:border-violet-200",
+                  isActive
+                    ? "bg-grape-soft border-violet-400 ring-2 ring-violet-300/40"
+                    : hasUnread
+                      ? "bg-grape-soft/60 border-violet-200 hover:border-violet-300"
+                      : "bg-white border-violet-100 hover:border-violet-200",
                 )}
               >
                 {thread.counterparty.avatarUrl ? (
@@ -213,7 +225,7 @@ export function ThreadsList({ initialThreads }: Props) {
                   </div>
                 </div>
               </div>
-            </Link>
+            </button>
           );
         })}
 
@@ -223,18 +235,32 @@ export function ThreadsList({ initialThreads }: Props) {
         </p>
       </aside>
 
-      {/* Right — placeholder until split-pane chat view lands. Mirrors
-          the empty state's right column so layout stays identical. */}
-      <div className="hidden lg:flex bg-white p-10 rounded-[32px] border border-violet-100 shadow-[0_8px_24px_-16px_rgba(85,65,139,0.25)] text-center flex-col items-center justify-center gap-3 min-h-[420px]">
-        <MessagesSquare
-          size={28}
-          className="text-violet-300"
-          strokeWidth={1.8}
-        />
-        <p className="thai text-sm text-ink-soft leading-relaxed max-w-xs">
-          เลือกบทสนทนาจากด้านซ้ายเพื่อเริ่มสนทนากับพี่รหัส
-        </p>
-      </div>
+      {/* Right pane — placeholder when nothing is selected, ChatRoom
+          when a thread is active. On mobile the right pane only renders
+          once a thread is picked so the list isn't pushed off-screen.
+          ChatRoom hydrates messages itself via useQuery, so passing an
+          empty initialMessages is safe — the deep-link /chat/thread/[id]
+          SSR path is the only place that pre-fetches them. */}
+      {selectedThread ? (
+        <div className="bg-white rounded-[32px] border border-violet-100 shadow-[0_8px_24px_-16px_rgba(85,65,139,0.25)] overflow-hidden min-h-[420px]">
+          <ChatRoom
+            key={selectedThread.id}
+            thread={selectedThread}
+            initialMessages={[]}
+          />
+        </div>
+      ) : (
+        <div className="hidden lg:flex bg-white p-10 rounded-[32px] border border-violet-100 shadow-[0_8px_24px_-16px_rgba(85,65,139,0.25)] text-center flex-col items-center justify-center gap-3 min-h-[420px]">
+          <MessagesSquare
+            size={28}
+            className="text-violet-300"
+            strokeWidth={1.8}
+          />
+          <p className="thai text-sm text-ink-soft leading-relaxed max-w-xs">
+            เลือกบทสนทนาจากด้านซ้ายเพื่อเริ่มสนทนากับพี่รหัส
+          </p>
+        </div>
+      )}
     </div>
   );
 }

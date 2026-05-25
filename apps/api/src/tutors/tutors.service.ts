@@ -130,9 +130,14 @@ export class TutorsService {
     // /admin/bookings/:id/regenerate-meet).
     // Gate (FR-TH-02): tutors without bank info can't be paid, so they
     // stay hidden — a booking for them would block on payout.
+    // Gate (FR-TH-04): tutors without an intro video stay hidden — the
+    // onboarding modal nudges them to upload one; until they do, search
+    // and bookings are disabled. Same field powers the booking-create
+    // guard in BookingsService.create.
     const where: Prisma.TutorProfileWhereInput = {
       isVerified: true,
       bankAccountNumber: { not: null },
+      introVideoUrl: { not: null },
     };
     if (query.subject) {
       where.subjects = { has: query.subject };

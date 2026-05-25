@@ -12,8 +12,8 @@ import {
 import { Button, cn } from "@peerahat/ui";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Loader2, Upload } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -37,11 +37,32 @@ export function ProfileEditForm({
   initialAvatarUrl,
 }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [saved, setSaved] = useState(false);
   const [displayName, setDisplayName] = useState(initialDisplayName);
   const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl);
   const fileInput = useRef<HTMLInputElement | null>(null);
+
+  // FR-TH-04: VideoPendingBanner and ProfileCompletionPanel both deep-link
+  // to this form's intro-video input via `?focus=video`. On mount (and any
+  // subsequent search-param change), focus the field and flash an accent
+  // ring around it for ~1.5s so the tutor visually lands on the right spot.
+  const [videoFlash, setVideoFlash] = useState(false);
+  useEffect(() => {
+    if (searchParams?.get("focus") !== "video") return;
+    const el = document.getElementById("intro-video-input");
+    if (el && el instanceof HTMLInputElement) {
+      el.focus({ preventScroll: true });
+      setVideoFlash(true);
+      const t = setTimeout(() => setVideoFlash(false), 1500);
+      // Strip the param so a refresh doesn't re-trigger the flash.
+      const url = new URL(window.location.href);
+      url.searchParams.delete("focus");
+      window.history.replaceState(null, "", url.toString());
+      return () => clearTimeout(t);
+    }
+  }, [searchParams]);
 
   const uploadAvatar = useMutation({
     mutationFn: async (file: File) => {
@@ -267,9 +288,15 @@ export function ProfileEditForm({
           error={form.formState.errors.introVideoUrl?.message}
         >
           <input
+            id="intro-video-input"
             type="url"
             placeholder="https://youtu.be/…"
-            className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            className={cn(
+              "w-full px-4 py-3 rounded-2xl border text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-shadow scroll-mt-24",
+              videoFlash
+                ? "border-accent-500 ring-4 ring-accent-500/40 animate-pulse"
+                : "border-slate-200",
+            )}
             {...form.register("introVideoUrl")}
           />
         </Field>

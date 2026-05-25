@@ -180,6 +180,15 @@ export class BookingsService {
     if (tutor.userId === user.id) {
       throw new ForbiddenException("ไม่สามารถจองคลาสของตัวเองได้");
     }
+    // Gate (FR-TH-04): tutors who skipped the intro-video step at
+    // onboarding stay booking-disabled until they upload one. The
+    // tutors.search query also excludes them, so this guard is mostly
+    // defence in depth — a deep-link or stale id could still reach here.
+    if (!tutor.introVideoUrl) {
+      throw new ForbiddenException(
+        "ติวเตอร์รายนี้ยังไม่ได้เปิดรับการจอง (รอคลิปแนะนำตัว)",
+      );
+    }
 
     const amountThb = Math.round(
       tutor.hourlyRate * (input.durationMinutes / 60),
