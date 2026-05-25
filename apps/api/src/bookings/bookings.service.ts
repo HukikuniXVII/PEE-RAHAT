@@ -37,6 +37,12 @@ const ACTIVE_OVERLAP_STATUSES = [
  *  request before it expires. Named so the FR linkage stays explicit. */
 const MANUAL_ACCEPT_DEADLINE_HOURS = 24;
 
+/** Floor on lead time for any new booking. Sanity guard — prevents bookings
+ *  with a scheduledAt in the past (or seconds from now) regardless of
+ *  session type. Group bookings have a stricter calendar-next-day rule
+ *  (FR-TH-18) that fires first; this catches the 1-on-1 edge case. */
+const MIN_BOOKING_LEAD_MINUTES = 30;
+
 /** FR-TH-18: invitee acceptance window. The forming group fails (and the
  *  host gets a 100% refund) at scheduledAt - GROUP_INVITE_WINDOW_HOURS if
  *  any seat is still unaccepted by then. Separate from the "must book in
@@ -230,6 +236,15 @@ export class BookingsService {
     if (!tutor.introVideoUrl) {
       throw new ForbiddenException(
         "ติวเตอร์รายนี้ยังไม่ได้เปิดรับการจอง (รอคลิปแนะนำตัว)",
+      );
+    }
+
+    // Universal lead-time floor. Group's next-day-BKK check below is
+    // strictly stricter, so this only ever fires for 1-on-1 bookings.
+    const minStart = new Date(Date.now() + MIN_BOOKING_LEAD_MINUTES * 60_000);
+    if (new Date(input.scheduledAt) < minStart) {
+      throw new BadRequestException(
+        `เวลาเริ่มคลาสต้องห่างจากปัจจุบันอย่างน้อย ${MIN_BOOKING_LEAD_MINUTES} นาที`,
       );
     }
 
