@@ -46,14 +46,30 @@ export interface ChatThreadCounterparty {
   subtitle?: string;
 }
 
+// FR-TH-18: group chat threads have no canonical "counterparty" — render
+// the members list from `participants` instead. 1-on-1 threads keep using
+// the single `counterparty` summary.
+export interface ChatThreadParticipantSummary {
+  userId: string;
+  displayName: string;
+  avatarUrl?: string;
+  role: "student" | "tutor";
+}
+
 export interface ChatThread {
   id: string;
-  studentId: string;
+  /** Null for group threads (FR-TH-18). Always set for 1-on-1. */
+  studentId: string | null;
   tutorId: string;
   bookingId?: string;
+  /** FR-TH-18: "one_on_one" | "group". Defaults to "one_on_one" so existing
+   *  client code that ignores the field treats every thread as 1-on-1. */
+  sessionType?: "one_on_one" | "group";
   lastMessagePreview: string;
   lastMessageAt: string;
   counterparty: ChatThreadCounterparty;
+  /** Populated for group threads (FR-TH-18). Omitted for 1-on-1. */
+  participants?: ChatThreadParticipantSummary[];
   /** The User.id of the calling viewer — lets the client align bubbles without knowing the role. */
   viewerUserId: string;
   /** Messages newer than the viewer's last-read timestamp, excluding their own messages. */
