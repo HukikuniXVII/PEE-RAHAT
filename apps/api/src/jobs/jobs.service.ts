@@ -8,6 +8,7 @@ import {
 import { Queue, Worker } from "bullmq";
 import IORedis, { type Redis } from "ioredis";
 
+import { GroupSessionService } from "../bookings/group-session.service";
 import { KycService } from "../kyc/kyc.service";
 import { PaymentsService } from "../payments/payments.service";
 import { ReportCronService } from "../reports/report-cron.service";
@@ -17,12 +18,17 @@ const KYC_ARCHIVE_QUEUE = "kyc-archive";
 const REPORT_SLA_QUEUE = "reports-sla-check";
 const REPORT_STALE_QUEUE = "reports-stale-cleanup";
 const REPORT_EVIDENCE_QUEUE = "reports-evidence-cleanup";
+// FR-TH-18: group session failure sweepers.
+const GROUP_INVITE_EXPIRY_QUEUE = "group-invite-expiry";
+const GROUP_PAYMENT_DEADLINE_QUEUE = "group-payment-deadline";
 
 const RELEASE_FOR_PAYOUT_CRON = "0 3 * * *"; // 03:00 every day
 const KYC_ARCHIVE_CRON = "0 * * * *"; // top of every hour
 const REPORT_SLA_CRON = "*/30 * * * *"; // every 30 minutes
 const REPORT_STALE_CRON = "30 3 * * *"; // 03:30 every day
 const REPORT_EVIDENCE_CRON = "0 4 * * *"; // 04:00 every day
+const GROUP_INVITE_EXPIRY_CRON = "0 * * * *"; // top of every hour
+const GROUP_PAYMENT_DEADLINE_CRON = "*/30 * * * *"; // every 30 minutes
 
 /**
  * BullMQ scheduler for the recurring back-office jobs:
@@ -55,12 +61,18 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
   private reportSlaWorker?: Worker;
   private reportStaleWorker?: Worker;
   private reportEvidenceWorker?: Worker;
+  private groupInviteExpiryQueue?: Queue;
+  private groupPaymentDeadlineQueue?: Queue;
+  private groupInviteExpiryWorker?: Worker;
+  private groupPaymentDeadlineWorker?: Worker;
 
   constructor(
     @Inject(PaymentsService) private readonly payments: PaymentsService,
     @Inject(KycService) private readonly kyc: KycService,
     @Inject(ReportCronService)
     private readonly reportCron: ReportCronService,
+    @Inject(GroupSessionService)
+    private readonly groupSessions: GroupSessionService,
   ) {}
 
   async onModuleInit() {
@@ -86,6 +98,12 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
       connection: this.connection,
     });
     this.reportEvidenceQueue = new Queue(REPORT_EVIDENCE_QUEUE, {
+      connection: this.connection,
+    });
+    this.groupInviteExpiryQueue = new Queue(GROUP_INVITE_EXPIRY_QUEUE, {
+      connection: this.connection,
+    });
+    this.groupPaymentDeadlineQueue = new Queue(GROUP_PAYMENT_DEADLINE_QUEUE, {
       connection: this.connection,
     });
 
@@ -180,6 +198,48 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
       );
     });
 
+    // FR-TH-18: invite-expiry sweep — fails every `forming` group whose
+    // inviteExpiresAt has passed, with 100% host refund.
+    this.groupInviteExpiryWorker = new Worker(
+      GROUP_INVITE_EXPIRY_QUEUE,
+      async () => {
+        const result = await this.groupSessions.runInviteExpirySweep();
+        if (result.failed > 0) {
+          this.logger.log(
+            `Group invite expiry: failed ${result.failed} group(s)`,
+          );
+        }
+        return result;
+      },
+      { connection: this.connection },
+    );
+    this.groupInviteExpiryWorker.on("failed", (job, err) => {
+      this.logger.error(
+        `${GROUP_INVITE_EXPIRY_QUEUE} ${job?.id} failed: ${err.message}`,
+      );
+    });
+
+    // FR-TH-18: payment-deadline sweep — fails every tutor_review group
+    // where the tutor approved >24h ago and not every invitee has paid.
+    this.groupPaymentDeadlineWorker = new Worker(
+      GROUP_PAYMENT_DEADLINE_QUEUE,
+      async () => {
+        const result = await this.groupSessions.runPaymentDeadlineSweep();
+        if (result.failed > 0) {
+          this.logger.log(
+            `Group payment deadline: failed ${result.failed} group(s)`,
+          );
+        }
+        return result;
+      },
+      { connection: this.connection },
+    );
+    this.groupPaymentDeadlineWorker.on("failed", (job, err) => {
+      this.logger.error(
+        `${GROUP_PAYMENT_DEADLINE_QUEUE} ${job?.id} failed: ${err.message}`,
+      );
+    });
+
     // Drop the retired payouts-compute repeatable so it doesn't keep
     // firing against an upgraded API. removeRepeatableByKey is keyed
     // on `${name}:::${cron}:::${tz}` etc; we just sweep the legacy queue
@@ -219,9 +279,19 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
       {},
       { repeat: { pattern: REPORT_EVIDENCE_CRON } },
     );
+    await this.groupInviteExpiryQueue.add(
+      "tick",
+      {},
+      { repeat: { pattern: GROUP_INVITE_EXPIRY_CRON } },
+    );
+    await this.groupPaymentDeadlineQueue.add(
+      "tick",
+      {},
+      { repeat: { pattern: GROUP_PAYMENT_DEADLINE_CRON } },
+    );
 
     this.logger.log(
-      `Jobs registered: ${RELEASE_FOR_PAYOUT_QUEUE} (${RELEASE_FOR_PAYOUT_CRON}), ${KYC_ARCHIVE_QUEUE} (${KYC_ARCHIVE_CRON}), ${REPORT_SLA_QUEUE} (${REPORT_SLA_CRON}), ${REPORT_STALE_QUEUE} (${REPORT_STALE_CRON}), ${REPORT_EVIDENCE_QUEUE} (${REPORT_EVIDENCE_CRON})`,
+      `Jobs registered: ${RELEASE_FOR_PAYOUT_QUEUE} (${RELEASE_FOR_PAYOUT_CRON}), ${KYC_ARCHIVE_QUEUE} (${KYC_ARCHIVE_CRON}), ${REPORT_SLA_QUEUE} (${REPORT_SLA_CRON}), ${REPORT_STALE_QUEUE} (${REPORT_STALE_CRON}), ${REPORT_EVIDENCE_QUEUE} (${REPORT_EVIDENCE_CRON}), ${GROUP_INVITE_EXPIRY_QUEUE} (${GROUP_INVITE_EXPIRY_CRON}), ${GROUP_PAYMENT_DEADLINE_QUEUE} (${GROUP_PAYMENT_DEADLINE_CRON})`,
     );
   }
 
@@ -232,11 +302,15 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
       this.reportSlaWorker?.close(),
       this.reportStaleWorker?.close(),
       this.reportEvidenceWorker?.close(),
+      this.groupInviteExpiryWorker?.close(),
+      this.groupPaymentDeadlineWorker?.close(),
       this.releaseQueue?.close(),
       this.kycArchiveQueue?.close(),
       this.reportSlaQueue?.close(),
       this.reportStaleQueue?.close(),
       this.reportEvidenceQueue?.close(),
+      this.groupInviteExpiryQueue?.close(),
+      this.groupPaymentDeadlineQueue?.close(),
     ]);
     if (this.connection) {
       this.connection.disconnect();

@@ -736,6 +736,74 @@ export class GroupSessionService {
     return { inviteExpiresAt: next.toISOString() };
   }
 
+  // ── Cron sweepers (registered by JobsService) ─────────────────────────
+  /**
+   * FR-TH-18 cron — fail every `forming` group whose inviteExpiresAt is in
+   * the past. Refund any host who already paid (only the host can be
+   * 'paid' at forming-stage; invitees haven't had a PaymentIntent yet).
+   * Idempotent — calling failGroup on a `failed` booking is a no-op.
+   */
+  async runInviteExpirySweep(now: Date = new Date()) {
+    const candidates = await this.prisma.booking.findMany({
+      where: {
+        sessionType: "group",
+        groupStatus: "forming",
+        inviteExpiresAt: { lt: now },
+      },
+      select: { id: true },
+    });
+    for (const b of candidates) {
+      try {
+        await this.failGroup(b.id, "group_invite_expired");
+      } catch (err) {
+        this.logger.error(
+          `invite_expiry_sweep_failed bookingId=${b.id} err=${String(err)}`,
+        );
+      }
+    }
+    return { failed: candidates.length };
+  }
+
+  /**
+   * FR-TH-18 cron — fail every `tutor_review` group where the tutor's
+   * approval was >24h ago and not every seat is paid. The approval moment
+   * is read from BookingParticipant.paymentIntentId presence: approveGroup
+   * creates the invitee PaymentIntents in one shot, so the earliest
+   * invitee intent's createdAt is the approval timestamp.
+   */
+  async runPaymentDeadlineSweep(now: Date = new Date()) {
+    const cutoff = subHours(now, 24);
+    const candidates = await this.prisma.booking.findMany({
+      where: {
+        sessionType: "group",
+        groupStatus: "tutor_review",
+        participants: {
+          some: {
+            role: "invited",
+            paymentIntentId: { not: null },
+            paymentIntent: { createdAt: { lt: cutoff } },
+          },
+        },
+      },
+      include: {
+        participants: { select: { status: true } },
+      },
+    });
+    let failed = 0;
+    for (const b of candidates) {
+      if (b.participants.every((p) => p.status === "paid")) continue; // race
+      try {
+        await this.failGroup(b.id, "group_payment_incomplete");
+        failed++;
+      } catch (err) {
+        this.logger.error(
+          `payment_deadline_sweep_failed bookingId=${b.id} err=${String(err)}`,
+        );
+      }
+    }
+    return { failed };
+  }
+
   // ── Tutor inbox: GET /bookings/group-pending ──────────────────────────
   /**
    * Lists every group booking the calling tutor currently has in
