@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 
 import { ChatModule } from "../chat/chat.module";
 import { GoogleCalendarModule } from "../integrations/google-calendar/google-calendar.module";
@@ -34,7 +34,7 @@ import { PostponeService } from "./postpone.service";
 @Module({
   imports: [
     ChatModule,
-    PaymentsModule,
+    forwardRef(() => PaymentsModule),
     GoogleCalendarModule,
     NotificationsModule,
   ],

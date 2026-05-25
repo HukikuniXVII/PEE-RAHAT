@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   ForbiddenException,
+  forwardRef,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -14,6 +16,7 @@ import type {
 import { Prisma } from "@prisma/client";
 import { addHours } from "date-fns";
 
+import { GroupSessionService } from "../bookings/group-session.service";
 import { GoogleCalendarService } from "../integrations/google-calendar/google-calendar.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { encodePromptPayPayload } from "./promptpay";
@@ -27,6 +30,11 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly zercle: ZercleSlipService,
     private readonly googleCalendar: GoogleCalendarService,
+    // FR-TH-18: forwardRef breaks the BookingsModule ↔ PaymentsModule
+    // circular import. Used by uploadSlip to dispatch slip-verify into
+    // the group lifecycle for group bookings.
+    @Inject(forwardRef(() => GroupSessionService))
+    private readonly groupSessions: GroupSessionService,
   ) {}
 
   async createIntent(
@@ -46,7 +54,19 @@ export class PaymentsService {
       });
       if (!booking) throw new NotFoundException();
       if (booking.studentId !== user.id) throw new ForbiddenException();
-      if (booking.status !== "accepted") {
+      // FR-TH-18: group bookings let the host pay before the tutor's
+      // formal approval — the tutor's go/no-go is the approveGroup call,
+      // which fires after every seat is accepted. booking.status stays
+      // 'requested' through forming → tutor_review and only flips to
+      // 'paid' when confirmGroup completes. For 1-on-1 the prior gate
+      // still applies: tutor must @Post('/:id/accept') first.
+      if (booking.sessionType === "group") {
+        if (booking.groupStatus !== "forming") {
+          throw new BadRequestException(
+            "Host can only pay while the group is forming",
+          );
+        }
+      } else if (booking.status !== "accepted") {
         throw new BadRequestException("Booking must be accepted before payment");
       }
       amountThb = booking.amountThb;
@@ -194,16 +214,43 @@ export class PaymentsService {
       },
     });
 
+    // FR-TH-18: branch on sessionType. Host's 1-on-1 intent keeps the
+    // existing flip-booking-to-paid + Meet generation. Group bookings
+    // (whether this is the host's intent or an invitee's) defer to
+    // GroupSessionService.onParticipantPaid, which only flips
+    // booking.status='paid' (via confirmGroup) once every seat has paid.
+    //
+    // Three shapes reach this point:
+    //   1. 1-on-1 host    — intent.bookingId set, booking.sessionType=one_on_one
+    //   2. Group host     — intent.bookingId set, booking.sessionType=group
+    //   3. Group invitee  — intent.bookingId NULL, participant linked via
+    //                       BookingParticipant.paymentIntentId
     if (intent.bookingId) {
-      const booking = await this.prisma.booking.update({
+      const booking = await this.prisma.booking.findUnique({
         where: { id: intent.bookingId },
-        data: { status: "paid", reportWindowEndsAt: addHours(new Date(), 24) },
+        select: { id: true, sessionType: true },
       });
-      // FR-TH-17: generate the Meet link inline at payment-confirm. Wrapped
-      // in try/catch so a Calendar API outage doesn't roll back the payment
-      // — the booking stays paid, and admin can call /admin/bookings/:id/
-      // regenerate-meet later.
-      await this.tryGenerateMeet(booking.id);
+      if (booking?.sessionType === "group") {
+        // Group host paid — group lifecycle owns booking.status now.
+        await this.groupSessions.onParticipantPaid(intent.id);
+      } else if (booking) {
+        const updated = await this.prisma.booking.update({
+          where: { id: booking.id },
+          data: {
+            status: "paid",
+            reportWindowEndsAt: addHours(new Date(), 24),
+          },
+        });
+        // FR-TH-17: generate the Meet link inline at payment-confirm.
+        // Wrapped in try/catch so a Calendar API outage doesn't roll back
+        // the payment — admin can retry via /admin/bookings/:id/regenerate-meet.
+        await this.tryGenerateMeet(updated.id);
+      }
+    } else {
+      // Invitee intent: GroupSessionService finds the participant via the
+      // intent id and runs the rest of the group lifecycle. Early-returns
+      // safely if the intent doesn't belong to any participant.
+      await this.groupSessions.onParticipantPaid(intent.id);
     }
 
     return {
