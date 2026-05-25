@@ -156,7 +156,13 @@
       "Bash(git checkout *)",
       "Bash(git merge *)",
       "Bash(git rebase *)",
-      "Bash(git reset *)"
+      "Bash(git reset *)",
+      "Bash(git ls-remote *)",
+      "Bash(findstr :3001)",
+      "Bash(npx tsx *)",
+      "Bash(findstr \"3000\\\\|3001\\\\|3002\")",
+      "Bash(findstr \"node\")",
+      "Bash(findstr \":300\")"
     ]
   },
   "enableAllProjectMcpServers": true,
