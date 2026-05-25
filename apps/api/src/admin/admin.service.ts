@@ -596,7 +596,69 @@ export class AdminService {
       select: { id: true, email: true },
     });
     if (!target) throw new NotFoundException("User not found");
-    await this.prisma.user.delete({ where: { id: targetUserId } });
+
+    // History gate: hard-delete is reserved for clean test accounts. Anyone
+    // with bookings / payments / reviews / reports filed must be handled
+    // via the suspension flow (User.suspendedUntil — set by the report
+    // system; year-2099 sentinel = permanent ban-equivalent). This avoids
+    // silently cascading financial records and preserves audit history.
+    const [bookings, intents, reviews, reports] = await Promise.all([
+      this.prisma.booking.count({
+        where: {
+          OR: [
+            { studentId: targetUserId },
+            { tutor: { userId: targetUserId } },
+          ],
+        },
+      }),
+      this.prisma.paymentIntent.count({ where: { payerId: targetUserId } }),
+      this.prisma.tutorReview.count({ where: { studentId: targetUserId } }),
+      this.prisma.report.count({ where: { reporterId: targetUserId } }),
+    ]);
+    if (bookings + intents + reviews + reports > 0) {
+      throw new BadRequestException({
+        code: "USER_HAS_HISTORY",
+        message:
+          "ผู้ใช้รายนี้มีประวัติการจอง/ชำระเงิน/รีวิว/รายงาน — กรุณาใช้การระงับการใช้งาน (suspension) แทนการลบบัญชี",
+        bookings,
+        intents,
+        reviews,
+        reports,
+      });
+    }
+
+    // Safe-to-purge transactional cascade. Child rows first; rows with
+    // onDelete: Cascade (StudentProfile, TutorProfile, KycSubmission,
+    // Notification) clean themselves up when the User row goes — listing
+    // them explicitly anyway so the order is auditable and a future
+    // schema change that drops a Cascade doesn't silently regress.
+    await this.prisma.$transaction([
+      this.prisma.bookingParticipant.deleteMany({
+        where: { studentId: targetUserId },
+      }),
+      this.prisma.chatThreadParticipant.deleteMany({
+        where: { userId: targetUserId },
+      }),
+      this.prisma.chatMessage.deleteMany({
+        where: { authorId: targetUserId },
+      }),
+      this.prisma.chatThread.deleteMany({ where: { studentId: targetUserId } }),
+      this.prisma.postUpvote.deleteMany({ where: { userId: targetUserId } }),
+      this.prisma.communityReply.deleteMany({
+        where: { authorId: targetUserId },
+      }),
+      this.prisma.communityPost.deleteMany({
+        where: { authorId: targetUserId },
+      }),
+      this.prisma.kycSubmission.deleteMany({ where: { userId: targetUserId } }),
+      this.prisma.notification.deleteMany({ where: { userId: targetUserId } }),
+      this.prisma.postponeRequest.deleteMany({
+        where: { initiatorId: targetUserId },
+      }),
+      this.prisma.loginAuditLog.deleteMany({ where: { userId: targetUserId } }),
+      this.prisma.adminAuditLog.deleteMany({ where: { adminId: targetUserId } }),
+      this.prisma.user.delete({ where: { id: targetUserId } }),
+    ]);
     await this.prisma.loginAuditLog.create({
       data: {
         userId: adminUserId,
