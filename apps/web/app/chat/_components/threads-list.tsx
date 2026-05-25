@@ -13,6 +13,10 @@ import { ChatRoom } from "./chat-room";
 
 interface Props {
   initialThreads: ChatThread[];
+  /** Preselect a thread on first render. Used by /chat/[tutorId] and
+   *  /chat/thread/[threadId] so deep-links land in the split-pane view
+   *  with the target conversation already active. */
+  initialSelectedId?: string | null;
 }
 
 function formatRelative(iso: string): string {
@@ -42,7 +46,7 @@ function initialsOf(name: string): string {
   );
 }
 
-export function ThreadsList({ initialThreads }: Props) {
+export function ThreadsList({ initialThreads, initialSelectedId = null }: Props) {
   const { data } = useQuery({
     queryKey: ["chat", "threads"],
     queryFn: () => createApiClient().chat.threads(),
@@ -54,7 +58,7 @@ export function ThreadsList({ initialThreads }: Props) {
   // Split-pane state: clicking a thread row activates it inline in the
   // right column. The deep-link route /chat/thread/[id] still exists for
   // SSR + share-links but is no longer used as the primary interaction.
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
   const selectedThread = useMemo(
     () => allThreads.find((t) => t.id === selectedId) ?? null,
     [allThreads, selectedId],
