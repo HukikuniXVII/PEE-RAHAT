@@ -63,6 +63,22 @@ export interface MaskedBankInfo {
   accountLast4: string;
   accountName: string;
   updatedAt: string;
+  /**
+   * Pending bank-edit awaiting admin approval. Present when the tutor
+   * has submitted a change via PATCH /tutors/me/bank since the last
+   * admin review. The live bank fields above remain authoritative until
+   * the change is approved.
+   */
+  pending?: PendingBankInfo | null;
+}
+
+/** A bank-change request awaiting admin review. */
+export interface PendingBankInfo {
+  bankName: BankName;
+  accountLast4: string;
+  accountName: string;
+  idName: string;
+  submittedAt: string;
 }
 
 export interface KycSubmission {

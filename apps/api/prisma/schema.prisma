@@ -99,6 +99,20 @@ model TutorProfile {
   bankAccountName   String?
   bankUpdatedAt     DateTime?
 
+  // FR-TH-02 (rev): post-KYC bank edits land in these pending columns
+  // until an admin approves them via POST /admin/tutors/:id/bank/approve.
+  // The live bank fields above stay active during review so payouts and
+  // the search-visibility gate are not affected by an in-flight change.
+  // pendingBankAccountNumber is AES-256-GCM encrypted, same as the live
+  // column. Onboarding's initial bank entry still flows through
+  // KycSubmission and writes to the live columns directly.
+  pendingBankName          String?
+  pendingBankAccountNumber String?
+  pendingBankAccountName   String?
+  pendingPassbookObjectKey String?
+  pendingIdName            String?
+  pendingBankSubmittedAt   DateTime?
+
   bookings       Booking[]
   reviews        TutorReview[]
   sheets         StudySheet[]

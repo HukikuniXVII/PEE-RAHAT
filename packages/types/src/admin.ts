@@ -1,8 +1,15 @@
 import { z } from "zod";
 
+import type { UserRole } from "./auth";
 import type { ReportTargetType } from "./community";
 import type { BankName, KycStatus } from "./kyc";
 import type { PayoutStatus, PaymentItemType, PaymentStatus } from "./payment";
+
+/** Zod mirror of the UserRole union from ./auth — used by admin user
+ *  edit endpoints. Kept here (not in ./auth) because only admin tools
+ *  need to validate role as a free-text input; everywhere else the
+ *  role comes from the JWT or DB. */
+export const userRoleSchema = z.enum(["student", "tutor", "parent", "admin"]);
 
 /** Loose ISO date/datetime parser used by admin DTOs that the controller
  *  pipes into `new Date(...)`. Same shape used by createBookingSchema so
@@ -124,6 +131,35 @@ export interface AdminRevealedBankInfo {
 }
 
 /**
+ * FR-TH-02 (rev): one row of the admin bank-changes review queue. The
+ * `current` block reflects the live bank info that's currently powering
+ * payouts and search visibility; the `pending` block is what the tutor
+ * just submitted via PATCH /tutors/me/bank and is awaiting review. The
+ * admin diff-and-approve UI renders the two side by side.
+ */
+export interface AdminBankChangeItem {
+  tutorId: string;
+  userId: string;
+  displayName: string;
+  email: string;
+  university: string;
+  current: {
+    bankName: BankName;
+    accountNumber: string;
+    accountName: string;
+    updatedAt: string;
+  } | null;
+  pending: {
+    bankName: BankName;
+    accountNumber: string;
+    accountName: string;
+    idName: string;
+    passbookObjectKey: string | null;
+    submittedAt: string;
+  };
+}
+
+/**
  * FR-TH-02 / FR-PM-06: bundled passbook + bank info shown on admin KYC
  * detail, payout detail, and tutor detail pages. The imageUrl is a signed
  * GET URL with a 5-minute expiry — clients must not cache it. Returned
@@ -162,3 +198,36 @@ export interface AdminKycDetail {
 export interface AdminPayoutDetail extends AdminPayoutRow {
   passbook: AdminPassbookView | null;
 }
+
+/**
+ * Account-management surface (admin testing tool). One row per User
+ * with the auxiliary counters/flags an admin needs to decide whether
+ * deleting is safe — bookingCount + hasTutorProfile flag warn before
+ * a destructive cascade.
+ */
+export interface AdminUserRow {
+  id: string;
+  supabaseId: string;
+  email: string;
+  displayName: string;
+  role: UserRole;
+  avatarUrl: string | null;
+  createdAt: string;
+  hasTutorProfile: boolean;
+  hasStudentProfile: boolean;
+  bookingCount: number;
+}
+
+export interface AdminUserPage {
+  items: AdminUserRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export const updateAdminUserSchema = z.object({
+  displayName: z.string().trim().min(2).max(60).optional(),
+  role: userRoleSchema.optional(),
+});
+
+export type UpdateAdminUserDto = z.infer<typeof updateAdminUserSchema>;

@@ -12,7 +12,6 @@ import {
 import { cn } from "@peerahat/ui";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
-  AlertTriangle,
   CheckCircle2,
   ImageIcon,
   Info,
@@ -140,7 +139,7 @@ export function OnboardingFlow() {
       university: t.university,
       faculty: t.faculty,
       hourlyRate: t.hourlyRate,
-      subjects: t.subjects.map((s) => s.code),
+      subjects: t.subjects,
       introVideoUrl: t.introVideoUrl ?? undefined,
     });
   }, [existingProfile.data, form]);
@@ -494,15 +493,6 @@ function BankSection({
             placeholder="ต้องตรงกับชื่อในบัตรประชาชน"
             className="thai w-full px-4 py-3 rounded-2xl border border-violet-100 text-sm focus:ring-2 focus:ring-dusty-grape/20 focus:border-dusty-grape outline-none"
           />
-          {idName &&
-            accountName &&
-            idName.trim().toLowerCase().replace(/\s+/g, " ") !==
-              accountName.trim().toLowerCase().replace(/\s+/g, " ") && (
-              <span className="thai text-[10px] text-rose-600 inline-flex items-center gap-1">
-                <AlertTriangle size={10} />
-                ไม่ตรงกับชื่อในบัตรประชาชน — ระบบจะไม่ผ่านการตรวจสอบ
-              </span>
-            )}
         </label>
       </div>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, Wallet } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Wallet } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 
@@ -20,6 +20,7 @@ export function BankStatusBanner() {
     queryFn: () => createApiClient().tutors.bank.get(),
   });
   const connected = !!status.data;
+  const pending = status.data?.pending ?? null;
 
   return (
     <section
@@ -41,7 +42,12 @@ export function BankStatusBanner() {
             แอดมินใช้ข้อมูลนี้โอนค่าตอบแทนทุกวันที่ 15 และ 30 ของเดือน
           </p>
         </div>
-        {connected ? (
+        {pending ? (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200 rounded-full whitespace-nowrap">
+            <Clock size={12} />
+            อยู่ระหว่างตรวจสอบ
+          </span>
+        ) : connected ? (
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full whitespace-nowrap">
             <CheckCircle2 size={12} />
             Connected

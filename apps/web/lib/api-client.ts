@@ -1,7 +1,11 @@
 import {
   API_PATHS,
+  type AdminBankChangeItem,
   type AdminKycDetail,
   type AdminKycQueueItem,
+  type AdminUserPage,
+  type AdminUserRow,
+  type UpdateAdminUserDto,
   type AdminPassbookView,
   type AdminPaymentRow,
   type AdminPayoutDetail,
@@ -351,6 +355,49 @@ export function createApiClient(opts: ApiClientOptions = {}) {
           { method: "POST", body: JSON.stringify(dto) },
           token,
         ),
+      // FR-TH-02 (rev): bank-change approval queue. listBankChanges
+      // returns full account numbers — server audit-logs every fetch.
+      bankChanges: {
+        list: () =>
+          request<AdminBankChangeItem[]>(
+            API_PATHS.adminBankChanges,
+            {},
+            token,
+          ),
+        approve: (tutorId: string) =>
+          request<AdminBankChangeItem>(
+            API_PATHS.adminApproveBankChange(tutorId),
+            { method: "POST" },
+            token,
+          ),
+        reject: (tutorId: string) =>
+          request<{ ok: true }>(
+            API_PATHS.adminRejectBankChange(tutorId),
+            { method: "POST" },
+            token,
+          ),
+      },
+      // Account-management testing tool. Audit-logged server-side.
+      users: {
+        list: (opts: { page?: number; pageSize?: number; q?: string } = {}) =>
+          request<AdminUserPage>(
+            `${API_PATHS.adminUsers}${qs(opts)}`,
+            {},
+            token,
+          ),
+        update: (id: string, dto: UpdateAdminUserDto) =>
+          request<AdminUserRow>(
+            API_PATHS.adminUserById(id),
+            { method: "PATCH", body: JSON.stringify(dto) },
+            token,
+          ),
+        delete: (id: string) =>
+          request<{ ok: true }>(
+            API_PATHS.adminUserById(id),
+            { method: "DELETE" },
+            token,
+          ),
+      },
       // FR-TC-02: AI-powered TCAS criteria importer. parseAi sends a PDF
       // for Gemini extraction; reparse reruns against the same buffered
       // PDF with a different model; commit applies admin rowEdits and

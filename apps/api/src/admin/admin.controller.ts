@@ -1,10 +1,12 @@
 import {
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   Ip,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -22,6 +24,8 @@ import {
   rejectSlipSchema,
   type ReviewKycDto,
   reviewKycSchema,
+  type UpdateAdminUserDto,
+  updateAdminUserSchema,
 } from "@peerahat/types";
 
 import { CurrentUser } from "../auth/current-user.decorator";
@@ -164,6 +168,81 @@ export class AdminController {
   ) {
     const admin = await this.assertAdmin(user.sub);
     return this.admin.revealBank(admin.id, tutorId, ip);
+  }
+
+  /**
+   * FR-TH-02 (rev): list every tutor with a pending bank edit awaiting
+   * admin approval. Used by the /admin/tutors/bank-changes review page.
+   */
+  @Get("tutors/bank-changes")
+  async listBankChanges(@CurrentUser() user: SupabaseJwtPayload) {
+    await this.assertAdmin(user.sub);
+    return this.admin.listBankChanges();
+  }
+
+  @Post("tutors/:id/bank/approve")
+  async approveBankChange(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") tutorId: string,
+    @Ip() ip: string,
+  ) {
+    const admin = await this.assertAdmin(user.sub);
+    return this.admin.approveBankChange(admin.id, tutorId, ip);
+  }
+
+  @Post("tutors/:id/bank/reject")
+  async rejectBankChange(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") tutorId: string,
+    @Ip() ip: string,
+  ) {
+    const admin = await this.assertAdmin(user.sub);
+    await this.admin.rejectBankChange(admin.id, tutorId, ip);
+    return { ok: true };
+  }
+
+  // ── Account-management (admin testing tool) ────────────────────────
+  /**
+   * Paginated list of every user. Used by /admin/users. Query: page,
+   * pageSize, q. Includes counters so the admin sees how destructive
+   * a delete would be before clicking.
+   */
+  @Get("users")
+  async listUsers(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+    @Query("q") q?: string,
+  ) {
+    await this.assertAdmin(user.sub);
+    return this.admin.listUsers({
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : undefined,
+      q: q && q.trim() ? q.trim() : undefined,
+    });
+  }
+
+  @Patch("users/:id")
+  async updateUser(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") targetId: string,
+    @Body() raw: unknown,
+    @Ip() ip: string,
+  ) {
+    const admin = await this.assertAdmin(user.sub);
+    const dto: UpdateAdminUserDto = updateAdminUserSchema.parse(raw);
+    return this.admin.updateUserAsAdmin(admin.id, targetId, dto, ip);
+  }
+
+  @Delete("users/:id")
+  async deleteUser(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") targetId: string,
+    @Ip() ip: string,
+  ) {
+    const admin = await this.assertAdmin(user.sub);
+    await this.admin.deleteUserAsAdmin(admin.id, targetId, ip);
+    return { ok: true };
   }
 
   /**
