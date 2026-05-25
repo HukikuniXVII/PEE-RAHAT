@@ -20,7 +20,7 @@ export default async function SignupPage({ searchParams }: Props) {
   return (
     <>
       <PageBackground />
-      <div className="flex h-screen items-center justify-center overflow-hidden">
+      <div className="flex min-h-screen items-center justify-center px-4 py-10 md:p-0 md:overflow-hidden md:h-screen">
         <AuthCard
           mascot={
             <Image

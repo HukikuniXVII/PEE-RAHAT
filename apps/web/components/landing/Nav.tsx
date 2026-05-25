@@ -59,6 +59,16 @@ export function Nav() {
               <ArrowRight size={14} strokeWidth={2.5} />
             </Link>
           </div>
+
+          {/* Mobile-only CTA — anchor links collapse below md, but the
+              primary action (login) still needs to be reachable. */}
+          <Link
+            href={"/login" as Route}
+            className="md:hidden thai inline-flex items-center gap-1.5 rounded-[12px] bg-dusty-grape px-3 py-1.5 text-[12px] font-bold text-white-smoke shadow-md"
+          >
+            เริ่มต้นใช้งาน
+            <ArrowRight size={12} strokeWidth={2.5} />
+          </Link>
         </div>
       </div>
     </nav>

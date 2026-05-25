@@ -139,7 +139,7 @@ export function TutorSearch({
           <button
             type="button"
             onClick={() => setSheetOpen(true)}
-            className="lg:hidden inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-violet-500 text-white text-xs font-bold"
+            className="md:hidden inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-violet-500 text-white text-xs font-bold"
           >
             <SlidersHorizontal size={14} />
             ตัวกรอง
@@ -177,14 +177,14 @@ export function TutorSearch({
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-[280px_1fr] gap-6">
-        <aside className="hidden lg:block">
+      <div className="grid md:grid-cols-[280px_1fr] gap-6">
+        <aside className="hidden md:block">
           {/* Constant-height sticky shell so the sidebar keeps a visual
               presence even when every accordion is collapsed (~120px
               would otherwise leave a tall empty column). `min-h` floors
               the height; `max-h` + `overflow-y-auto` cap it to viewport
               when many groups are expanded. */}
-          <div className="lg:sticky lg:top-24 bg-white rounded-[28px] border border-violet-100 shadow-[0_8px_24px_-16px_rgba(85,65,139,0.25)] p-5 min-h-[520px] max-h-[calc(100vh-7rem)] overflow-y-auto custom-scrollbar">
+          <div className="md:sticky md:top-24 bg-white rounded-[28px] border border-violet-100 shadow-[0_8px_24px_-16px_rgba(85,65,139,0.25)] p-5 min-h-[520px] max-h-[calc(100vh-7rem)] overflow-y-auto custom-scrollbar">
             <FilterSidebar value={filters} onChange={setFilters} />
           </div>
         </aside>
@@ -273,7 +273,7 @@ export function TutorSearch({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-slate-900/60 lg:hidden"
+              className="fixed inset-0 z-40 bg-slate-900/60 md:hidden"
               onClick={() => setSheetOpen(false)}
             />
             <motion.div
@@ -282,7 +282,7 @@ export function TutorSearch({
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 28, stiffness: 260 }}
-              className="fixed bottom-0 inset-x-0 z-50 lg:hidden bg-white rounded-t-[32px] shadow-2xl max-h-[85vh] overflow-y-auto"
+              className="fixed bottom-0 inset-x-0 z-50 md:hidden bg-white rounded-t-[32px] shadow-2xl max-h-[85vh] overflow-y-auto"
             >
               <div className="sticky top-0 bg-white/95 backdrop-blur border-b border-slate-100 px-6 py-4 flex items-center justify-between">
                 <h3 className="text-base font-black text-slate-900">

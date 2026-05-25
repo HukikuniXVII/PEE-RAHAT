@@ -31,11 +31,11 @@ const FEATURES = [
 
 export function AboutFeatures() {
   return (
-    <div className="flex-1 flex items-center px-16">
-      <div className="w-full max-w-[1400px] mx-auto grid grid-cols-12 gap-14 items-center">
+    <div className="flex-1 flex items-center px-5 md:px-16 py-12 md:py-0">
+      <div className="w-full max-w-[1400px] mx-auto grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-14 items-center">
 
         {/* ── Left: อะไรคือพี่รหัส? ── */}
-        <div className="col-span-5 space-y-6">
+        <div className="md:col-span-5 space-y-6">
           {/* Chip */}
           <div className="inline-flex items-center gap-2 thai text-[13px] font-semibold text-dusty-grape border border-dusty-grape/25 rounded-full px-4 py-1.5 bg-white/50 backdrop-blur-sm">
             <Sparkles size={12} />
@@ -85,14 +85,14 @@ export function AboutFeatures() {
         </div>
 
         {/* ── Right: ฟีเจอร์ ── */}
-        <div className="col-span-7">
+        <div className="md:col-span-7">
           {/* Section label */}
           <div className="inline-flex items-center gap-2 thai text-[13px] font-semibold text-dusty-grape border border-dusty-grape/25 rounded-full px-4 py-1.5 bg-white/50 backdrop-blur-sm mb-5">
             <Sparkles size={12} />
             ฟีเจอร์
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {FEATURES.map((it) => (
               <Link
                 key={it.n}

@@ -84,9 +84,9 @@ export function ThreadsList({ initialThreads, initialSelectedId = null }: Props)
     // active chat on the right. Render the empty state in the right
     // column already so the first thread doesn't trigger a layout jump.
     return (
-      <div className="grid lg:grid-cols-[280px_1fr] gap-6">
+      <div className="grid md:grid-cols-[280px_1fr] gap-6">
         {/* Left — placeholder for the contacts list */}
-        <aside className="hidden lg:block">
+        <aside className="hidden md:block">
           <div className="bg-white/50 border border-dashed border-violet-200 rounded-[28px] p-6 min-h-[420px] flex items-center justify-center">
             <div className="text-center space-y-2">
               <MessagesSquare
@@ -128,9 +128,16 @@ export function ThreadsList({ initialThreads, initialSelectedId = null }: Props)
   // Split-pane layout: left = conversation list, right = active chat
   // (or a placeholder when nothing is selected). Mirrors the empty state
   // so the page doesn't visually re-flow when the first thread arrives.
+  // On mobile (<md) the list and chat swap places: opening a thread
+  // hides the list and shows the chat full-width with a back button.
   return (
-    <div className="grid lg:grid-cols-[280px_1fr] gap-6">
-      <aside className="space-y-3 min-w-0">
+    <div className="grid md:grid-cols-[280px_1fr] gap-6">
+      <aside
+        className={cn(
+          "space-y-3 min-w-0",
+          selectedThread ? "hidden md:block" : "block",
+        )}
+      >
         <div className="relative">
           <Search
             size={16}
@@ -251,10 +258,11 @@ export function ThreadsList({ initialThreads, initialSelectedId = null }: Props)
             key={selectedThread.id}
             thread={selectedThread}
             initialMessages={[]}
+            onBack={() => setSelectedId(null)}
           />
         </div>
       ) : (
-        <div className="hidden lg:flex bg-white p-10 rounded-[32px] border border-violet-100 shadow-[0_8px_24px_-16px_rgba(85,65,139,0.25)] text-center flex-col items-center justify-center gap-3 min-h-[420px]">
+        <div className="hidden md:flex bg-white p-10 rounded-[32px] border border-violet-100 shadow-[0_8px_24px_-16px_rgba(85,65,139,0.25)] text-center flex-col items-center justify-center gap-3 min-h-[420px]">
           <MessagesSquare
             size={28}
             className="text-violet-300"
