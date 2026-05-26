@@ -172,7 +172,7 @@ export class PayoutsService {
         tutorPromptPay: null,
         bankName: (t.bankName as Group["bankName"]) ?? null,
         bankAccountLast4: t.bankAccountNumber
-          ? this.crypto.decrypt(t.bankAccountNumber).slice(-4)
+          ? this.crypto.maskedAccountLast4(t.bankAccountNumber)
           : null,
         bankAccountName: t.bankAccountName ?? null,
         intentIds: [] as string[],
