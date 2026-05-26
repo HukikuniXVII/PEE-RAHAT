@@ -1,7 +1,7 @@
 "use client";
 
 import type { Tutor } from "@peerahat/types";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -14,6 +14,7 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 
 import { createApiClient } from "@/lib/api-client";
+import { useMutationWithToast } from "@/lib/hooks/use-mutation-with-toast";
 
 interface Props {
   tutor: Tutor;
@@ -72,22 +73,20 @@ export function GoogleCalendarCard({ tutor }: Props) {
     );
   }, [searchParams, router, queryClient]);
 
-  const connect = useMutation({
+  const connect = useMutationWithToast({
     mutationFn: () => createApiClient().auth.googleConnect(),
+    errorMessage: true,
     onSuccess: ({ authorizationUrl }) => {
       window.location.assign(authorizationUrl);
     },
-    onError: (e) => toast.error(e.message),
   });
 
-  const disconnect = useMutation({
+  const disconnect = useMutationWithToast({
     mutationFn: () => createApiClient().auth.googleDisconnect(),
-    onSuccess: () => {
-      toast.success("ยกเลิกการเชื่อมต่อแล้ว");
-      queryClient.invalidateQueries({ queryKey: ["auth", "google", "status"] });
-      router.refresh();
-    },
-    onError: (e) => toast.error(e.message),
+    successMessage: "ยกเลิกการเชื่อมต่อแล้ว",
+    errorMessage: true,
+    invalidateKeys: [["auth", "google", "status"]],
+    refreshRouter: true,
   });
 
   const connected = statusQuery.data?.connected ?? false;

@@ -17,9 +17,9 @@ import { CheckCircle2, Loader2, Upload } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { toast } from "sonner";
 
 import { createApiClient } from "@/lib/api-client";
+import { useMutationWithToast } from "@/lib/hooks/use-mutation-with-toast";
 
 import { SelectWithOther } from "../../../_components/select-with-other";
 import { UnavailabilityEditor } from "./unavailability-editor";
@@ -67,18 +67,16 @@ export function ProfileEditForm({
     }
   }, [searchParams]);
 
-  const uploadAvatar = useMutation({
+  const uploadAvatar = useMutationWithToast({
     mutationFn: async (file: File) => {
       const api = createApiClient();
       const intent = await api.users.requestAvatarUpload(file.type);
       await api.uploads.putPresigned(intent, file);
       return intent.publicUrl;
     },
-    onSuccess: (url) => {
-      setAvatarUrl(url);
-      toast.success("อัปโหลดรูปแล้ว — กดบันทึกเพื่อยืนยัน");
-    },
-    onError: (e) => toast.error(e.message),
+    successMessage: "อัปโหลดรูปแล้ว — กดบันทึกเพื่อยืนยัน",
+    errorMessage: true,
+    onSuccess: (url) => setAvatarUrl(url),
   });
 
   const saveAccount = useMutation({
