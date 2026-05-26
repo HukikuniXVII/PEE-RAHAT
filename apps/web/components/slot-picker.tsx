@@ -56,8 +56,19 @@ export function buildDayChips(includeToday = true): {
   for (let offset = start; offset <= end; offset++) {
     const d = new Date(base);
     d.setDate(base.getDate() + offset);
+    // Local-date components — NOT d.toISOString().slice(0,10). For any
+    // timezone east of UTC (BKK is UTC+7) local midnight is previous-day
+    // 17:00 UTC, so toISOString().slice(0,10) returns yesterday's date.
+    // combineDateAndMinute below reads dateIso back as a local-time
+    // construction (new Date(y, m-1, d, h, mm)), so the iso must match the
+    // chip's visible local day or every slot computed for that chip lands
+    // 24h in the past.
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+      2,
+      "0",
+    )}-${String(d.getDate()).padStart(2, "0")}`;
     out.push({
-      iso: d.toISOString().slice(0, 10),
+      iso,
       weekday: d.toLocaleDateString("th-TH", { weekday: "short" }),
       day: d.toLocaleDateString("th-TH", { day: "numeric" }),
       month: d.toLocaleDateString("th-TH", { month: "short" }),
