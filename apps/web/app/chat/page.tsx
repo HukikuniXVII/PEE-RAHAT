@@ -2,7 +2,7 @@ import { PageBackground } from "@peerahat/ui";
 import { MessagesSquare } from "lucide-react";
 import { redirect } from "next/navigation";
 
-import { createApiClient } from "@/lib/api-client";
+import { asNotFound, createApiClient } from "@/lib/api-client";
 import { requireAuth } from "@/lib/auth";
 
 import { ThreadsList } from "./_components/threads-list";
@@ -48,11 +48,13 @@ export default async function ChatPage({ searchParams }: Props) {
   } else if (threadParam) {
     initialSelectedId = threadParam;
     // If the thread isn't in the list (rare — e.g. just-created), fetch
-    // it directly so the right pane has something to render.
+    // it directly so the right pane has something to render. asNotFound
+    // converts a backend 404 into Next's notFound() so a stale or
+    // unauthorized thread id renders the 404 page instead of silently
+    // dropping the user on the unfiltered threads list.
     if (!threads.some((t) => t.id === threadParam)) {
-      const fetched = await api.chat.threadById(threadParam).catch(() => null);
-      if (fetched) threads = [fetched, ...threads];
-      else initialSelectedId = null;
+      const fetched = await asNotFound(api.chat.threadById(threadParam));
+      threads = [fetched, ...threads];
     }
   }
 
