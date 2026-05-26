@@ -8,13 +8,18 @@ import { CheckCircle2, Loader2 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 
 import { createApiClient } from "@/lib/api-client";
 import { sanitizeNextPath } from "@/lib/auth-utils";
 import { supabaseAuthErrorMessage } from "@/lib/error-message";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+
+// Client-side cooldown for the resend button. Mirrors Supabase's default
+// "Minimum interval between emails" (60s) so users see a clear countdown
+// instead of an opaque 429 from the SMTP rate limiter.
+const RESEND_COOLDOWN_SECONDS = 60;
 
 // Client-only schema — extends the DTO with confirmPassword.
 // Suppress the default zod min-length message; strength meter handles feedback.
@@ -99,6 +104,27 @@ export function SignupForm() {
   const [error, setError] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  // Resend-confirmation state (only meaningful once emailSent === true).
+  // resendLastAt drives the 60s cooldown via a 1Hz tick effect below;
+  // null = idle / never sent yet → button is immediately clickable.
+  const [resendLastAt, setResendLastAt] = useState<number | null>(null);
+  const [resendBusy, setResendBusy] = useState(false);
+  const [resendNotice, setResendNotice] = useState<
+    { kind: "ok" | "err"; message: string } | null
+  >(null);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!emailSent) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [emailSent]);
+  const cooldownRemaining =
+    resendLastAt === null
+      ? 0
+      : Math.max(
+          0,
+          RESEND_COOLDOWN_SECONDS - Math.floor((now - resendLastAt) / 1000),
+        );
 
   const form = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpFormSchema),
@@ -107,6 +133,26 @@ export function SignupForm() {
   });
 
   const password = useWatch({ control: form.control, name: "password" });
+
+  async function handleResendConfirmation() {
+    if (resendBusy || cooldownRemaining > 0) return;
+    const email = form.getValues("email");
+    if (!email) return;
+    setResendBusy(true);
+    setResendNotice(null);
+    const supabase = createSupabaseBrowserClient();
+    const { error: e } = await supabase.auth.resend({ type: "signup", email });
+    setResendBusy(false);
+    if (e) {
+      setResendNotice({ kind: "err", message: supabaseAuthErrorMessage(e) });
+      return;
+    }
+    setResendLastAt(Date.now());
+    setResendNotice({
+      kind: "ok",
+      message: "ส่งอีเมลยืนยันอีกครั้งแล้ว — เช็คกล่องจดหมายของคุณ",
+    });
+  }
 
   const onSubmit = form.handleSubmit(async ({ email, password, displayName }) => {
     setError(null);
@@ -131,6 +177,12 @@ export function SignupForm() {
   const busy = form.formState.isSubmitting;
 
   if (emailSent) {
+    const resendDisabled = resendBusy || cooldownRemaining > 0;
+    const resendLabel = resendBusy
+      ? "กำลังส่ง..."
+      : cooldownRemaining > 0
+        ? `ส่งอีกครั้งได้ใน ${cooldownRemaining} วินาที`
+        : "ส่งอีเมลยืนยันอีกครั้ง";
     return (
       <div className="flex flex-col items-center gap-5 text-center">
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-violet-50 text-violet-500">
@@ -143,7 +195,28 @@ export function SignupForm() {
             <span className="font-semibold text-neutral-700">{form.getValues("email")}</span>
             <br />กดยืนยันแล้วกลับมาเข้าสู่ระบบได้เลย
           </p>
+          <p className="thai text-xs text-neutral-400">
+            ไม่เจออีเมล? ตรวจสอบในโฟลเดอร์ Spam / Junk หรือกดปุ่มด้านล่างเพื่อส่งใหม่
+          </p>
         </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="brand-md"
+          fullWidth
+          disabled={resendDisabled}
+          onClick={handleResendConfirmation}
+        >
+          {resendBusy && <Loader2 size={16} className="animate-spin" />}
+          {resendLabel}
+        </Button>
+        {resendNotice && (
+          <p
+            className={`thai text-sm font-medium ${resendNotice.kind === "ok" ? "text-emerald-600" : "text-rose-600"}`}
+          >
+            {resendNotice.message}
+          </p>
+        )}
         <Link href={"/login" as Route} className="text-sm font-medium text-violet-700 hover:underline">
           กลับไปหน้าเข้าสู่ระบบ
         </Link>
