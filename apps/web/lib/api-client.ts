@@ -636,6 +636,13 @@ export function createApiClient(opts: ApiClientOptions = {}) {
           { method: "POST" },
           token,
         ),
+      // FR-TH-06: tutor rejects a still-requested booking.
+      reject: (id: string) =>
+        request<Booking>(
+          API_PATHS.rejectBooking(id),
+          { method: "POST" },
+          token,
+        ),
       report: (id: string, dto: BookingReportDto) =>
         request<void>(
           API_PATHS.reportBooking(id),

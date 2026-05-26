@@ -72,6 +72,8 @@ export const API_PATHS = {
   acceptBooking: (id: string) => `/bookings/${id}/accept`,
   // FR-TH-06: student cancels their own 1-on-1 booking before payment.
   cancelBooking: (id: string) => `/bookings/${id}/cancel`,
+  // FR-TH-06: tutor rejects a still-requested booking.
+  rejectBooking: (id: string) => `/bookings/${id}/reject`,
   reportBooking: (id: string) => `/bookings/${id}/report`,
   postponeBooking: (id: string) => `/bookings/${id}/postpone`,
   postponePropose: (id: string) => `/bookings/${id}/postpone/propose`,

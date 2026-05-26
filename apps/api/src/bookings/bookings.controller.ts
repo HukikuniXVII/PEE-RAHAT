@@ -105,6 +105,14 @@ export class BookingsController {
     return this.bookings.cancelByStudent(user.sub, id);
   }
 
+  // FR-TH-06: tutor explicitly rejects a request instead of letting it
+  // expire silently. Only valid in `requested` state — once accepted, the
+  // tutor uses postpone (FR-TH-10).
+  @Post(":id/reject")
+  reject(@CurrentUser() user: SupabaseJwtPayload, @Param("id") id: string) {
+    return this.bookings.rejectByTutor(user.sub, id);
+  }
+
   // ── FR-TH-18: host-side group session routes ───────────────────────────
   // Throttling: invite + extend share the same 10/min bucket as create —
   // realistic host usage stays well below.

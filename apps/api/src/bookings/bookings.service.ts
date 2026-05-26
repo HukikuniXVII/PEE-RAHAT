@@ -672,6 +672,48 @@ export class BookingsService {
     return { ...updated, hasReview: false, viewerSide: "student" as const };
   }
 
+  /**
+   * FR-TH-06: tutor rejects a 1-on-1 booking still in `requested`
+   * state. After the tutor accepts (`accepted`), the only way to back
+   * out is postpone (FR-TH-10) — same constraint that applies to the
+   * student-cancel path. Group bookings go through GroupSessionService.
+   */
+  async rejectByTutor(supabaseId: string, bookingId: string) {
+    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
+    if (!user) throw new BadRequestException();
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { tutor: { select: { userId: true } } },
+    });
+    if (!booking) throw new NotFoundException();
+    if (booking.tutor.userId !== user.id) throw new ForbiddenException();
+    if (booking.sessionType === "group") {
+      throw new BadRequestException(
+        "คลาสกลุ่มปฏิเสธผ่านระบบกลุ่ม (ใช้ปุ่ม “ไม่อนุมัติ” ในกล่องรอตรวจสอบ)",
+      );
+    }
+    if (booking.status !== "requested") {
+      throw new BadRequestException(
+        "ปฏิเสธได้เฉพาะคำขอที่ยังไม่ได้รับงานเท่านั้น",
+      );
+    }
+    const updated = await this.prisma.booking.update({
+      where: { id: bookingId },
+      data: { status: "rejected" },
+    });
+    this.logger.log(
+      JSON.stringify({
+        event: "booking_rejected_by_tutor",
+        bookingId: updated.id,
+        tutorId: updated.tutorId,
+        studentId: updated.studentId,
+        tutorUserId: user.id,
+        scheduledAt: updated.scheduledAt.toISOString(),
+      }),
+    );
+    return { ...updated, hasReview: false, viewerSide: "tutor" as const };
+  }
+
   async accept(supabaseId: string, bookingId: string) {
     const user = await this.prisma.user.findUnique({ where: { supabaseId } });
     if (!user) throw new BadRequestException();

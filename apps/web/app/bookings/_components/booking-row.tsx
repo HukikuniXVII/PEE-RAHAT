@@ -10,6 +10,7 @@ import {
   Clock,
   Loader2,
   Star,
+  ThumbsDown,
   ThumbsUp,
   Trash2,
   Video,
@@ -49,6 +50,7 @@ export function BookingRow({ booking }: Props) {
   const [reviewing, setReviewing] = useState(false);
   const [postponing, setPostponing] = useState(false);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [confirmingReject, setConfirmingReject] = useState(false);
 
   const status = STATUS_COPY[booking.status];
 
@@ -112,6 +114,25 @@ export function BookingRow({ booking }: Props) {
     isStudent &&
     booking.sessionType !== "group" &&
     (booking.status === "requested" || booking.status === "accepted");
+
+  // FR-TH-06: tutor-side reject for still-requested 1-on-1 bookings.
+  // Replaces the implicit "let it expire after 24h" UX with an explicit
+  // action. Once accepted, tutor uses postpone instead.
+  const rejectTutor = useMutation({
+    mutationFn: () => createApiClient().bookings.reject(booking.id),
+    onSuccess: () => {
+      setConfirmingReject(false);
+      queryClient.invalidateQueries({ queryKey: ["bookings", "mine"] });
+      toast.success("ปฏิเสธคำขอเรียบร้อย");
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "ปฏิเสธไม่สำเร็จ");
+    },
+  });
+  const tutorRejectable =
+    booking.viewerSide === "tutor" &&
+    booking.sessionType !== "group" &&
+    booking.status === "requested";
 
   return (
     <motion.div
@@ -197,6 +218,16 @@ export function BookingRow({ booking }: Props) {
               )}
               Accept (Tutor)
             </Button>
+          )}
+          {tutorRejectable && (
+            <button
+              type="button"
+              onClick={() => setConfirmingReject(true)}
+              className="px-4 py-2.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl font-bold text-sm hover:bg-rose-100 transition-all flex items-center gap-2"
+            >
+              <ThumbsDown size={14} />
+              ปฏิเสธคำขอ
+            </button>
           )}
           {booking.status === "accepted" && booking.viewerSide === "student" && (
             <Button onClick={() => setPaying(true)}>
@@ -307,6 +338,53 @@ export function BookingRow({ booking }: Props) {
             router.push(`/chat?thread=${threadId}`);
           }}
         />
+      )}
+
+      {confirmingReject && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4"
+          onClick={() =>
+            !rejectTutor.isPending && setConfirmingReject(false)
+          }
+        >
+          <div
+            className="bg-white rounded-[28px] shadow-xl max-w-md w-full p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="space-y-2">
+              <h3 className="text-lg font-bold text-slate-900">
+                ยืนยันปฏิเสธคำขอ?
+              </h3>
+              <p className="text-sm text-slate-500 leading-relaxed">
+                คุณกำลังจะปฏิเสธคำขอเรียน {booking.subject} วันที่{" "}
+                {formatDateTime(booking.scheduledAt)}. นักเรียนจะได้รับแจ้งว่าคำขอ
+                ถูกปฏิเสธ และตารางเวลาจะถูกปลดบล็อก — กดยืนยันแล้วจะไม่สามารถ
+                ย้อนกลับได้
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                disabled={rejectTutor.isPending}
+                onClick={() => setConfirmingReject(false)}
+                className="px-4 py-3 rounded-2xl bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 disabled:opacity-40"
+              >
+                ไม่ปฏิเสธ
+              </button>
+              <button
+                type="button"
+                disabled={rejectTutor.isPending}
+                onClick={() => rejectTutor.mutate()}
+                className="px-4 py-3 rounded-2xl bg-rose-600 text-white text-sm font-bold hover:bg-rose-700 disabled:opacity-40 flex items-center justify-center gap-2"
+              >
+                {rejectTutor.isPending && (
+                  <Loader2 size={14} className="animate-spin" />
+                )}
+                ยืนยันปฏิเสธ
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {confirmingCancel && (
