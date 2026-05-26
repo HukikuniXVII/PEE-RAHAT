@@ -118,6 +118,21 @@ export function buildPromptPayPayload(amountThb: number): string {
   return `promptpay-stub:amount=${amountThb}`;
 }
 
+// One-shot prod warning when the env is missing — the stub QR is
+// expected in dev (storage.local backend) but in prod it means a
+// misconfig and create-intent will silently ship an unscannable code.
+// Fires once at module load instead of per call, so prod logs aren't
+// flooded but the signal is still there at startup.
+if (
+  process.env.NODE_ENV === "production" &&
+  !process.env.PROMPTPAY_MERCHANT_ID
+) {
+  // eslint-disable-next-line no-console
+  console.warn(
+    "[promptpay] PROMPTPAY_MERCHANT_ID is not set — buildPromptPayPayload() will return the `promptpay-stub:` placeholder. Configure the env before escrow goes live.",
+  );
+}
+
 // ─── Round-trip parser ────────────────────────────────────────────────────
 // Used by tests / verification scripts. Not consumed by the runtime path,
 // but the encoder is too easy to silently break — keeping the inverse in

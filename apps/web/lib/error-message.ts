@@ -8,6 +8,10 @@
  * side: errors thrown by createApiClient() carry { statusCode, code, details }
  * via Object.assign on the Error instance.
  */
+/** Default Thai copy for "we don't know what happened" errors. Exported so
+ *  the global MutationCache fallback in providers.tsx can stay in sync. */
+export const GENERIC_ERROR_MESSAGE = "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง";
+
 interface ApiClientError {
   statusCode?: number;
   code?: string;
@@ -19,7 +23,7 @@ export function getErrorMessage(error: unknown): string {
     return "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต";
   }
   if (!error || typeof error !== "object") {
-    return "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง";
+    return GENERIC_ERROR_MESSAGE;
   }
   const e = error as ApiClientError;
 
@@ -48,7 +52,7 @@ export function getErrorMessage(error: unknown): string {
   if (typeof e.statusCode === "number" && e.statusCode >= 500) {
     return "ระบบขัดข้อง กรุณาลองใหม่อีกครั้ง";
   }
-  return "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง";
+  return GENERIC_ERROR_MESSAGE;
 }
 
 /**
@@ -69,7 +73,7 @@ export function supabaseAuthErrorMessage(error: unknown): string {
     const m = (error as { message?: unknown }).message;
     if (typeof m === "string") raw = m;
   }
-  if (!raw) return "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง";
+  if (!raw) return GENERIC_ERROR_MESSAGE;
 
   const m = raw.toLowerCase();
   if (m.includes("unsupported provider") || m.includes("provider is not enabled")) {
@@ -90,5 +94,5 @@ export function supabaseAuthErrorMessage(error: unknown): string {
   if (m.includes("rate limit") || m.includes("over_email_send_rate_limit")) {
     return "ส่งคำขอบ่อยเกินไป กรุณารอสักครู่";
   }
-  return "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง";
+  return GENERIC_ERROR_MESSAGE;
 }

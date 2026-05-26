@@ -9,9 +9,11 @@ import {
 import { useState } from "react";
 import { Toaster, toast } from "sonner";
 
+import { GENERIC_ERROR_MESSAGE } from "@/lib/error-message";
+
 function errorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
-  return "Something went wrong";
+  return GENERIC_ERROR_MESSAGE;
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {

@@ -951,7 +951,7 @@ export function createApiClient(opts: ApiClientOptions = {}) {
             body: file,
           });
           if (!put.ok && !isStub) {
-            throw new Error(`Upload failed: ${put.status}`);
+            throw new Error(`อัปโหลดไม่สำเร็จ: ${put.status}`);
           }
         } catch (err) {
           if (!isStub) throw err;
