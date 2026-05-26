@@ -7,7 +7,7 @@ import type {
   UserRole,
 } from "@peerahat/types";
 import { cn } from "@peerahat/ui";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   Eye,
@@ -19,9 +19,9 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 
 import { createApiClient } from "@/lib/api-client";
+import { useMutationWithToast } from "@/lib/hooks/use-mutation-with-toast";
 
 interface Props {
   initial: AdminUserPage;
@@ -188,7 +188,7 @@ function UserRow({
     user.tutorHiddenFromSearchAt,
   );
 
-  const setVisibility = useMutation({
+  const setVisibility = useMutationWithToast({
     mutationFn: ({
       tutorProfileId,
       hidden,
@@ -197,17 +197,14 @@ function UserRow({
       hidden: boolean;
     }) =>
       createApiClient().admin.setTutorVisibility(tutorProfileId, { hidden }),
+    successMessage: (res) =>
+      res.hiddenFromSearchAt
+        ? "ซ่อนติวเตอร์จาก /tutors แล้ว"
+        : "แสดงติวเตอร์ใน /tutors แล้ว",
+    errorMessage: true,
     onSuccess: (res) => {
       setHiddenAt(res.hiddenFromSearchAt ?? undefined);
-      toast.success(
-        res.hiddenFromSearchAt
-          ? "ซ่อนติวเตอร์จาก /tutors แล้ว"
-          : "แสดงติวเตอร์ใน /tutors แล้ว",
-      );
       onChanged();
-    },
-    onError: (err) => {
-      toast.error(err instanceof Error ? err.message : "บันทึกไม่สำเร็จ");
     },
   });
 
@@ -320,7 +317,7 @@ function EditUserModal({
   const dirty = displayName.trim() !== user.displayName || role !== user.role;
   const wouldDemoteSelf = isSelf && role !== "admin";
 
-  const save = useMutation({
+  const save = useMutationWithToast({
     mutationFn: () => {
       const dto: UpdateAdminUserDto = {};
       if (displayName.trim() !== user.displayName)
@@ -328,12 +325,9 @@ function EditUserModal({
       if (role !== user.role) dto.role = role;
       return createApiClient().admin.users.update(user.id, dto);
     },
-    onSuccess: () => {
-      toast.success("บันทึกแล้ว");
-      onSaved();
-    },
-    onError: (e) =>
-      toast.error(e instanceof Error ? e.message : "บันทึกไม่สำเร็จ"),
+    successMessage: "บันทึกแล้ว",
+    errorMessage: true,
+    onSuccess: onSaved,
   });
 
   return (

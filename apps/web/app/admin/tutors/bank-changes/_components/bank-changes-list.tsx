@@ -1,12 +1,12 @@
 "use client";
 
 import type { AdminBankChangeItem } from "@peerahat/types";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Clock, X } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 
 import { createApiClient } from "@/lib/api-client";
+import { useMutationWithToast } from "@/lib/hooks/use-mutation-with-toast";
 
 interface Props {
   initial: AdminBankChangeItem[];
@@ -62,21 +62,17 @@ function BankChangeRow({
 }) {
   const [showFull, setShowFull] = useState(false);
 
-  const approve = useMutation({
+  const approve = useMutationWithToast({
     mutationFn: () => createApiClient().admin.bankChanges.approve(item.tutorId),
-    onSuccess: () => {
-      toast.success("อนุมัติแล้ว");
-      onChanged();
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "อนุมัติไม่สำเร็จ"),
+    successMessage: "อนุมัติแล้ว",
+    errorMessage: true,
+    onSuccess: onChanged,
   });
-  const reject = useMutation({
+  const reject = useMutationWithToast({
     mutationFn: () => createApiClient().admin.bankChanges.reject(item.tutorId),
-    onSuccess: () => {
-      toast.success("ปฏิเสธคำขอแล้ว");
-      onChanged();
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "ปฏิเสธไม่สำเร็จ"),
+    successMessage: "ปฏิเสธคำขอแล้ว",
+    errorMessage: true,
+    onSuccess: onChanged,
   });
 
   const pending = item.pending;

@@ -2,12 +2,12 @@
 
 import type { AdminPaymentRow } from "@peerahat/types";
 import { Button, cn } from "@peerahat/ui";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 
 import { createApiClient } from "@/lib/api-client";
+import { useMutationWithToast } from "@/lib/hooks/use-mutation-with-toast";
 
 type Tab = "pending" | "success" | "failed";
 
@@ -55,7 +55,6 @@ export function PaymentsTable({
   initialSuccess,
   initialFailed,
 }: Props) {
-  const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("pending");
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -79,25 +78,23 @@ export function PaymentsTable({
     initialData: initialFailed,
   });
 
-  const approve = useMutation({
+  const approve = useMutationWithToast({
     mutationFn: (id: string) => createApiClient().admin.approvePayment(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin", "payments"] });
-      toast.success("อนุมัติการชำระเงินแล้ว");
-    },
-    onError: (e) => toast.error(e.message),
+    successMessage: "อนุมัติการชำระเงินแล้ว",
+    errorMessage: true,
+    invalidateKeys: [["admin", "payments"]],
   });
 
-  const reject = useMutation({
+  const reject = useMutationWithToast({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       createApiClient().admin.rejectPayment(id, reason),
+    successMessage: "ปฏิเสธสลิปแล้ว",
+    errorMessage: true,
+    invalidateKeys: [["admin", "payments"]],
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin", "payments"] });
       setRejectingId(null);
       setRejectReason("");
-      toast.success("ปฏิเสธสลิปแล้ว");
     },
-    onError: (e) => toast.error(e.message),
   });
 
   const rows =

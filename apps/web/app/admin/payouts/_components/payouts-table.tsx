@@ -2,7 +2,7 @@
 
 import type { AdminPayoutQueueGroup, AdminPayoutRow } from "@peerahat/types";
 import { Button, cn } from "@peerahat/ui";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2,
   CircleSlash,
@@ -18,6 +18,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { createApiClient } from "@/lib/api-client";
+import { useMutationWithToast } from "@/lib/hooks/use-mutation-with-toast";
 
 interface Props {
   initialUnpaid: AdminPayoutRow[];
@@ -76,16 +77,14 @@ export function PayoutsTable({ initialUnpaid, initialPaid }: Props) {
     queryFn: () => createApiClient().admin.payoutQueue(),
   });
 
-  const generate = useMutation({
+  const generate = useMutationWithToast({
     mutationFn: () =>
       createApiClient().admin.generatePayoutBatch({
         batchDate: new Date(batchDate).toISOString(),
       }),
-    onSuccess: (res) => {
-      queryClient.invalidateQueries({ queryKey: ["admin", "payouts"] });
-      toast.success(`สร้าง batch แล้ว: ${res.count} รายการ`);
-    },
-    onError: (e) => toast.error(e.message),
+    successMessage: (res) => `สร้าง batch แล้ว: ${res.count} รายการ`,
+    errorMessage: true,
+    invalidateKeys: [["admin", "payouts"]],
   });
 
   const [transferring, setTransferring] = useState<AdminPayoutRow | null>(null);

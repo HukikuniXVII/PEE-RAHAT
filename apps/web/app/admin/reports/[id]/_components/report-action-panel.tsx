@@ -9,12 +9,11 @@ import {
   type ResolveReportDto,
 } from "@peerahat/types";
 import { Button, cn } from "@peerahat/ui";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 
 import { createApiClient } from "@/lib/api-client";
+import { useMutationWithToast } from "@/lib/hooks/use-mutation-with-toast";
 
 /** Statuses the admin can set directly — resolving / duplicating have their
  *  own flows below. */
@@ -48,7 +47,6 @@ interface Props {
 }
 
 export function ReportActionPanel({ report, adminUserId }: Props) {
-  const queryClient = useQueryClient();
   const closed = ["resolved", "rejected", "duplicate"].includes(report.status);
 
   const [status, setStatus] = useState<ReportStatus>(
@@ -66,55 +64,44 @@ export function ReportActionPanel({ report, adminUserId }: Props) {
   const [suspensionDays, setSuspensionDays] = useState(7);
   const [split, setSplit] = useState({ student: 100, tutor: 0, platform: 0 });
 
-  const invalidate = () =>
-    queryClient.invalidateQueries({
-      queryKey: ["admin", "reports", "detail", report.id],
-    });
   const api = () => createApiClient().admin.reports;
+  const invalidateKeys = [["admin", "reports", "detail", report.id]] as const;
 
-  const assign = useMutation({
+  const assign = useMutationWithToast({
     mutationFn: () => api().assign(report.id, adminUserId),
-    onSuccess: () => {
-      toast.success("รับเรื่องแล้ว");
-      void invalidate();
-    },
-    meta: { toast: "มอบหมายไม่สำเร็จ" },
+    successMessage: "รับเรื่องแล้ว",
+    errorMessage: "มอบหมายไม่สำเร็จ",
+    invalidateKeys,
   });
 
-  const updateStatus = useMutation({
+  const updateStatus = useMutationWithToast({
     mutationFn: () =>
       api().updateStatus(report.id, {
         status,
         note: statusNote.trim() || undefined,
       }),
-    onSuccess: () => {
-      toast.success("อัปเดตสถานะแล้ว");
-      setStatusNote("");
-      void invalidate();
-    },
-    meta: { toast: "อัปเดตสถานะไม่สำเร็จ" },
+    successMessage: "อัปเดตสถานะแล้ว",
+    errorMessage: "อัปเดตสถานะไม่สำเร็จ",
+    invalidateKeys,
+    onSuccess: () => setStatusNote(""),
   });
 
-  const addNote = useMutation({
+  const addNote = useMutationWithToast({
     mutationFn: () => api().addNote(report.id, note.trim()),
-    onSuccess: () => {
-      toast.success("บันทึกโน้ตแล้ว");
-      setNote("");
-      void invalidate();
-    },
-    meta: { toast: "บันทึกโน้ตไม่สำเร็จ" },
+    successMessage: "บันทึกโน้ตแล้ว",
+    errorMessage: "บันทึกโน้ตไม่สำเร็จ",
+    invalidateKeys,
+    onSuccess: () => setNote(""),
   });
 
-  const markDuplicate = useMutation({
+  const markDuplicate = useMutationWithToast({
     mutationFn: () => api().markDuplicate(report.id, duplicateOf.trim()),
-    onSuccess: () => {
-      toast.success("ทำเครื่องหมายว่าซ้ำแล้ว");
-      void invalidate();
-    },
-    meta: { toast: "ทำเครื่องหมายไม่สำเร็จ" },
+    successMessage: "ทำเครื่องหมายว่าซ้ำแล้ว",
+    errorMessage: "ทำเครื่องหมายไม่สำเร็จ",
+    invalidateKeys,
   });
 
-  const resolve = useMutation({
+  const resolve = useMutationWithToast({
     mutationFn: () => {
       const dto: ResolveReportDto = {
         resolution,
@@ -135,11 +122,9 @@ export function ReportActionPanel({ report, adminUserId }: Props) {
       };
       return api().resolve(report.id, dto);
     },
-    onSuccess: () => {
-      toast.success("ปิดเรื่องเรียบร้อย");
-      void invalidate();
-    },
-    meta: { toast: "ปิดเรื่องไม่สำเร็จ" },
+    successMessage: "ปิดเรื่องเรียบร้อย",
+    errorMessage: "ปิดเรื่องไม่สำเร็จ",
+    invalidateKeys,
   });
 
   const splitSum = split.student + split.tutor + split.platform;
