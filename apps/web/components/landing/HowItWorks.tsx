@@ -31,11 +31,11 @@ const STEPS = [
 
 export function HowItWorks() {
   return (
-    <div className="flex-1 flex items-center justify-center px-16">
+    <div className="flex-1 flex items-center justify-center px-5 md:px-16 py-12 md:py-0">
       <div className="w-full max-w-[1200px] mx-auto">
 
         {/* Header */}
-        <div className="text-center mb-14">
+        <div className="text-center mb-10 md:mb-14">
           <div className="inline-flex items-center gap-2 thai text-[13px] font-semibold text-dusty-grape border border-dusty-grape/25 rounded-full px-4 py-1.5 bg-white/50 backdrop-blur-sm mb-5">
             <Sparkles size={12} />
             พี่รหัสทำงานยังไง?
@@ -49,7 +49,7 @@ export function HowItWorks() {
         </div>
 
         {/* Steps */}
-        <div className="relative grid grid-cols-4 gap-0">
+        <div className="relative grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-y-8 sm:gap-y-10 md:gap-0">
 
           {/* Gradient connector line */}
           <div

@@ -15,7 +15,7 @@ export default async function HomePage() {
   return (
     <div
       id="snap-root"
-      className="h-screen overflow-y-scroll snap-y snap-mandatory no-scrollbar"
+      className="md:h-screen md:overflow-y-scroll md:snap-y md:snap-mandatory no-scrollbar"
     >
       <SnapLock />
 
@@ -25,7 +25,7 @@ export default async function HomePage() {
          The slim LandingFooter is rendered `sr-only` here — invisible to
          users but still in the DOM so the home page exposes a crawlable
          Privacy-policy link. The full visual footer lives in section 3. */}
-      <section className="landing-page h-screen snap-start snap-always flex flex-col">
+      <section className="landing-page min-h-screen md:h-screen md:snap-start md:snap-always flex flex-col">
         <Nav />
         <Hero />
         <div className="sr-only">
@@ -36,7 +36,7 @@ export default async function HomePage() {
       {/* ── Section 2: อะไรคือพี่รหัส? + ฟีเจอร์ ── */}
       <section
         id="about"
-        className="h-screen snap-start snap-always flex flex-col"
+        className="min-h-screen md:h-screen md:snap-start md:snap-always flex flex-col"
         style={{
           background:
             "radial-gradient(60% 50% at 80% 90%, rgba(125,128,218,0.18) 0%, transparent 65%)," +
@@ -50,7 +50,7 @@ export default async function HomePage() {
       {/* ── Section 3: พี่รหัสทำงานยังไง? ── */}
       <section
         id="how"
-        className="h-screen snap-start snap-always flex flex-col"
+        className="min-h-screen md:h-screen md:snap-start md:snap-always flex flex-col"
         style={{
           background:
             "radial-gradient(55% 45% at 85% 15%, rgba(187,160,160,0.24) 0%, transparent 60%)," +

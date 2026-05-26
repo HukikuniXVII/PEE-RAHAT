@@ -9,7 +9,15 @@ import {
 } from "@peerahat/types";
 import { Button, cn } from "@peerahat/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Flag, Lock, Send, ShieldCheck, Video } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronLeft,
+  Flag,
+  Lock,
+  Send,
+  ShieldCheck,
+  Video,
+} from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -26,6 +34,10 @@ type ComposerValues = z.infer<typeof composerSchema>;
 interface Props {
   thread: ChatThread;
   initialMessages: ChatMessage[];
+  /** When provided, a mobile-only back button in the header invokes
+   *  this callback. Used by ThreadsList's split-pane layout to return
+   *  to the conversation list on small screens. */
+  onBack?: () => void;
 }
 
 function formatTime(iso: string): string {
@@ -62,7 +74,7 @@ function initialsOf(name: string): string {
   );
 }
 
-export function ChatRoom({ thread, initialMessages }: Props) {
+export function ChatRoom({ thread, initialMessages, onBack }: Props) {
   const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
   const { counterparty } = thread;
@@ -135,8 +147,18 @@ export function ChatRoom({ thread, initialMessages }: Props) {
   const isMine = (m: ChatMessage) => m.authorId === thread.viewerUserId;
 
   return (
-    <div className="max-w-3xl mx-auto bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[80vh]">
-      <header className="px-6 py-5 border-b border-slate-100 flex items-center gap-4">
+    <div className="max-w-3xl mx-auto bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[calc(100dvh-160px)] md:h-[80vh]">
+      <header className="px-4 md:px-6 py-4 md:py-5 border-b border-slate-100 flex items-center gap-3 md:gap-4">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="กลับไปยังรายการบทสนทนา"
+            className="md:hidden -ml-1 mr-1 inline-flex items-center justify-center w-9 h-9 rounded-full hover:bg-slate-100 text-slate-600 transition-colors"
+          >
+            <ChevronLeft size={20} />
+          </button>
+        )}
         {counterparty.avatarUrl ? (
           <img
             src={counterparty.avatarUrl}

@@ -13,6 +13,10 @@ import { ChatRoom } from "./chat-room";
 
 interface Props {
   initialThreads: ChatThread[];
+  /** Preselect a thread on first render. Used by /chat?with=<tutorId>
+   *  and /chat?thread=<threadId> so every chat entry lands in the
+   *  split-pane view with the target conversation already active. */
+  initialSelectedId?: string | null;
 }
 
 function formatRelative(iso: string): string {
@@ -42,7 +46,7 @@ function initialsOf(name: string): string {
   );
 }
 
-export function ThreadsList({ initialThreads }: Props) {
+export function ThreadsList({ initialThreads, initialSelectedId = null }: Props) {
   const { data } = useQuery({
     queryKey: ["chat", "threads"],
     queryFn: () => createApiClient().chat.threads(),
@@ -52,9 +56,9 @@ export function ThreadsList({ initialThreads }: Props) {
   const allThreads = data ?? initialThreads;
   const [search, setSearch] = useState("");
   // Split-pane state: clicking a thread row activates it inline in the
-  // right column. The deep-link route /chat/thread/[id] still exists for
-  // SSR + share-links but is no longer used as the primary interaction.
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // right column. Server preselection comes in via initialSelectedId
+  // when the page receives `?with=<tutorId>` or `?thread=<threadId>`.
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
   const selectedThread = useMemo(
     () => allThreads.find((t) => t.id === selectedId) ?? null,
     [allThreads, selectedId],
@@ -80,9 +84,9 @@ export function ThreadsList({ initialThreads }: Props) {
     // active chat on the right. Render the empty state in the right
     // column already so the first thread doesn't trigger a layout jump.
     return (
-      <div className="grid lg:grid-cols-[280px_1fr] gap-6">
+      <div className="grid md:grid-cols-[280px_1fr] gap-6">
         {/* Left — placeholder for the contacts list */}
-        <aside className="hidden lg:block">
+        <aside className="hidden md:block">
           <div className="bg-white/50 border border-dashed border-violet-200 rounded-[28px] p-6 min-h-[420px] flex items-center justify-center">
             <div className="text-center space-y-2">
               <MessagesSquare
@@ -124,9 +128,16 @@ export function ThreadsList({ initialThreads }: Props) {
   // Split-pane layout: left = conversation list, right = active chat
   // (or a placeholder when nothing is selected). Mirrors the empty state
   // so the page doesn't visually re-flow when the first thread arrives.
+  // On mobile (<md) the list and chat swap places: opening a thread
+  // hides the list and shows the chat full-width with a back button.
   return (
-    <div className="grid lg:grid-cols-[280px_1fr] gap-6">
-      <aside className="space-y-3 min-w-0">
+    <div className="grid md:grid-cols-[280px_1fr] gap-6">
+      <aside
+        className={cn(
+          "space-y-3 min-w-0",
+          selectedThread ? "hidden md:block" : "block",
+        )}
+      >
         <div className="relative">
           <Search
             size={16}
@@ -238,19 +249,19 @@ export function ThreadsList({ initialThreads }: Props) {
       {/* Right pane — placeholder when nothing is selected, ChatRoom
           when a thread is active. On mobile the right pane only renders
           once a thread is picked so the list isn't pushed off-screen.
-          ChatRoom hydrates messages itself via useQuery, so passing an
-          empty initialMessages is safe — the deep-link /chat/thread/[id]
-          SSR path is the only place that pre-fetches them. */}
+          ChatRoom hydrates messages itself via useQuery so passing an
+          empty initialMessages is safe. */}
       {selectedThread ? (
         <div className="bg-white rounded-[32px] border border-violet-100 shadow-[0_8px_24px_-16px_rgba(85,65,139,0.25)] overflow-hidden min-h-[420px]">
           <ChatRoom
             key={selectedThread.id}
             thread={selectedThread}
             initialMessages={[]}
+            onBack={() => setSelectedId(null)}
           />
         </div>
       ) : (
-        <div className="hidden lg:flex bg-white p-10 rounded-[32px] border border-violet-100 shadow-[0_8px_24px_-16px_rgba(85,65,139,0.25)] text-center flex-col items-center justify-center gap-3 min-h-[420px]">
+        <div className="hidden md:flex bg-white p-10 rounded-[32px] border border-violet-100 shadow-[0_8px_24px_-16px_rgba(85,65,139,0.25)] text-center flex-col items-center justify-center gap-3 min-h-[420px]">
           <MessagesSquare
             size={28}
             className="text-violet-300"

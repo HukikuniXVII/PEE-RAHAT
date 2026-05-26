@@ -385,15 +385,49 @@ export function SiteNav({ initialUser, initialThreads }: Props) {
                     </p>
                   </div>
                 </Link>
-                {!isTutor && (
-                  <Link
-                    href={"/account/reports" as Route}
-                    onClick={() => setIsMenuOpen(false)}
-                    className="w-full text-left px-5 py-4 rounded-2xl text-base font-semibold flex items-center gap-4 text-violet-700/80 hover:bg-grape-soft/60 hover:text-dusty-grape transition-colors"
-                  >
-                    <Flag size={20} />
-                    My Reports
-                  </Link>
+                {isTutor && tutorProfileId ? (
+                  <>
+                    <Link
+                      href={`/tutors/${tutorProfileId}` as Route}
+                      onClick={() => setIsMenuOpen(false)}
+                      className="w-full text-left px-5 py-4 rounded-2xl text-base font-semibold flex items-center gap-4 text-violet-700/80 hover:bg-grape-soft hover:text-dusty-grape transition-colors"
+                    >
+                      <GraduationCap size={20} />
+                      My Profile
+                    </Link>
+                    <Link
+                      href={"/tutors/me/bank" as Route}
+                      onClick={() => setIsMenuOpen(false)}
+                      className="w-full text-left px-5 py-4 rounded-2xl text-base font-semibold flex items-center gap-4 text-violet-700/80 hover:bg-grape-soft hover:text-dusty-grape transition-colors"
+                    >
+                      <Wallet size={20} />
+                      <span className="thai">บัญชีรับเงิน</span>
+                    </Link>
+                  </>
+                ) : (
+                  !isAdmin && (
+                    <>
+                      <Link
+                        href={"/tutors/onboarding" as Route}
+                        onClick={() => setIsMenuOpen(false)}
+                        className="w-full text-left px-5 py-4 rounded-2xl text-base font-semibold flex items-center gap-4 text-violet-700/80 hover:bg-grape-soft hover:text-dusty-grape transition-colors"
+                      >
+                        <GraduationCap size={20} />
+                        <span className="thai">เป็นพี่รหัส (KYC)</span>
+                      </Link>
+                      {/* FR-CM-05: students see their own filed reports.
+                          Tutors don't get this link — their report view
+                          lives in a future tutor-side surface. */}
+                      <Link
+                        href={"/account/reports" as Route}
+                        onClick={() => setIsMenuOpen(false)}
+                        className="w-full text-left px-5 py-4 rounded-2xl text-base font-semibold flex items-center gap-4 text-violet-700/80 hover:bg-grape-soft/60 hover:text-dusty-grape transition-colors"
+                      >
+                        <Flag size={20} />
+                        My Reports
+                      </Link>
+                    </>
+                  )
                 )}
                 {isAdmin && (
                   <Link

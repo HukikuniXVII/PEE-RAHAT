@@ -27,7 +27,7 @@ export function ScheduleEvent({ booking, layout = "horizontal" }: Props) {
   });
 
   const href = booking.chatThreadId
-    ? (`/chat/thread/${booking.chatThreadId}` as Route)
+    ? (`/chat?thread=${booking.chatThreadId}` as Route)
     : ("/bookings" as Route);
 
   // FR-TH-17: surface a small Meet icon when the Meet link is present.

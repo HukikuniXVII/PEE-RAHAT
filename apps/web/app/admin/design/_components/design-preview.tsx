@@ -65,11 +65,8 @@ const ROUTE_GROUPS: RouteGroup[] = [
       { path: "/bookings", label: "Bookings — /bookings" },
       { path: "/bookings?view=list", label: "Bookings list view — /bookings?view=list" },
       { path: "/chat", label: "Chat threads — /chat" },
-      { path: "/chat/[id]", label: "Chat with tutor — /chat/:id" },
-      {
-        path: "/chat/thread/[threadId]",
-        label: "Chat by thread — /chat/thread/:threadId",
-      },
+      { path: "/chat?with=[id]", label: "Chat with tutor — /chat?with=:id" },
+      { path: "/chat?thread=[id]", label: "Chat by thread — /chat?thread=:id" },
       { path: "/community", label: "Community — /community" },
     ],
   },

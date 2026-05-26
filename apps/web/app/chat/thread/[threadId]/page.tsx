@@ -1,17 +1,12 @@
-import { asNotFound, createApiClient } from "@/lib/api-client";
-import { requireAuth } from "@/lib/auth";
-
-import { ChatRoom } from "../../_components/chat-room";
+import { redirect } from "next/navigation";
 
 interface Props {
   params: { threadId: string };
 }
 
-export default async function ChatThreadPage({ params }: Props) {
-  const token = await requireAuth(`/chat/thread/${params.threadId}`);
-  const api = createApiClient({ accessToken: token });
-  const thread = await asNotFound(api.chat.threadById(params.threadId));
-  const initialMessages = await api.chat.messages(thread.id);
-
-  return <ChatRoom thread={thread} initialMessages={initialMessages} />;
+// Legacy URL — chat deep-links now route through /chat?thread=<id> so
+// every conversation lives at one canonical URL. Kept here so older
+// bookmarks and booking-row links still land in the right place.
+export default function ChatThreadRedirect({ params }: Props) {
+  redirect(`/chat?thread=${encodeURIComponent(params.threadId)}`);
 }

@@ -47,9 +47,9 @@ export default async function TutorProfilePage({ params }: Props) {
   return (
     // pb-28 on mobile reserves space for the fixed booking bar.
     <HydrationBoundary state={dehydrate(queryClient)}>
-    <div className="max-w-6xl mx-auto pb-28 lg:pb-0">
-      <div className="grid lg:grid-cols-3 gap-8">
-        <main className="lg:col-span-2 space-y-8">
+    <div className="max-w-6xl mx-auto pb-28 md:pb-0">
+      <div className="grid md:grid-cols-3 gap-8">
+        <main className="md:col-span-2 space-y-8">
           <IntroVideo
             videoUrl={tutor.introVideoUrl}
             posterUrl={tutor.avatarUrl}
@@ -142,8 +142,8 @@ export default async function TutorProfilePage({ params }: Props) {
           />
         </main>
 
-        <aside className="hidden lg:block lg:col-span-1">
-          <div className="lg:sticky lg:top-24 space-y-6">
+        <aside className="hidden md:block md:col-span-1">
+          <div className="md:sticky md:top-24 space-y-6">
             <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm p-7 space-y-6">
               <div className="space-y-1">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -181,7 +181,7 @@ export default async function TutorProfilePage({ params }: Props) {
       </div>
 
       {/* Sticky mobile booking CTA */}
-      <div className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-slate-200 px-4 py-3 shadow-[0_-8px_24px_-12px_rgba(15,23,42,0.18)]">
+      <div className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-slate-200 px-4 py-3 shadow-[0_-8px_24px_-12px_rgba(15,23,42,0.18)]">
         <div className="max-w-6xl mx-auto flex items-center gap-3">
           <div className="flex-1 min-w-0">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">

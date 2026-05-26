@@ -640,8 +640,7 @@ function HomePage(props: {
 
   return (
     <div
-      className="grid gap-4"
-      style={{ gridTemplateColumns: "minmax(220px, 240px) 1fr minmax(240px, 268px)" }}
+      className="grid gap-4 md:[grid-template-columns:minmax(220px,240px)_1fr_minmax(240px,268px)]"
     >
       <FilterSidebar
         programs={programsInRound}
@@ -705,10 +704,7 @@ function HomePage(props: {
           </select>
         </div>
 
-        <div
-          className="grid gap-4"
-          style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}
-        >
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
           {visibleTiles.map((p) => (
             <ProgramCard
               key={p.id}
@@ -1081,7 +1077,7 @@ function FilterSidebar({
   }
 
   return (
-    <aside className="rounded-2xl bg-white p-4 self-start sticky top-24 border border-[rgba(85,65,139,0.10)] shadow-[0_1px_0_rgba(85,65,139,0.04)]">
+    <aside className="rounded-2xl bg-white p-4 self-start md:sticky md:top-24 border border-[rgba(85,65,139,0.10)] shadow-[0_1px_0_rgba(85,65,139,0.04)]">
       <div className="flex items-center gap-2 mb-4">
         <Filter size={14} className="text-grape-deep" />
         <p className="thai text-[12.5px] font-bold text-grape-deep">Filter</p>
@@ -1641,7 +1637,7 @@ function CalendarWidget({
   events.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 
   return (
-    <aside className="rounded-2xl bg-white p-4 self-start sticky top-24 border border-[rgba(85,65,139,0.10)] shadow-[0_1px_0_rgba(85,65,139,0.04),0_18px_40px_-22px_rgba(85,65,139,0.25)] flex flex-col">
+    <aside className="rounded-2xl bg-white p-4 self-start md:sticky md:top-24 border border-[rgba(85,65,139,0.10)] shadow-[0_1px_0_rgba(85,65,139,0.04),0_18px_40px_-22px_rgba(85,65,139,0.25)] flex flex-col">
       <div className="flex items-center gap-2 mb-1">
         <span className="text-[14px]">📅</span>
         <p className="thai text-[12.5px] font-bold text-grape-deep">
@@ -1839,10 +1835,7 @@ function DetailPage({
   })();
 
   return (
-    <div
-      className="grid gap-4"
-      style={{ gridTemplateColumns: "1fr minmax(260px, 288px)" }}
-    >
+    <div className="grid gap-4 md:[grid-template-columns:1fr_minmax(260px,288px)]">
       <main className="space-y-3 min-w-0">
         <button
           type="button"
