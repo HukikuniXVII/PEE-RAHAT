@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import {
+  REPORT_CLOSED_STATUSES,
   REPORT_STATUS_LABELS,
   REPORT_TARGET_LABELS,
   type AdminReportDetail,
@@ -24,7 +25,7 @@ import { ReportResolutionService } from "./report-resolution.service";
 import { TargetResolverService } from "./target-resolver.service";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const CLOSED = new Set<ReportStatus>(["resolved", "rejected", "duplicate"]);
+const CLOSED = new Set<ReportStatus>(REPORT_CLOSED_STATUSES);
 /** Cap on a queue page — the admin scale stays small in Phase 1. */
 const QUEUE_LIMIT = 200;
 
@@ -72,7 +73,7 @@ export class AdminReportsService {
     const reports = await this.prisma.report.findMany({
       where: {
         slaDeadline: { lt: new Date() },
-        status: { notIn: ["resolved", "rejected", "duplicate"] },
+        status: { notIn: [...REPORT_CLOSED_STATUSES] },
       },
       orderBy: [{ priority: "desc" }, { slaDeadline: "asc" }],
       take: QUEUE_LIMIT,

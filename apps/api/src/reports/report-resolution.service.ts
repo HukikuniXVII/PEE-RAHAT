@@ -4,8 +4,10 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import {
+  REPORT_CLOSED_STATUSES,
   REPORT_RESOLUTION_LABELS,
   type RefundSplitDto,
+  type ReportStatus,
   type ResolveReportDto,
 } from "@peerahat/types";
 import type { Prisma, Report } from "@prisma/client";
@@ -53,7 +55,7 @@ export class ReportResolutionService {
         where: { id: args.reportId },
       });
       if (!report) throw new NotFoundException("ไม่พบรายงาน");
-      if (["resolved", "rejected", "duplicate"].includes(report.status)) {
+      if (REPORT_CLOSED_STATUSES.includes(report.status as ReportStatus)) {
         throw new BadRequestException("รายงานนี้ถูกปิดไปแล้ว");
       }
 
