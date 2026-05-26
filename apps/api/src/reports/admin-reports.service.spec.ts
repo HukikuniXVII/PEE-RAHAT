@@ -49,7 +49,14 @@ function build(): { svc: AdminReportsService } & Mocks {
   const resolution = { execute: jest.fn().mockResolvedValue(undefined) };
   const audit = { recordAdminAction: jest.fn().mockResolvedValue({}) };
   const targetResolver = { resolve: jest.fn() };
-  const storage = { signDownload: jest.fn() };
+  const storage = {
+    signDownload: jest.fn(),
+    signEvidenceUrls: jest
+      .fn()
+      .mockImplementation((keys: string[]) =>
+        Promise.resolve(keys.map(() => "https://signed.example/x")),
+      ),
+  };
   const notifications = { notify: jest.fn().mockResolvedValue(undefined) };
   const svc = new AdminReportsService(
     prisma as unknown as PrismaService,
