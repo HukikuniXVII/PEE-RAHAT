@@ -71,14 +71,7 @@ export function ProfileEditForm({
     mutationFn: async (file: File) => {
       const api = createApiClient();
       const intent = await api.users.requestAvatarUpload(file.type);
-      const put = await fetch(intent.uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!put.ok && !intent.uploadUrl.startsWith("https://storage.local")) {
-        throw new Error(`Avatar upload failed: ${put.status}`);
-      }
+      await api.uploads.putPresigned(intent, file);
       return intent.publicUrl;
     },
     onSuccess: (url) => {

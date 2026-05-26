@@ -247,14 +247,7 @@ function BankEditDialog({
     mutationFn: async (file: File) => {
       const api = createApiClient();
       const intent = await api.kyc.requestUpload("passbook", file.type);
-      const put = await fetch(intent.uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!put.ok && !intent.uploadUrl.startsWith("https://storage.local")) {
-        throw new Error(`Upload failed: ${put.status}`);
-      }
+      await api.uploads.putPresigned(intent, file);
       return { objectKey: intent.objectKey, file };
     },
     onSuccess: ({ objectKey, file }) => {

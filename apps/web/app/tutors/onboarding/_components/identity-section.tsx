@@ -138,19 +138,7 @@ function PhotoRow({
     mutationFn: async (file: File) => {
       const api = createApiClient();
       const intent = await api.kyc.requestUpload(field, file.type);
-      // Dev stub: storage.local PUT fails at DNS resolution; same guard
-      // as the legacy onboarding-flow and bank-step upload handlers.
-      const isStub = intent.uploadUrl.startsWith("https://storage.local");
-      try {
-        const put = await fetch(intent.uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": file.type },
-          body: file,
-        });
-        if (!put.ok && !isStub) throw new Error(`Upload failed: ${put.status}`);
-      } catch (err) {
-        if (!isStub) throw err;
-      }
+      await api.uploads.putPresigned(intent, file);
       return { key: intent.objectKey, name: file.name };
     },
     onSuccess: ({ key, name }) => {

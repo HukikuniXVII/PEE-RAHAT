@@ -349,17 +349,7 @@ function BankSection({
     mutationFn: async (file: File) => {
       const api = createApiClient();
       const intent = await api.kyc.requestUpload("passbook", file.type);
-      const isStub = intent.uploadUrl.startsWith("https://storage.local");
-      try {
-        const put = await fetch(intent.uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": file.type },
-          body: file,
-        });
-        if (!put.ok && !isStub) throw new Error(`Upload failed: ${put.status}`);
-      } catch (err) {
-        if (!isStub) throw err;
-      }
+      await api.uploads.putPresigned(intent, file);
       return { objectKey: intent.objectKey, file };
     },
     onSuccess: ({ objectKey, file }) => {
