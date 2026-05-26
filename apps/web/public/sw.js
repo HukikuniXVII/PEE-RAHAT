@@ -11,7 +11,7 @@
 // Bump CACHE_VERSION whenever the offline shell or this script changes; old
 // caches are deleted during `activate`.
 
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const OFFLINE_CACHE = `peerahat-offline-${CACHE_VERSION}`;
 const STATIC_CACHE = `peerahat-static-${CACHE_VERSION}`;
 const OFFLINE_URL = "/offline";
@@ -86,3 +86,63 @@ async function cacheFirst(request) {
   if (fresh.ok) cache.put(request, fresh.clone());
   return fresh;
 }
+
+// ── FR-CM-08 Phase 3 — web push handlers ───────────────────────────────────
+//
+// Server sends JSON: { id, title, body, icon, badge, tag, data: { url, ... } }
+// Wrapped in a try/catch because the spec doesn't promise a payload
+// (some push servers may deliver an empty body) — fall back to a generic
+// "การแจ้งเตือนใหม่" notification so the user still sees something.
+//
+// notificationclick brings an existing tab to the foreground when it
+// matches data.url (so opening "/bookings/abc" doesn't spawn a second
+// tab if /bookings is already open) and falls back to clients.openWindow.
+
+self.addEventListener("push", (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = {};
+  }
+  const title = payload.title || "การแจ้งเตือนใหม่";
+  const options = {
+    body: payload.body || "",
+    icon: payload.icon || "/icon-192.png",
+    badge: payload.badge || "/icon-192.png",
+    tag: payload.tag || undefined,
+    data: payload.data || {},
+    renotify: false,
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || "/";
+  const absolute = new URL(target, self.location.origin).href;
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((all) => {
+        for (const client of all) {
+          // Same-origin tab already on the deep link → focus it instead
+          // of opening a new one.
+          if (client.url === absolute && "focus" in client) {
+            return client.focus();
+          }
+        }
+        for (const client of all) {
+          // Any other same-origin tab → navigate it to the deep link
+          // (less disruptive than spawning yet another window).
+          if (client.url.startsWith(self.location.origin) && "navigate" in client) {
+            return client.navigate(absolute).then((c) => c && c.focus());
+          }
+        }
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(absolute);
+        }
+        return undefined;
+      }),
+  );
+});

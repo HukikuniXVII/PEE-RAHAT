@@ -49,6 +49,7 @@ model User {
   reports                   Report[]          @relation("ReportsFiled")
   notifications             Notification[]
   notificationPreference    NotificationPreference?
+  pushSubscriptions         PushSubscription[]
   paymentIntents            PaymentIntent[]
   sentMessages              ChatMessage[]
   threadsAsStudent          ChatThread[]      @relation("StudentChat")
@@ -697,6 +698,10 @@ enum NotificationType {
   account_suspended
   kyc_approved
   kyc_rejected
+  // FR-CM-08 Phase 3: probe notification fired by the settings page's
+  // "ส่งทดสอบ" button so users can verify the bell + push permission
+  // without waiting on a real event.
+  system_test
 }
 
 /// FR-CM-08: every NotificationType maps to exactly one category. UI
@@ -753,6 +758,24 @@ model NotificationPreference {
   quietHoursEnd   Int?
   timezone        String   @default("Asia/Bangkok")
   updatedAt       DateTime @updatedAt
+}
+
+/// FR-CM-08 Phase 3 — one row per (user, browser-issued push endpoint).
+/// userAgent is captured at subscribe time so the settings page can
+/// show "Chrome on Windows" etc; lastSeenAt is bumped on each successful
+/// push so a future cleanup job can prune long-stale subscriptions.
+model PushSubscription {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 // ─── Payments & Escrow ─────────────────────────────────────────────────────

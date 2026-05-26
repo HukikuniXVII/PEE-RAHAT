@@ -131,6 +131,8 @@ export const notificationTypeSchema = z.enum([
   "account_suspended",
   "kyc_approved",
   "kyc_rejected",
+  // FR-CM-08 Phase 3 — probe fired by the settings "ส่งทดสอบ" button.
+  "system_test",
 ]);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
 
@@ -198,6 +200,7 @@ export const NOTIFICATION_CATEGORY_BY_TYPE: Record<
   account_suspended: "account",
   kyc_approved: "account",
   kyc_rejected: "account",
+  system_test: "system",
 };
 
 // ─── Category filtering by target type ─────────────────────────────────────
@@ -657,3 +660,40 @@ export const updateNotificationPreferenceSchema = z.object({
 export type UpdateNotificationPreferenceDto = z.infer<
   typeof updateNotificationPreferenceSchema
 >;
+
+// ─── FR-CM-08 Phase 3 — web push ───────────────────────────────────────────
+
+/** POST /push/subscribe body — the exact shape returned by the browser's
+ *  PushManager.subscribe().toJSON() (less the expirationTime, which the
+ *  server doesn't need). */
+export const pushSubscriptionInputSchema = z.object({
+  endpoint: z.string().url().max(2048),
+  keys: z.object({
+    p256dh: z.string().min(1).max(256),
+    auth: z.string().min(1).max(256),
+  }),
+  userAgent: z.string().max(512).optional().nullable(),
+});
+export type PushSubscriptionInput = z.infer<typeof pushSubscriptionInputSchema>;
+
+/** DELETE /push/subscribe body. Sent on permission revoke or device sign-out. */
+export const pushUnsubscribeSchema = z.object({
+  endpoint: z.string().url().max(2048),
+});
+export type PushUnsubscribeDto = z.infer<typeof pushUnsubscribeSchema>;
+
+/** One row in the settings page's devices list. */
+export interface PushDeviceItem {
+  id: string;
+  userAgent: string | null;
+  createdAt: string;
+  lastSeenAt: string;
+  /** True when this row's endpoint matches the browser's current
+   *  PushSubscription — the settings UI shows a "this device" chip. */
+  isCurrent?: boolean;
+}
+
+/** GET /push/vapid-public-key — the subscribe flow's first call. */
+export interface VapidPublicKeyResponse {
+  publicKey: string | null;
+}

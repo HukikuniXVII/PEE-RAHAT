@@ -113,7 +113,7 @@ The defaults in `.env.example` are production-ready. Notable knobs:
 
 > **Scaling note — SSE gateway is single-instance.** A notification fired on API container A won't reach a stream on API container B. We run one container today so a `Map` is enough; when we go horizontal, swap `SseGateway` for a Redis pub/sub layer (same `emit` / `register` surface, fanned through Redis). This is the only change needed — `notify()` stays untouched.
 
-- **Phase 3 (follow-up PR)** — Web Push delivery via `web-push` + VAPID, service-worker `push` / `notificationclick` handlers, permission prompt after 5 min activity, `quietHours` enforcement, devices list + test-notification button in `/account/notifications`. Schema fields (`pushEnabled`, `quietHoursStart/End`) already in place so no further migration needed.
+- **Web push (Phase 3)** — `web-push` + VAPID, service-worker `push` / `notificationclick` handlers, permission prompt after 5 min of activity (7-day snooze), `quietHours` enforced before fan-out (BKK-default tz, wrap-around supported). `PushSubscription` rows are per (user, endpoint); 404/410 from the push server prunes the row, 2xx bumps `lastSeenAt`. `/account/notifications` exposes the master toggle, quiet-hours selects, devices list (with revoke), and a **ส่งทดสอบ** button that fires a `system_test` notification end-to-end (notify → SSE → push). Configure with `WEB_PUSH_VAPID_PUBLIC_KEY`, `WEB_PUSH_VAPID_PRIVATE_KEY`, `WEB_PUSH_SUBJECT` (e.g. `mailto:notifications@peerahat.com`); generate keys with `npx web-push generate-vapid-keys`. With no env set the subscribe endpoints still respond but push delivery is a no-op.
 
 ### Other Phase 1 work shipped
 - Tutor intro video supports YouTube / Vimeo / direct file URLs (auto-rewrite to embed where needed)

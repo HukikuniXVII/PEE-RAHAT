@@ -56,7 +56,10 @@ import {
   type NotificationFeedPage,
   type NotificationItem,
   type NotificationPreferenceDto,
+  type PushDeviceItem,
+  type PushSubscriptionInput,
   type UpdateNotificationPreferenceDto,
+  type VapidPublicKeyResponse,
   type CreateReportDto,
   type CreateReportResult,
   type RelatedReportItem,
@@ -965,6 +968,41 @@ export function createApiClient(opts: ApiClientOptions = {}) {
       markAllRead: () =>
         request<{ ok: true }>(
           API_PATHS.notificationsReadAll,
+          { method: "POST" },
+          token,
+        ),
+    },
+    push: {
+      /** Public — no auth required. Returns null when WEB_PUSH_VAPID_* unset. */
+      vapidPublicKey: () =>
+        request<VapidPublicKeyResponse>(
+          API_PATHS.pushVapidPublicKey,
+          {},
+          token,
+        ),
+      subscribe: (dto: PushSubscriptionInput) =>
+        request<{ ok: true; id: string }>(
+          API_PATHS.pushSubscribe,
+          { method: "POST", body: JSON.stringify(dto) },
+          token,
+        ),
+      unsubscribe: (endpoint: string) =>
+        request<{ ok: true }>(
+          API_PATHS.pushSubscribe,
+          { method: "DELETE", body: JSON.stringify({ endpoint }) },
+          token,
+        ),
+      listDevices: () =>
+        request<PushDeviceItem[]>(API_PATHS.pushDevices, {}, token),
+      revokeDevice: (id: string) =>
+        request<{ ok: true }>(
+          API_PATHS.pushDeviceById(id),
+          { method: "DELETE" },
+          token,
+        ),
+      test: () =>
+        request<{ ok: true }>(
+          API_PATHS.pushTest,
           { method: "POST" },
           token,
         ),

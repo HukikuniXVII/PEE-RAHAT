@@ -12,6 +12,7 @@ import type { Prisma } from "@prisma/client";
 
 import { PrismaService } from "../prisma/prisma.service";
 import { SseGateway } from "./sse.gateway";
+import { WebPushService } from "./web-push.service";
 
 /**
  * FR-CM-08 — call shape for every notify() invocation. category is
@@ -58,6 +59,7 @@ export class NotificationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly sse: SseGateway,
+    private readonly webPush: WebPushService,
   ) {}
 
   // ── notify() and helpers ───────────────────────────────────────────────
@@ -77,12 +79,14 @@ export class NotificationService {
       const category =
         args.category ?? NOTIFICATION_CATEGORY_BY_TYPE[args.type];
 
-      // Step 2 — typeOverrides gate. Missing pref row = all types
-      // enabled; missing key = enabled. Only an explicit `false`
-      // mutes a type.
+      // Step 2 — typeOverrides gate + push-pref read. Missing pref row =
+      // all types enabled + push on. Only an explicit `false` in the
+      // typeOverrides JSON mutes a type. We fetch the full row up front
+      // because the push fan-out at the end of notify() also needs
+      // pushEnabled + quietHours* + timezone; one read is cheaper than
+      // two and the pref table is one-row-per-user.
       const pref = await this.prisma.notificationPreference.findUnique({
         where: { userId: args.userId },
-        select: { typeOverrides: true },
       });
       if (pref && isTypeMuted(pref.typeOverrides, args.type)) {
         this.logger.debug?.(
@@ -162,11 +166,83 @@ export class NotificationService {
         createdAt: row.createdAt.toISOString(),
         readAt: null,
       });
+
+      // FR-CM-08 Phase 3: web push fan-out. Quiet hours block push only
+      // (SSE + the in-app row above are unaffected — the user can still
+      // see them when they open the bell). pushEnabled defaults to true
+      // for users without a pref row.
+      const pushEnabled = pref?.pushEnabled ?? true;
+      if (pushEnabled && !inQuietHours(pref)) {
+        await this.fanoutPush(args.userId, row);
+      }
     } catch (e) {
       this.logger.warn(
         `notify(${args.type} → ${args.userId}) failed: ${String(e)}`,
       );
     }
+  }
+
+  /**
+   * Send the row to every PushSubscription on this user. Best-effort:
+   * a "gone" status (404/410 from the push server) prunes the dead
+   * row immediately so we don't keep trying; any other failure is
+   * logged and skipped (no retry queue in this PR — see Phase 3.1).
+   * "ok" bumps lastSeenAt so a future cleanup job can tell live
+   * devices from long-stale ones.
+   */
+  private async fanoutPush(
+    userId: string,
+    row: {
+      id: string;
+      type: NotificationType;
+      title: string;
+      body: string;
+      iconKind: string | null;
+      actionUrl: string | null;
+    },
+  ): Promise<void> {
+    const subs = await this.prisma.pushSubscription.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        endpoint: true,
+        p256dh: true,
+        auth: true,
+      },
+    });
+    if (subs.length === 0) return;
+    const payload = {
+      id: row.id,
+      title: row.title,
+      body: row.body,
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
+      // Tag collapses identical pushes in the OS shade — keying on the
+      // notification id is fine because dedup already collapsed the
+      // upstream duplicates.
+      tag: row.id,
+      data: {
+        url: row.actionUrl ?? "/",
+        notificationId: row.id,
+        type: row.type,
+        iconKind: row.iconKind,
+      },
+    };
+    const now = new Date();
+    await Promise.all(
+      subs.map(async (sub) => {
+        const outcome = await this.webPush.sendOne(sub, payload);
+        if (outcome === "gone") {
+          await this.prisma.pushSubscription
+            .delete({ where: { id: sub.id } })
+            .catch(() => {});
+        } else if (outcome === "ok") {
+          await this.prisma.pushSubscription
+            .update({ where: { id: sub.id }, data: { lastSeenAt: now } })
+            .catch(() => {});
+        }
+      }),
+    );
   }
 
   // ── Feed (paginated) ───────────────────────────────────────────────────
@@ -409,4 +485,48 @@ function coerceTypeOverrides(
     }
   }
   return out;
+}
+
+/**
+ * FR-CM-08 Phase 3 — quiet-hours check. Both start + end are integers
+ * 0..23 in the user's stored timezone (default Asia/Bangkok). Range
+ * wraps over midnight when start > end (e.g. 22→7 means 22:00..06:59
+ * are quiet). Returns false when either bound is null or when the
+ * caller passed no pref row.
+ *
+ * Computes the user's current hour via Intl.DateTimeFormat so DST
+ * shifts (none in BKK, but possible if a user picks another tz) are
+ * handled correctly without pulling in a date library.
+ */
+function inQuietHours(
+  pref:
+    | {
+        quietHoursStart: number | null;
+        quietHoursEnd: number | null;
+        timezone: string;
+      }
+    | null
+    | undefined,
+): boolean {
+  if (!pref) return false;
+  const { quietHoursStart: start, quietHoursEnd: end, timezone } = pref;
+  if (start == null || end == null) return false;
+  if (start === end) return false;
+  let hour: number;
+  try {
+    const formatted = new Intl.DateTimeFormat("en-GB", {
+      hour: "2-digit",
+      hour12: false,
+      timeZone: timezone || "Asia/Bangkok",
+    }).format(new Date());
+    hour = Number.parseInt(formatted, 10);
+    if (Number.isNaN(hour)) return false;
+  } catch {
+    return false;
+  }
+  if (start < end) {
+    return hour >= start && hour < end;
+  }
+  // Wraps midnight (e.g. 22 → 7): quiet from start..23 and 0..end-1.
+  return hour >= start || hour < end;
 }

@@ -8,6 +8,7 @@ import { getInitialThreads, getInitialUser } from "@/lib/auth";
 
 import { NotificationBell } from "./_components/notification-bell";
 import { NotificationSseListener } from "./_components/notification-sse-listener";
+import { PushPermissionPrompt } from "./_components/push-permission-prompt";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -59,6 +60,7 @@ export default async function RootLayout({
             <>
               <NotificationBell />
               <NotificationSseListener />
+              <PushPermissionPrompt />
             </>
           )}
         </Providers>

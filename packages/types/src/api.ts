@@ -108,6 +108,12 @@ export const API_PATHS = {
   notificationsStream: "/notifications/stream",
   notificationRead: (id: string) => `/notifications/${id}/read`,
   notificationsReadAll: "/notifications/read-all",
+  // FR-CM-08 Phase 3 — web push subscribe + devices + test.
+  pushVapidPublicKey: "/push/vapid-public-key",
+  pushSubscribe: "/push/subscribe",
+  pushDevices: "/push/devices",
+  pushDeviceById: (id: string) => `/push/devices/${id}`,
+  pushTest: "/push/test",
   quizQuestions: "/quiz/questions",
   quizSubmit: "/quiz/submit",
   kycUploadIntents: "/kyc/upload-intents",
