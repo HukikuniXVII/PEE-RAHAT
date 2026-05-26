@@ -6,6 +6,8 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteNav } from "@/components/site-nav";
 import { getInitialThreads, getInitialUser } from "@/lib/auth";
 
+import { NotificationBell } from "./_components/notification-bell";
+import { NotificationSseListener } from "./_components/notification-sse-listener";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -49,6 +51,16 @@ export default async function RootLayout({
           <MainShell>{children}</MainShell>
           <SiteFooter />
           <ServiceWorkerRegister />
+          {/* FR-CM-08: floating bell + SSE listener for authed users only.
+              The bell is intentionally NOT in the nav per spec — it
+              overlays top-right of every page and the listener opens
+              an EventSource against /notifications/stream. */}
+          {initialUser && (
+            <>
+              <NotificationBell />
+              <NotificationSseListener />
+            </>
+          )}
         </Providers>
       </body>
     </html>

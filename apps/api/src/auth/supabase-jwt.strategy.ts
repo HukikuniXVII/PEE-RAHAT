@@ -67,7 +67,15 @@ export class SupabaseJwtStrategy extends PassportStrategy(Strategy, "supabase") 
     };
 
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      // FR-CM-08: also accept ?token= for SSE — EventSource can't send
+      // an Authorization header. URL extraction is a wider surface
+      // (tokens hit access logs) but the only intended caller is
+      // GET /notifications/stream; document this trade-off in the
+      // notification PR and revisit if more SSE / WS routes appear.
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+        ExtractJwt.fromUrlQueryParameter("token"),
+      ]),
       ignoreExpiration: false,
       secretOrKeyProvider,
       algorithms: ["HS256", "ES256", "RS256"],

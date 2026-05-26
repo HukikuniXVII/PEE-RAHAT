@@ -53,7 +53,10 @@ import {
   type PostponeRequestDto,
   type ProposeSlotDto,
   type AddReportCommentDto,
+  type NotificationFeedPage,
   type NotificationItem,
+  type NotificationPreferenceDto,
+  type UpdateNotificationPreferenceDto,
   type CreateReportDto,
   type CreateReportResult,
   type RelatedReportItem,
@@ -914,8 +917,45 @@ export function createApiClient(opts: ApiClientOptions = {}) {
         ),
     },
     notifications: {
-      list: () =>
-        request<NotificationItem[]>(API_PATHS.notifications, {}, token),
+      /**
+       * FR-CM-08 — paginated feed. The old call site that expected an
+       * array still works against the new endpoint because the backend
+       * lifts the cursor wrapper into `.items` on the wire; the legacy
+       * `list()` helper now reads `.items` and returns the same shape
+       * old call sites expect.
+       */
+      list: async () => {
+        const page = await request<NotificationFeedPage>(
+          API_PATHS.notifications,
+          {},
+          token,
+        );
+        return page.items;
+      },
+      listPage: (opts: { limit?: number; before?: string } = {}) =>
+        request<NotificationFeedPage>(
+          `${API_PATHS.notifications}${qs(opts)}`,
+          {},
+          token,
+        ),
+      unreadCount: () =>
+        request<{ count: number }>(
+          API_PATHS.notificationsUnreadCount,
+          {},
+          token,
+        ),
+      getPreferences: () =>
+        request<NotificationPreferenceDto>(
+          API_PATHS.notificationPreferences,
+          {},
+          token,
+        ),
+      updatePreferences: (dto: UpdateNotificationPreferenceDto) =>
+        request<NotificationPreferenceDto>(
+          API_PATHS.notificationPreferences,
+          { method: "PATCH", body: JSON.stringify(dto) },
+          token,
+        ),
       markRead: (id: string) =>
         request<{ ok: true }>(
           API_PATHS.notificationRead(id),

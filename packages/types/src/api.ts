@@ -102,6 +102,10 @@ export const API_PATHS = {
   reportComment: (id: string) => `/reports/${id}/comment`,
   reportUploadEvidence: "/reports/upload-evidence",
   notifications: "/notifications",
+  // FR-CM-08 — paginated feed + bell badge + prefs.
+  notificationsUnreadCount: "/notifications/unread-count",
+  notificationPreferences: "/notifications/preferences",
+  notificationsStream: "/notifications/stream",
   notificationRead: (id: string) => `/notifications/${id}/read`,
   notificationsReadAll: "/notifications/read-all",
   quizQuestions: "/quiz/questions",

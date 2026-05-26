@@ -11,6 +11,7 @@ import { NOTIFICATION_CATEGORY_BY_TYPE } from "@peerahat/types";
 import type { Prisma } from "@prisma/client";
 
 import { PrismaService } from "../prisma/prisma.service";
+import { SseGateway } from "./sse.gateway";
 
 /**
  * FR-CM-08 — call shape for every notify() invocation. category is
@@ -54,7 +55,10 @@ const DEDUP_WINDOW_MIN = 5;
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sse: SseGateway,
+  ) {}
 
   // ── notify() and helpers ───────────────────────────────────────────────
 
@@ -141,6 +145,23 @@ export class NotificationService {
           sourceId: args.sourceId ?? null,
         }),
       );
+      // FR-CM-08 Phase 2: fan out to any open SSE streams the user has
+      // for this instance. emit() is best-effort and swallows write
+      // errors — a dead socket gets cleaned up by the next heartbeat
+      // or close handler.
+      this.sse.emit(args.userId, "notification", {
+        id: row.id,
+        type: row.type,
+        category: row.category,
+        title: row.title,
+        body: row.body,
+        iconKind: row.iconKind,
+        actionUrl: row.actionUrl,
+        sourceType: row.sourceType,
+        sourceId: row.sourceId,
+        createdAt: row.createdAt.toISOString(),
+        readAt: null,
+      });
     } catch (e) {
       this.logger.warn(
         `notify(${args.type} → ${args.userId}) failed: ${String(e)}`,
