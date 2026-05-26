@@ -58,6 +58,13 @@ export interface Booking {
   id: string;
   studentId: string;
   tutorId: string;
+  /** Hydrated counterparty info — saves the UI an extra round-trip just
+   *  to show whose booking this is. Both sides are populated regardless
+   *  of viewerSide; the row component picks whichever is "the other". */
+  studentDisplayName: string;
+  studentAvatarUrl?: string;
+  tutorDisplayName: string;
+  tutorAvatarUrl?: string;
   subject: z.infer<typeof subjectSchema>;
   status: BookingStatus;
   scheduledAt: string;

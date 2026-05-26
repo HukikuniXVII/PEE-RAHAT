@@ -94,6 +94,65 @@ function clampInviteExpiry(scheduledAt: Date): Date {
 }
 
 /**
+ * Shared Prisma include for every code path that returns a Booking DTO.
+ * Centralised so adding a field (e.g. counterparty avatar) doesn't have
+ * to be duplicated across listForUser / findById / create / accept /
+ * cancelByStudent / rejectByTutor — every site goes through
+ * `decorateBooking()` below.
+ */
+const BOOKING_DTO_INCLUDE = {
+  review: { select: { id: true } },
+  postponeRequest: true,
+  chatThread: { select: { id: true } },
+  student: { select: { displayName: true, avatarUrl: true } },
+  tutor: {
+    select: {
+      userId: true,
+      user: { select: { displayName: true, avatarUrl: true } },
+    },
+  },
+} as const satisfies Prisma.BookingInclude;
+
+type BookingWithDtoInclude = Prisma.BookingGetPayload<{
+  include: typeof BOOKING_DTO_INCLUDE;
+}>;
+
+/**
+ * Shape a Booking row into the wire DTO. Centralised so the hydrated
+ * counterparty info + postpone projection stay consistent across every
+ * listing / mutation endpoint.
+ */
+function decorateBooking(
+  row: BookingWithDtoInclude,
+  viewerSide: "student" | "tutor",
+) {
+  const { review, postponeRequest, chatThread, student, tutor, ...b } = row;
+  return {
+    ...b,
+    hasReview: !!review,
+    viewerSide,
+    chatThreadId: chatThread?.id,
+    studentDisplayName: student.displayName,
+    studentAvatarUrl: student.avatarUrl ?? undefined,
+    tutorDisplayName: tutor.user.displayName,
+    tutorAvatarUrl: tutor.user.avatarUrl ?? undefined,
+    postponeRequest: postponeRequest
+      ? {
+          id: postponeRequest.id,
+          initiatorRole: postponeRequest.initiatorRole,
+          reason: postponeRequest.reason,
+          chatExpiresAt: postponeRequest.chatExpiresAt.toISOString(),
+          status: postponeRequest.status,
+          proposedAt: postponeRequest.proposedAt?.toISOString(),
+          proposedDuration: postponeRequest.proposedDuration ?? undefined,
+          wasShortNotice: postponeRequest.wasShortNotice,
+          createdAt: postponeRequest.createdAt.toISOString(),
+        }
+      : undefined,
+  };
+}
+
+/**
  * Half-open interval overlap: [aStart, aEnd) intersects [bStart, bEnd).
  * Touching edges (aEnd === bStart) is NOT an overlap. This is the JS twin
  * of the Postgres predicate in assertNoOverlap so the boundary semantics
@@ -165,33 +224,12 @@ export class BookingsService {
           { tutor: { userId: user.id } },
         ],
       },
-      include: {
-        review: { select: { id: true } },
-        postponeRequest: true,
-        chatThread: { select: { id: true } },
-      },
+      include: BOOKING_DTO_INCLUDE,
       orderBy: { scheduledAt: "desc" },
     });
-    return rows.map(({ review, postponeRequest, chatThread, ...b }) => ({
-      ...b,
-      hasReview: !!review,
-      viewerSide:
-        b.studentId === user.id ? ("student" as const) : ("tutor" as const),
-      chatThreadId: chatThread?.id,
-      postponeRequest: postponeRequest
-        ? {
-            id: postponeRequest.id,
-            initiatorRole: postponeRequest.initiatorRole,
-            reason: postponeRequest.reason,
-            chatExpiresAt: postponeRequest.chatExpiresAt.toISOString(),
-            status: postponeRequest.status,
-            proposedAt: postponeRequest.proposedAt?.toISOString(),
-            proposedDuration: postponeRequest.proposedDuration ?? undefined,
-            wasShortNotice: postponeRequest.wasShortNotice,
-            createdAt: postponeRequest.createdAt.toISOString(),
-          }
-        : undefined,
-    }));
+    return rows.map((row) =>
+      decorateBooking(row, row.studentId === user.id ? "student" : "tutor"),
+    );
   }
 
   async findById(supabaseId: string, bookingId: string) {
@@ -199,38 +237,13 @@ export class BookingsService {
     if (!user) throw new BadRequestException();
     const row = await this.prisma.booking.findUnique({
       where: { id: bookingId },
-      include: {
-        review: { select: { id: true } },
-        tutor: { select: { userId: true } },
-        postponeRequest: true,
-        chatThread: { select: { id: true } },
-      },
+      include: BOOKING_DTO_INCLUDE,
     });
     if (!row) throw new NotFoundException();
     if (row.studentId !== user.id && row.tutor.userId !== user.id) {
       throw new ForbiddenException();
     }
-    const { review, postponeRequest, chatThread, tutor: _tutor, ...b } = row;
-    return {
-      ...b,
-      hasReview: !!review,
-      viewerSide:
-        b.studentId === user.id ? ("student" as const) : ("tutor" as const),
-      chatThreadId: chatThread?.id,
-      postponeRequest: postponeRequest
-        ? {
-            id: postponeRequest.id,
-            initiatorRole: postponeRequest.initiatorRole,
-            reason: postponeRequest.reason,
-            chatExpiresAt: postponeRequest.chatExpiresAt.toISOString(),
-            status: postponeRequest.status,
-            proposedAt: postponeRequest.proposedAt?.toISOString(),
-            proposedDuration: postponeRequest.proposedDuration ?? undefined,
-            wasShortNotice: postponeRequest.wasShortNotice,
-            createdAt: postponeRequest.createdAt.toISOString(),
-          }
-        : undefined,
-    };
+    return decorateBooking(row, row.studentId === user.id ? "student" : "tutor");
   }
 
   async create(supabaseId: string, input: CreateBookingDto) {
@@ -393,7 +406,14 @@ export class BookingsService {
           groupStatus: created.groupStatus,
         }),
       );
-      return { ...created, hasReview: false, viewerSide: "student" as const };
+      // Re-read with the shared include so the response carries the
+      // tutor/student display names + avatars — saves the UI a round-trip
+      // to render the new booking row.
+      const hydrated = await this.prisma.booking.findUniqueOrThrow({
+        where: { id: created.id },
+        include: BOOKING_DTO_INCLUDE,
+      });
+      return decorateBooking(hydrated, "student");
     } catch (err) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&
@@ -658,6 +678,7 @@ export class BookingsService {
     const updated = await this.prisma.booking.update({
       where: { id: bookingId },
       data: { status: "cancelled_by_student" },
+      include: BOOKING_DTO_INCLUDE,
     });
     this.logger.log(
       JSON.stringify({
@@ -669,7 +690,7 @@ export class BookingsService {
         scheduledAt: updated.scheduledAt.toISOString(),
       }),
     );
-    return { ...updated, hasReview: false, viewerSide: "student" as const };
+    return decorateBooking(updated, "student");
   }
 
   /**
@@ -700,6 +721,7 @@ export class BookingsService {
     const updated = await this.prisma.booking.update({
       where: { id: bookingId },
       data: { status: "rejected" },
+      include: BOOKING_DTO_INCLUDE,
     });
     this.logger.log(
       JSON.stringify({
@@ -711,7 +733,7 @@ export class BookingsService {
         scheduledAt: updated.scheduledAt.toISOString(),
       }),
     );
-    return { ...updated, hasReview: false, viewerSide: "tutor" as const };
+    return decorateBooking(updated, "tutor");
   }
 
   async accept(supabaseId: string, bookingId: string) {
@@ -729,6 +751,7 @@ export class BookingsService {
     const updated = await this.prisma.booking.update({
       where: { id: bookingId },
       data: { status: "accepted" },
+      include: BOOKING_DTO_INCLUDE,
     });
     this.logger.log(
       JSON.stringify({
@@ -739,7 +762,7 @@ export class BookingsService {
         tutorUserId: user.id,
       }),
     );
-    return { ...updated, hasReview: false, viewerSide: "tutor" as const };
+    return decorateBooking(updated, "tutor");
   }
 
   /**

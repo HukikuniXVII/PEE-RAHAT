@@ -142,23 +142,57 @@ export function BookingRow({ booking }: Props) {
       className="bg-white rounded-[32px] border border-slate-200 shadow-sm p-6 space-y-4"
     >
       <div className="flex items-start justify-between gap-4">
-        <div className="space-y-1">
-          <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest">
-            {booking.subject}
-          </p>
-          <h3 className="text-lg font-bold text-slate-900">
-            Booking #{booking.id.slice(0, 8)}
-          </h3>
-          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 font-medium pt-1">
-            <span className="flex items-center gap-1">
-              <CalendarClock size={14} />
-              {formatDateTime(booking.scheduledAt)}
-            </span>
-            <span className="flex items-center gap-1">
-              <Clock size={14} />
-              {booking.durationMinutes} นาที
-            </span>
-          </div>
+        <div className="flex items-start gap-3 min-w-0">
+          {/* Counterparty avatar — tutor on the student-side row, student
+              on the tutor-side row. Names hydrated server-side so the
+              row needs no extra fetch. */}
+          {(() => {
+            const isStudent = booking.viewerSide === "student";
+            const name = isStudent
+              ? booking.tutorDisplayName
+              : booking.studentDisplayName;
+            const avatar = isStudent
+              ? booking.tutorAvatarUrl
+              : booking.studentAvatarUrl;
+            const sideLabel = isStudent ? "พี่รหัส" : "นักเรียน";
+            return (
+              <>
+                {avatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={avatar}
+                    alt={name}
+                    className="w-11 h-11 rounded-2xl object-cover bg-slate-100 shrink-0"
+                  />
+                ) : (
+                  <div className="w-11 h-11 rounded-2xl bg-slate-100 text-slate-500 text-sm font-black flex items-center justify-center shrink-0">
+                    {name.slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+                <div className="space-y-1 min-w-0">
+                  <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest">
+                    {booking.subject}
+                  </p>
+                  <h3 className="text-lg font-bold text-slate-900 truncate">
+                    {sideLabel}: {name}
+                  </h3>
+                  <p className="text-[10px] text-slate-400 font-medium">
+                    Booking #{booking.id.slice(0, 8)}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 font-medium pt-1">
+                    <span className="flex items-center gap-1">
+                      <CalendarClock size={14} />
+                      {formatDateTime(booking.scheduledAt)}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock size={14} />
+                      {booking.durationMinutes} นาที
+                    </span>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </div>
 
         <div className="text-right shrink-0">

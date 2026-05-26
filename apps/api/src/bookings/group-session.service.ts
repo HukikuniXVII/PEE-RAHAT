@@ -823,6 +823,14 @@ export class GroupSessionService {
         groupStatus: "tutor_review",
       },
       include: {
+        // student + tutor included so the tutor-side inbox can show
+        // counterparty info just like the regular /bookings list does.
+        student: { select: { displayName: true, avatarUrl: true } },
+        tutor: {
+          select: {
+            user: { select: { displayName: true, avatarUrl: true } },
+          },
+        },
         participants: {
           include: {
             student: {
@@ -837,6 +845,10 @@ export class GroupSessionService {
       ...b,
       hasReview: false,
       viewerSide: "tutor" as const,
+      studentDisplayName: b.student.displayName,
+      studentAvatarUrl: b.student.avatarUrl ?? undefined,
+      tutorDisplayName: b.tutor.user.displayName,
+      tutorAvatarUrl: b.tutor.user.avatarUrl ?? undefined,
       participants: b.participants.map((p) => ({
         id: p.id,
         bookingId: p.bookingId,
