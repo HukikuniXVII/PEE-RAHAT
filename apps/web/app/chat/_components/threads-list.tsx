@@ -5,6 +5,8 @@ import { cn } from "@peerahat/ui";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, MessagesSquare, Search, ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import type { Route } from "next";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { createApiClient } from "@/lib/api-client";
@@ -47,6 +49,7 @@ function initialsOf(name: string): string {
 }
 
 export function ThreadsList({ initialThreads, initialSelectedId = null }: Props) {
+  const router = useRouter();
   const { data } = useQuery({
     queryKey: ["chat", "threads"],
     queryFn: () => createApiClient().chat.threads(),
@@ -63,6 +66,23 @@ export function ThreadsList({ initialThreads, initialSelectedId = null }: Props)
     () => allThreads.find((t) => t.id === selectedId) ?? null,
     [allThreads, selectedId],
   );
+
+  /**
+   * URL sync: every selection writes back to ?thread=<id> via
+   * router.replace (no history push). Without this the URL stays at
+   * whatever entry-point query the user arrived with — e.g. they came
+   * in via /chat?with=tutorX, clicked tutorY in the sidebar, refreshed,
+   * and snapped back to X because the URL never moved. Replace (not
+   * push) so the back button still goes wherever the user was before
+   * /chat, not through every thread they tapped.
+   *
+   * "Back" on mobile clears ?thread= so the list view is shareable too.
+   */
+  function selectThread(id: string | null) {
+    setSelectedId(id);
+    const next = id ? (`/chat?thread=${id}` as Route) : ("/chat" as Route);
+    router.replace(next, { scroll: false });
+  }
 
   const threads = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -166,7 +186,7 @@ export function ThreadsList({ initialThreads, initialSelectedId = null }: Props)
             <button
               key={thread.id}
               type="button"
-              onClick={() => setSelectedId(thread.id)}
+              onClick={() => selectThread(thread.id)}
               aria-pressed={isActive}
               className="block w-full text-left"
             >
@@ -257,7 +277,7 @@ export function ThreadsList({ initialThreads, initialSelectedId = null }: Props)
             key={selectedThread.id}
             thread={selectedThread}
             initialMessages={[]}
-            onBack={() => setSelectedId(null)}
+            onBack={() => selectThread(null)}
           />
         </div>
       ) : (
