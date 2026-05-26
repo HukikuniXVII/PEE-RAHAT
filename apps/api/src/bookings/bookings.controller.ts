@@ -96,6 +96,15 @@ export class BookingsController {
     return this.bookings.accept(user.sub, id);
   }
 
+  // FR-TH-06: student cancels their own 1-on-1 booking before payment.
+  // Validation lives in BookingsService — the controller is a thin pass-
+  // through. Group bookings are explicitly refused at the service layer
+  // (they have their own failGroup path).
+  @Post(":id/cancel")
+  cancel(@CurrentUser() user: SupabaseJwtPayload, @Param("id") id: string) {
+    return this.bookings.cancelByStudent(user.sub, id);
+  }
+
   // ── FR-TH-18: host-side group session routes ───────────────────────────
   // Throttling: invite + extend share the same 10/min bucket as create —
   // realistic host usage stays well below.

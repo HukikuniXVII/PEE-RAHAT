@@ -211,6 +211,11 @@ enum BookingStatus {
   cancelled_no_agreement
   cancelled_tutor_unresponsive
   cancelled_tutor_initiated
+  // FR-TH-06: student-initiated cancel from /bookings before payment.
+  // Distinct from the generic `cancelled` so admin reports can break
+  // down cancellations by initiator. See migration
+  // 20260526_booking_cancelled_by_student.
+  cancelled_by_student
 }
 
 // ─── FR-TH-18 group sessions ───────────────────────────────────────────────

@@ -627,6 +627,51 @@ export class BookingsService {
     return busy;
   }
 
+  /**
+   * FR-TH-06: student cancels a 1-on-1 booking BEFORE payment lands.
+   * Allowed only while booking.status ∈ {requested, accepted}. Once paid,
+   * the only escape is postpone (FR-TH-10) or report (FR-PM-05).
+   *
+   * Group bookings explicitly route through GroupSessionService.failGroup
+   * (so refunds, invitee notifications, and groupStatus all stay
+   * consistent) — students can't use this method on a group booking.
+   */
+  async cancelByStudent(supabaseId: string, bookingId: string) {
+    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
+    if (!user) throw new BadRequestException();
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+    });
+    if (!booking) throw new NotFoundException();
+    if (booking.studentId !== user.id) throw new ForbiddenException();
+    if (booking.sessionType === "group") {
+      throw new BadRequestException(
+        "คลาสกลุ่มยกเลิกผ่านระบบกลุ่ม — กรุณาติดต่อแอดมินหรือรอให้คำเชิญหมดอายุ",
+      );
+    }
+    if (booking.status !== "requested" && booking.status !== "accepted") {
+      throw new BadRequestException(
+        "ยกเลิกได้เฉพาะคลาสที่ยังไม่ได้ชำระเงินเท่านั้น",
+      );
+    }
+
+    const updated = await this.prisma.booking.update({
+      where: { id: bookingId },
+      data: { status: "cancelled_by_student" },
+    });
+    this.logger.log(
+      JSON.stringify({
+        event: "booking_cancelled_by_student",
+        bookingId: updated.id,
+        previousStatus: booking.status,
+        tutorId: updated.tutorId,
+        studentId: updated.studentId,
+        scheduledAt: updated.scheduledAt.toISOString(),
+      }),
+    );
+    return { ...updated, hasReview: false, viewerSide: "student" as const };
+  }
+
   async accept(supabaseId: string, bookingId: string) {
     const user = await this.prisma.user.findUnique({ where: { supabaseId } });
     if (!user) throw new BadRequestException();

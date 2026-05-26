@@ -629,6 +629,13 @@ export function createApiClient(opts: ApiClientOptions = {}) {
           { method: "POST" },
           token,
         ),
+      // FR-TH-06: student cancels before payment.
+      cancel: (id: string) =>
+        request<Booking>(
+          API_PATHS.cancelBooking(id),
+          { method: "POST" },
+          token,
+        ),
       report: (id: string, dto: BookingReportDto) =>
         request<void>(
           API_PATHS.reportBooking(id),

@@ -20,6 +20,7 @@ export const STATUS_COPY: Record<
   cancelled_no_agreement: { label: "ยกเลิก — ไม่ตกลงเวลาใหม่", tone: "danger" },
   cancelled_tutor_unresponsive: { label: "ยกเลิก — พี่รหัสไม่ตอบ", tone: "danger" },
   cancelled_tutor_initiated: { label: "ยกเลิก — พี่รหัสขอเลื่อน", tone: "danger" },
+  cancelled_by_student: { label: "ยกเลิกโดยนักเรียน", tone: "neutral" },
 };
 
 export const TONE_CLASSES: Record<StatusTone, string> = {

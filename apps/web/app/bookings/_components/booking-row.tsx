@@ -11,6 +11,7 @@ import {
   Loader2,
   Star,
   ThumbsUp,
+  Trash2,
   Video,
   Wallet,
 } from "lucide-react";
@@ -47,6 +48,7 @@ export function BookingRow({ booking }: Props) {
   const [paying, setPaying] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [postponing, setPostponing] = useState(false);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
 
   const status = STATUS_COPY[booking.status];
 
@@ -92,6 +94,24 @@ export function BookingRow({ booking }: Props) {
       toast.success("รับงานเรียบร้อย รอนักเรียนชำระเงิน");
     },
   });
+
+  // FR-TH-06: student-side cancel for pre-payment 1-on-1 bookings.
+  // Group bookings are blocked at the server (they use failGroup).
+  const cancelStudent = useMutation({
+    mutationFn: () => createApiClient().bookings.cancel(booking.id),
+    onSuccess: () => {
+      setConfirmingCancel(false);
+      queryClient.invalidateQueries({ queryKey: ["bookings", "mine"] });
+      toast.success("ยกเลิกการจองเรียบร้อย");
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "ยกเลิกไม่สำเร็จ");
+    },
+  });
+  const studentCancelable =
+    isStudent &&
+    booking.sessionType !== "group" &&
+    (booking.status === "requested" || booking.status === "accepted");
 
   return (
     <motion.div
@@ -183,6 +203,16 @@ export function BookingRow({ booking }: Props) {
               <Wallet size={16} />
               Pay Now
             </Button>
+          )}
+          {studentCancelable && (
+            <button
+              type="button"
+              onClick={() => setConfirmingCancel(true)}
+              className="px-4 py-2.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl font-bold text-sm hover:bg-rose-100 transition-all flex items-center gap-2"
+            >
+              <Trash2 size={14} />
+              ยกเลิกการจอง
+            </button>
           )}
           {reviewable && (
             <button
@@ -277,6 +307,52 @@ export function BookingRow({ booking }: Props) {
             router.push(`/chat/thread/${threadId}`);
           }}
         />
+      )}
+
+      {confirmingCancel && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4"
+          onClick={() =>
+            !cancelStudent.isPending && setConfirmingCancel(false)
+          }
+        >
+          <div
+            className="bg-white rounded-[28px] shadow-xl max-w-md w-full p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="space-y-2">
+              <h3 className="text-lg font-bold text-slate-900">
+                ยืนยันยกเลิกการจอง?
+              </h3>
+              <p className="text-sm text-slate-500 leading-relaxed">
+                คุณกำลังจะยกเลิกคลาส {booking.subject} วันที่{" "}
+                {formatDateTime(booking.scheduledAt)}. การยกเลิกจะแจ้งพี่รหัสและ
+                ปลดบล็อกตารางเวลาทั้งสองฝ่าย — กดยืนยันแล้วจะไม่สามารถย้อนกลับได้
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                disabled={cancelStudent.isPending}
+                onClick={() => setConfirmingCancel(false)}
+                className="px-4 py-3 rounded-2xl bg-slate-100 text-slate-700 text-sm font-bold hover:bg-slate-200 disabled:opacity-40"
+              >
+                ไม่ยกเลิก
+              </button>
+              <button
+                type="button"
+                disabled={cancelStudent.isPending}
+                onClick={() => cancelStudent.mutate()}
+                className="px-4 py-3 rounded-2xl bg-rose-600 text-white text-sm font-bold hover:bg-rose-700 disabled:opacity-40 flex items-center justify-center gap-2"
+              >
+                {cancelStudent.isPending && (
+                  <Loader2 size={14} className="animate-spin" />
+                )}
+                ยืนยันยกเลิก
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </motion.div>
   );

@@ -18,6 +18,8 @@ export const bookingStatusSchema = z.enum([
   "cancelled_no_agreement",
   "cancelled_tutor_unresponsive",
   "cancelled_tutor_initiated",
+  // FR-TH-06: student cancelled from /bookings before payment.
+  "cancelled_by_student",
 ]);
 
 export type BookingStatus = z.infer<typeof bookingStatusSchema>;
