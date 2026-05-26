@@ -7,6 +7,8 @@ import {
   type AdminUserRow,
   type UpdateAdminUserDto,
   type AdminPassbookView,
+  type SetTutorVisibilityDto,
+  type SetTutorVisibilityResult,
   type AdminPaymentRow,
   type AdminPayoutDetail,
   type AdminPayoutQueueGroup,
@@ -357,6 +359,13 @@ export function createApiClient(opts: ApiClientOptions = {}) {
         request<AdminPassbookView | null>(
           API_PATHS.adminTutorPassbook(tutorId),
           {},
+          token,
+        ),
+      // FR-TH-02: admin toggle for /tutors search visibility.
+      setTutorVisibility: (tutorId: string, dto: SetTutorVisibilityDto) =>
+        request<SetTutorVisibilityResult>(
+          API_PATHS.adminTutorVisibility(tutorId),
+          { method: "PATCH", body: JSON.stringify(dto) },
           token,
         ),
       paymentsQueue: (opts: { status?: "pending" | "success" | "failed" } = {}) =>

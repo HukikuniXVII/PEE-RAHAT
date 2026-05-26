@@ -24,6 +24,8 @@ import {
   rejectSlipSchema,
   type ReviewKycDto,
   reviewKycSchema,
+  type SetTutorVisibilityDto,
+  setTutorVisibilitySchema,
   type UpdateAdminUserDto,
   updateAdminUserSchema,
 } from "@peerahat/types";
@@ -219,6 +221,25 @@ export class AdminController {
     const admin = await this.assertAdmin(user.sub);
     await this.admin.deleteUserAsAdmin(admin.id, targetId, ip);
     return { ok: true };
+  }
+
+  /**
+   * FR-TH-02: admin toggle for /tutors search visibility. Body shape
+   * {hidden: boolean}; true sets TutorProfile.hiddenFromSearchAt = now(),
+   * false clears it. Does NOT touch User.suspendedUntil — login, direct-
+   * link bookings, ongoing chats all stay live for a hidden tutor.
+   * Targeted by /admin/users → tutor row "ซ่อน/แสดงใน /tutors" button.
+   */
+  @Patch("tutors/:id/visibility")
+  async setTutorVisibility(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") tutorId: string,
+    @Body() raw: unknown,
+    @Ip() ip: string,
+  ) {
+    const admin = await this.assertAdmin(user.sub);
+    const dto: SetTutorVisibilityDto = setTutorVisibilitySchema.parse(raw);
+    return this.admin.setTutorVisibility(admin.id, tutorId, dto, ip);
   }
 
   /**

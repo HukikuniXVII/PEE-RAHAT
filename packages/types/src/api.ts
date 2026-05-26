@@ -32,6 +32,9 @@ export const API_PATHS = {
   adminReviewKyc: (id: string) => `/admin/kyc/${id}/review`,
   adminTutorPassbook: (tutorId: string) =>
     `/admin/tutors/${tutorId}/passbook`,
+  // FR-TH-02: admin toggle for /tutors search visibility.
+  adminTutorVisibility: (tutorId: string) =>
+    `/admin/tutors/${tutorId}/visibility`,
   adminPaymentsQueue: "/admin/payments/queue",
   adminApprovePayment: (id: string) => `/admin/payments/${id}/approve`,
   adminRejectPayment: (id: string) => `/admin/payments/${id}/reject`,

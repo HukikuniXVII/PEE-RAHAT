@@ -137,9 +137,15 @@ export class TutorsService {
     // FR-TH-04 (intro video): tutors without an intro video stay
     // hidden. Same field powers the booking-create guard in
     // BookingsService.create as defence in depth.
+    //
+    // FR-TH-02 (admin hide): admin can toggle hiddenFromSearchAt to
+    // remove a tutor from the search list without suspending the
+    // underlying user. Direct-link booking + existing chat threads still
+    // work for hidden tutors; only discovery is gated.
     const now = new Date();
     const where: Prisma.TutorProfileWhereInput = {
       introVideoUrl: { not: null },
+      hiddenFromSearchAt: null,
       user: {
         OR: [{ suspendedUntil: null }, { suspendedUntil: { lte: now } }],
       },

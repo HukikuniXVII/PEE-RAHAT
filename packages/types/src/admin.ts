@@ -216,6 +216,13 @@ export interface AdminUserRow {
   hasTutorProfile: boolean;
   hasStudentProfile: boolean;
   bookingCount: number;
+  /** FR-TH-02: only populated when hasTutorProfile=true. The id of the
+   *  tutor's TutorProfile row, used to target the visibility toggle
+   *  endpoint at /admin/tutors/:id/visibility. */
+  tutorProfileId?: string;
+  /** FR-TH-02: set when the admin has hidden this tutor from /tutors
+   *  search. Drives the toggle's "ซ่อน" vs "แสดง" label in the admin UI. */
+  tutorHiddenFromSearchAt?: string;
 }
 
 export interface AdminUserPage {
@@ -231,3 +238,18 @@ export const updateAdminUserSchema = z.object({
 });
 
 export type UpdateAdminUserDto = z.infer<typeof updateAdminUserSchema>;
+
+/** FR-TH-02: body for PATCH /admin/tutors/:id/visibility. true = hide
+ *  the tutor from /tutors search, false = restore visibility. */
+export const setTutorVisibilitySchema = z.object({
+  hidden: z.boolean(),
+});
+
+export type SetTutorVisibilityDto = z.infer<typeof setTutorVisibilitySchema>;
+
+/** Response from the visibility endpoint — mirrors the toggled state +
+ *  the timestamp so the admin UI can update without a refetch. */
+export interface SetTutorVisibilityResult {
+  tutorProfileId: string;
+  hiddenFromSearchAt: string | null;
+}

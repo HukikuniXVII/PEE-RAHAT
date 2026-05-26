@@ -93,6 +93,13 @@ model TutorProfile {
   subjects      String[]
   createdAt     DateTime @default(now())
 
+  // FR-TH-02: admin can hide a tutor from /tutors search without
+  // suspending the underlying user. Hidden tutors stay able to log in,
+  // continue existing bookings, and receive direct-link bookings; only
+  // discovery via the search list is gated. Set/cleared from
+  // /admin/users via the visibility toggle. NULL = visible (default).
+  hiddenFromSearchAt DateTime?
+
   // FR-TH-17: each tutor connects their own Google account via OAuth2;
   // the platform holds an encrypted refresh_token and mints Meet links on
   // their calendar at payment-confirm. googleRefreshToken IS NOT NULL is

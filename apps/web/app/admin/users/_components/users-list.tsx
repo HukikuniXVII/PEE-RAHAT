@@ -10,6 +10,8 @@ import { cn } from "@peerahat/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  Eye,
+  EyeOff,
   Loader2,
   Pencil,
   Search,
@@ -181,6 +183,34 @@ function UserRow({
 }) {
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  // FR-TH-02: optimistic local state for the hide toggle so the row
+  // updates immediately on click instead of waiting for the refetch.
+  const [hiddenAt, setHiddenAt] = useState<string | undefined>(
+    user.tutorHiddenFromSearchAt,
+  );
+
+  const setVisibility = useMutation({
+    mutationFn: ({
+      tutorProfileId,
+      hidden,
+    }: {
+      tutorProfileId: string;
+      hidden: boolean;
+    }) =>
+      createApiClient().admin.setTutorVisibility(tutorProfileId, { hidden }),
+    onSuccess: (res) => {
+      setHiddenAt(res.hiddenFromSearchAt ?? undefined);
+      toast.success(
+        res.hiddenFromSearchAt
+          ? "ซ่อนติวเตอร์จาก /tutors แล้ว"
+          : "แสดงติวเตอร์ใน /tutors แล้ว",
+      );
+      onChanged();
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "บันทึกไม่สำเร็จ");
+    },
+  });
 
   return (
     <>
@@ -214,8 +244,41 @@ function UserRow({
             {user.hasStudentProfile && " · มีโปรไฟล์นักเรียน"}
             {user.bookingCount > 0 &&
               ` · จองคลาส ${user.bookingCount} ครั้ง`}
+            {hiddenAt && " · 🚫 ซ่อนใน /tutors"}
           </p>
         </div>
+        {user.hasTutorProfile && user.tutorProfileId && (
+          <button
+            type="button"
+            disabled={setVisibility.isPending}
+            onClick={() =>
+              setVisibility.mutate({
+                tutorProfileId: user.tutorProfileId!,
+                hidden: !hiddenAt,
+              })
+            }
+            title={
+              hiddenAt
+                ? "ตอนนี้ถูกซ่อนใน /tutors — กดเพื่อแสดงอีกครั้ง"
+                : "ตอนนี้แสดงใน /tutors — กดเพื่อซ่อน"
+            }
+            className={cn(
+              "thai inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-bold rounded-xl border disabled:opacity-40 disabled:cursor-not-allowed",
+              hiddenAt
+                ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+                : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200",
+            )}
+          >
+            {setVisibility.isPending ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : hiddenAt ? (
+              <EyeOff size={12} />
+            ) : (
+              <Eye size={12} />
+            )}
+            {hiddenAt ? "แสดงใน /tutors" : "ซ่อนใน /tutors"}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setEditing(true)}

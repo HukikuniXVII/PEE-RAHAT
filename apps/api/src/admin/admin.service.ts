@@ -15,6 +15,8 @@ import type {
   AdminUserPage,
   AdminUserRow,
   BankName,
+  SetTutorVisibilityDto,
+  SetTutorVisibilityResult,
   UpdateAdminUserDto,
   UserRole,
 } from "@peerahat/types";
@@ -474,7 +476,9 @@ export class AdminService {
           role: true,
           avatarUrl: true,
           createdAt: true,
-          tutorProfile: { select: { id: true } },
+          tutorProfile: {
+            select: { id: true, hiddenFromSearchAt: true },
+          },
           studentProfile: { select: { userId: true } },
           _count: { select: { bookingsAsStudent: true } },
         },
@@ -493,10 +497,61 @@ export class AdminService {
         hasTutorProfile: !!r.tutorProfile,
         hasStudentProfile: !!r.studentProfile,
         bookingCount: r._count.bookingsAsStudent,
+        tutorProfileId: r.tutorProfile?.id,
+        tutorHiddenFromSearchAt:
+          r.tutorProfile?.hiddenFromSearchAt?.toISOString(),
       })),
       total,
       page: safePage,
       pageSize: safePageSize,
+    };
+  }
+
+  /**
+   * FR-TH-02: admin-only toggle for /tutors search visibility. Sets
+   * (or clears) TutorProfile.hiddenFromSearchAt and writes a
+   * loginAuditLog row with the target + action for traceability.
+   * Does NOT modify User.suspendedUntil — login + direct-link bookings
+   * keep working for a hidden tutor.
+   */
+  async setTutorVisibility(
+    adminUserId: string,
+    tutorProfileId: string,
+    dto: SetTutorVisibilityDto,
+    requesterIp: string,
+  ): Promise<SetTutorVisibilityResult> {
+    const tutor = await this.prisma.tutorProfile.findUnique({
+      where: { id: tutorProfileId },
+      select: { id: true, hiddenFromSearchAt: true, userId: true },
+    });
+    if (!tutor) throw new NotFoundException("Tutor profile not found");
+    const nextAt = dto.hidden ? new Date() : null;
+    if (
+      (tutor.hiddenFromSearchAt === null) === (nextAt === null) &&
+      Boolean(tutor.hiddenFromSearchAt) === dto.hidden
+    ) {
+      // No-op: already in the requested state. Return current state
+      // unchanged, skip the audit log row.
+      return {
+        tutorProfileId: tutor.id,
+        hiddenFromSearchAt: tutor.hiddenFromSearchAt?.toISOString() ?? null,
+      };
+    }
+    const updated = await this.prisma.tutorProfile.update({
+      where: { id: tutor.id },
+      data: { hiddenFromSearchAt: nextAt },
+      select: { id: true, hiddenFromSearchAt: true },
+    });
+    await this.prisma.loginAuditLog.create({
+      data: {
+        userId: adminUserId,
+        ip: requesterIp,
+        userAgent: `admin-tutor-visibility:tutor=${tutor.id}:user=${tutor.userId}:hidden=${dto.hidden}`,
+      },
+    });
+    return {
+      tutorProfileId: updated.id,
+      hiddenFromSearchAt: updated.hiddenFromSearchAt?.toISOString() ?? null,
     };
   }
 
