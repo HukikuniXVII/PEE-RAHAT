@@ -105,6 +105,16 @@ The defaults in `.env.example` are production-ready. Notable knobs:
 - Toggle to the original list view (`?view=list`)
 - Span resolution is exact: 30 min = 1 cell, 60 = 2, 90 = 3, 120 = 4
 
+### Real-time notifications (FR-CM-08)
+- `NotificationsService.notify({ userId, type, category?, title, body, actionUrl?, sourceType?, sourceId? })` — single entry point. Dedups (same `sourceType`+`sourceId` within 5 min) and respects the user's per-type `typeOverrides` before writing the row.
+- `Notification.category` (enum: `bookings` / `payments` / `chat` / `reports` / `reviews` / `account` / `system`) drives the per-category accordion in `/account/notifications` settings.
+- Floating `NotificationBell` (top-right of every authed page, **not** in the nav per spec) + slide-up `NotificationPanel` (desktop drop / mobile sheet). Unread badge maxes at "9+", rose-500 dot, motion/react shake on count-up.
+- `GET /notifications/stream` — SSE, auth via `?token=<supabase-jwt>` (EventSource can't send headers). `SseGateway` keeps an in-memory `Map<userId, Set<Response>>` with 30 s heartbeats; `notify()` fans rows out to every open tab. Client `NotificationSseListener` reconnects on token refresh + 5 s back-off on errors.
+
+> **Scaling note — SSE gateway is single-instance.** A notification fired on API container A won't reach a stream on API container B. We run one container today so a `Map` is enough; when we go horizontal, swap `SseGateway` for a Redis pub/sub layer (same `emit` / `register` surface, fanned through Redis). This is the only change needed — `notify()` stays untouched.
+
+- **Phase 3 (follow-up PR)** — Web Push delivery via `web-push` + VAPID, service-worker `push` / `notificationclick` handlers, permission prompt after 5 min activity, `quietHours` enforcement, devices list + test-notification button in `/account/notifications`. Schema fields (`pushEnabled`, `quietHoursStart/End`) already in place so no further migration needed.
+
 ### Other Phase 1 work shipped
 - Tutor intro video supports YouTube / Vimeo / direct file URLs (auto-rewrite to embed where needed)
 - Real R2/S3 SDK in `StorageService` (NFR-03)
