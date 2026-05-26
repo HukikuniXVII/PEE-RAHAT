@@ -12,6 +12,7 @@ import { Prisma } from "@prisma/client";
 import { addHours, subHours } from "date-fns";
 
 import { ChatService } from "../chat/chat.service";
+import { requireUserBySupabaseId } from "../common/user-lookup";
 import { GoogleCalendarService } from "../integrations/google-calendar/google-calendar.service";
 import { NotificationService } from "../notifications/notification.service";
 import { buildPromptPayPayload } from "../payments/promptpay";
@@ -49,8 +50,7 @@ export class GroupSessionService {
    * + over-capacity get hard rejected so the host sees the constraint.
    */
   async invite(supabaseId: string, bookingId: string, emailsRaw: string[]) {
-    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
-    if (!user) throw new BadRequestException();
+    const user = await requireUserBySupabaseId(this.prisma, supabaseId);
 
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
@@ -155,8 +155,7 @@ export class GroupSessionService {
    * 'tutor_review' inside the same Serializable transaction.
    */
   async acceptInvite(supabaseId: string, code: string) {
-    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
-    if (!user) throw new BadRequestException();
+    const user = await requireUserBySupabaseId(this.prisma, supabaseId);
     const booking = await this.requireBookingByInviteCode(code);
     if (booking.groupStatus !== "forming") {
       throw new BadRequestException(
@@ -248,8 +247,7 @@ export class GroupSessionService {
 
   // ── Invitee: decline ──────────────────────────────────────────────────
   async declineInvite(supabaseId: string, code: string, reason?: string) {
-    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
-    if (!user) throw new BadRequestException();
+    const user = await requireUserBySupabaseId(this.prisma, supabaseId);
     const booking = await this.requireBookingByInviteCode(code);
     if (booking.groupStatus !== "forming") {
       throw new BadRequestException(
@@ -697,8 +695,7 @@ export class GroupSessionService {
    * forming-state only.
    */
   async extendInvite(supabaseId: string, bookingId: string) {
-    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
-    if (!user) throw new BadRequestException();
+    const user = await requireUserBySupabaseId(this.prisma, supabaseId);
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
     });
