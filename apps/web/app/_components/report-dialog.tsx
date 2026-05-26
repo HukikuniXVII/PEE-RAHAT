@@ -17,14 +17,13 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@peerahat/ui";
-import { useMutation } from "@tanstack/react-query";
 import { CheckCircle2, ShieldCheck } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useState } from "react";
-import { toast } from "sonner";
 
 import { createApiClient } from "@/lib/api-client";
+import { useMutationWithToast } from "@/lib/hooks/use-mutation-with-toast";
 
 import { EvidenceUploader, type EvidenceItem } from "./evidence-uploader";
 
@@ -59,7 +58,7 @@ export function ReportDialog({
     trimmed.length >= REPORT_DESCRIPTION_MIN &&
     trimmed.length <= REPORT_DESCRIPTION_MAX;
 
-  const submit = useMutation({
+  const submit = useMutationWithToast({
     mutationFn: () =>
       createApiClient().reports.create({
         targetType,
@@ -68,9 +67,9 @@ export function ReportDialog({
         description: trimmed,
         evidenceKeys: evidence.map((e) => e.objectKey),
       }),
+    successMessage: "ส่งรายงานเรียบร้อย",
     onSuccess: () => {
       setDone(true);
-      toast.success("ส่งรายงานเรียบร้อย");
       onReported?.();
       setTimeout(onClose, 2000);
     },

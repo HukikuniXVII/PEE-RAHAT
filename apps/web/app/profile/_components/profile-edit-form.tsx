@@ -7,14 +7,12 @@ import {
   userProfileUpdateSchema,
 } from "@peerahat/types";
 import { Button, Card, Input } from "@peerahat/ui";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Loader2, Lock, Upload } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { toast } from "sonner";
 
 import { createApiClient } from "@/lib/api-client";
+import { useMutationWithToast } from "@/lib/hooks/use-mutation-with-toast";
 
 interface Props {
   initialUser: User;
@@ -32,8 +30,6 @@ function initialsOf(name: string): string {
 }
 
 export function ProfileEditForm({ initialUser }: Props) {
-  const router = useRouter();
-  const queryClient = useQueryClient();
   const fileInput = useRef<HTMLInputElement | null>(null);
   const [avatarUrl, setAvatarUrl] = useState(initialUser.avatarUrl ?? "");
 
@@ -48,30 +44,28 @@ export function ProfileEditForm({ initialUser }: Props) {
 
   // Avatar upload: presigned PUT → publicUrl → save in form state.
   // The publicUrl only persists once the user submits the form.
-  const uploadAvatar = useMutation({
+  const uploadAvatar = useMutationWithToast({
     mutationFn: async (file: File) => {
       const api = createApiClient();
       const intent = await api.users.requestAvatarUpload(file.type);
       await api.uploads.putPresigned(intent, file);
       return intent.publicUrl;
     },
+    successMessage: "อัปโหลดรูปแล้ว — กดบันทึกเพื่อยืนยัน",
+    errorMessage: true,
     onSuccess: (url) => {
       setAvatarUrl(url);
       form.setValue("avatarUrl", url, { shouldDirty: true });
-      toast.success("อัปโหลดรูปแล้ว — กดบันทึกเพื่อยืนยัน");
     },
-    onError: (e: Error) => toast.error(e.message),
   });
 
-  const save = useMutation({
+  const save = useMutationWithToast({
     mutationFn: (dto: UserProfileUpdateDto) =>
       createApiClient().users.updateMe(dto),
-    onSuccess: () => {
-      toast.success("บันทึกโปรไฟล์เรียบร้อย");
-      queryClient.invalidateQueries({ queryKey: ["users", "me"] });
-      router.refresh();
-    },
-    onError: (e: Error) => toast.error(e.message),
+    successMessage: "บันทึกโปรไฟล์เรียบร้อย",
+    errorMessage: true,
+    invalidateKeys: [["users", "me"]],
+    refreshRouter: true,
   });
 
   const onSubmit = form.handleSubmit((values) => {
