@@ -391,12 +391,6 @@ export function createApiClient(opts: ApiClientOptions = {}) {
             { method: "PATCH", body: JSON.stringify(dto) },
             token,
           ),
-        delete: (id: string) =>
-          request<{ ok: true }>(
-            API_PATHS.adminUserById(id),
-            { method: "DELETE" },
-            token,
-          ),
       },
       // FR-TC-02: AI-powered TCAS criteria importer. parseAi sends a PDF
       // for Gemini extraction; reparse reruns against the same buffered

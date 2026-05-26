@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Delete,
   ForbiddenException,
   Get,
   Ip,
@@ -232,17 +231,6 @@ export class AdminController {
     const admin = await this.assertAdmin(user.sub);
     const dto: UpdateAdminUserDto = updateAdminUserSchema.parse(raw);
     return this.admin.updateUserAsAdmin(admin.id, targetId, dto, ip);
-  }
-
-  @Delete("users/:id")
-  async deleteUser(
-    @CurrentUser() user: SupabaseJwtPayload,
-    @Param("id") targetId: string,
-    @Ip() ip: string,
-  ) {
-    const admin = await this.assertAdmin(user.sub);
-    await this.admin.deleteUserAsAdmin(admin.id, targetId, ip);
-    return { ok: true };
   }
 
   /**

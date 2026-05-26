@@ -14,7 +14,6 @@ import {
   Pencil,
   Search,
   ShieldCheck,
-  Trash2,
   X,
 } from "lucide-react";
 import { useState } from "react";
@@ -180,7 +179,6 @@ function UserRow({
   onChanged: () => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   return (
     <>
@@ -224,16 +222,6 @@ function UserRow({
           <Pencil size={12} />
           แก้ไข
         </button>
-        <button
-          type="button"
-          onClick={() => setConfirmingDelete(true)}
-          disabled={isSelf}
-          title={isSelf ? "ลบบัญชีของตัวเองไม่ได้" : undefined}
-          className="thai inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-bold rounded-xl bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <Trash2 size={12} />
-          ลบ
-        </button>
       </li>
 
       {editing && (
@@ -243,16 +231,6 @@ function UserRow({
           onClose={() => setEditing(false)}
           onSaved={() => {
             setEditing(false);
-            onChanged();
-          }}
-        />
-      )}
-      {confirmingDelete && (
-        <DeleteConfirmModal
-          user={user}
-          onClose={() => setConfirmingDelete(false)}
-          onDeleted={() => {
-            setConfirmingDelete(false);
             onChanged();
           }}
         />
@@ -394,96 +372,3 @@ function EditUserModal({
   );
 }
 
-function DeleteConfirmModal({
-  user,
-  onClose,
-  onDeleted,
-}: {
-  user: AdminUserRow;
-  onClose: () => void;
-  onDeleted: () => void;
-}) {
-  const [confirmText, setConfirmText] = useState("");
-  const expected = user.email;
-  const matches = confirmText === expected;
-
-  const del = useMutation({
-    mutationFn: () => createApiClient().admin.users.delete(user.id),
-    onSuccess: () => {
-      toast.success("ลบบัญชีแล้ว");
-      onDeleted();
-    },
-    onError: (e) =>
-      toast.error(e instanceof Error ? e.message : "ลบไม่สำเร็จ"),
-  });
-
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md bg-white rounded-[28px] border border-rose-200 shadow-xl overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="p-6 pb-3 flex items-start gap-3">
-          <span className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 inline-flex items-center justify-center shrink-0">
-            <Trash2 size={18} />
-          </span>
-          <div className="min-w-0">
-            <h2 className="thai text-lg font-black text-rose-700">
-              ลบบัญชีนี้แบบถาวร?
-            </h2>
-            <p className="thai text-[12.5px] text-slate-600 mt-1 leading-relaxed">
-              <strong>{user.displayName}</strong> ({user.email}) —
-              การลบจะ cascade ไปยังโปรไฟล์ติวเตอร์/นักเรียน, KYC, การจอง
-              ({user.bookingCount} ครั้ง), การชำระเงิน, แชท ฯลฯ
-              ของบัญชีนี้ทันที <strong className="text-rose-700">กู้คืนไม่ได้</strong>
-            </p>
-          </div>
-        </header>
-
-        <div className="px-6 pb-2 space-y-2">
-          <label className="block space-y-1.5">
-            <span className="thai text-[11px] font-bold uppercase tracking-widest text-slate-500">
-              พิมพ์อีเมลของบัญชีเพื่อยืนยัน
-            </span>
-            <input
-              type="text"
-              value={confirmText}
-              onChange={(e) => setConfirmText(e.target.value)}
-              placeholder={expected}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-mono focus:border-rose-400 outline-none"
-              autoFocus
-            />
-          </label>
-        </div>
-
-        <footer className="p-6 pt-4 flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="thai px-4 py-2 text-sm font-bold rounded-xl text-slate-600 hover:bg-slate-100"
-          >
-            ยกเลิก
-          </button>
-          <button
-            type="button"
-            disabled={!matches || del.isPending}
-            onClick={() => del.mutate()}
-            className="thai inline-flex items-center gap-1.5 px-5 py-2 text-sm font-bold rounded-xl bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {del.isPending ? (
-              <Loader2 size={14} className="animate-spin" />
-            ) : (
-              <Trash2 size={14} />
-            )}
-            ลบบัญชีถาวร
-          </button>
-        </footer>
-      </div>
-    </div>
-  );
-}

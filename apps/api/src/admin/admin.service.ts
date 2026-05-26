@@ -260,8 +260,18 @@ export class AdminService {
    * list represents an admin's intent to review.
    */
   async listBankChanges(): Promise<AdminBankChangeItem[]> {
+    // Require every pending column to be set together — `updateMyBank`
+    // writes them atomically, so a row with `pendingBankSubmittedAt`
+    // alone would indicate a partial write or stray migration leftover.
+    // Filtering here keeps a broken row out of the decrypt path instead
+    // of crashing with an opaque crypto error.
     const rows = await this.prisma.tutorProfile.findMany({
-      where: { pendingBankSubmittedAt: { not: null } },
+      where: {
+        pendingBankSubmittedAt: { not: null },
+        pendingBankName: { not: null },
+        pendingBankAccountNumber: { not: null },
+        pendingBankAccountName: { not: null },
+      },
       orderBy: { pendingBankSubmittedAt: "asc" },
       include: {
         user: {
@@ -269,30 +279,36 @@ export class AdminService {
         },
       },
     });
-    return rows.map((row) => ({
-      tutorId: row.id,
-      userId: row.user.id,
-      displayName: row.user.displayName,
-      email: row.user.email,
-      university: row.university,
-      current:
-        row.bankAccountNumber && row.bankName && row.bankAccountName && row.bankUpdatedAt
-          ? {
-              bankName: row.bankName as BankName,
-              accountNumber: this.crypto.decrypt(row.bankAccountNumber),
-              accountName: row.bankAccountName,
-              updatedAt: row.bankUpdatedAt.toISOString(),
-            }
-          : null,
-      pending: {
-        bankName: row.pendingBankName as BankName,
-        accountNumber: this.crypto.decrypt(row.pendingBankAccountNumber!),
-        accountName: row.pendingBankAccountName!,
-        idName: row.pendingIdName ?? row.pendingBankAccountName!,
-        passbookObjectKey: row.pendingPassbookObjectKey,
-        submittedAt: row.pendingBankSubmittedAt!.toISOString(),
-      },
-    }));
+    return rows.map((row) => {
+      const pendingBankName = row.pendingBankName as BankName;
+      const pendingAccountNumber = row.pendingBankAccountNumber as string;
+      const pendingAccountName = row.pendingBankAccountName as string;
+      const pendingSubmittedAt = row.pendingBankSubmittedAt as Date;
+      return {
+        tutorId: row.id,
+        userId: row.user.id,
+        displayName: row.user.displayName,
+        email: row.user.email,
+        university: row.university,
+        current:
+          row.bankAccountNumber && row.bankName && row.bankAccountName && row.bankUpdatedAt
+            ? {
+                bankName: row.bankName as BankName,
+                accountNumber: this.crypto.decrypt(row.bankAccountNumber),
+                accountName: row.bankAccountName,
+                updatedAt: row.bankUpdatedAt.toISOString(),
+              }
+            : null,
+        pending: {
+          bankName: pendingBankName,
+          accountNumber: this.crypto.decrypt(pendingAccountNumber),
+          accountName: pendingAccountName,
+          idName: row.pendingIdName ?? pendingAccountName,
+          passbookObjectKey: row.pendingPassbookObjectKey,
+          submittedAt: pendingSubmittedAt.toISOString(),
+        },
+      };
+    });
   }
 
   /**
@@ -525,8 +541,29 @@ export class AdminService {
     }
     const target = await this.prisma.user.findUnique({
       where: { id: targetUserId },
+      include: {
+        tutorProfile: { select: { id: true } },
+        studentProfile: { select: { userId: true } },
+      },
     });
     if (!target) throw new NotFoundException("User not found");
+    // Refuse a role transition that would leave the user without the
+    // matching profile row — promoting a student to "tutor" without a
+    // TutorProfile leaves any code that reads role === "tutor" crashing
+    // on missing relations. Admin must seed the profile first (via the
+    // normal onboarding/KYC flow) before flipping the role.
+    if (dto.role !== undefined && dto.role !== target.role) {
+      if (dto.role === "tutor" && !target.tutorProfile) {
+        throw new BadRequestException(
+          "ไม่สามารถเปลี่ยน role เป็น tutor — ผู้ใช้นี้ยังไม่มี TutorProfile (ต้องผ่าน KYC ก่อน)",
+        );
+      }
+      if (dto.role === "student" && !target.studentProfile) {
+        throw new BadRequestException(
+          "ไม่สามารถเปลี่ยน role เป็น student — ผู้ใช้นี้ยังไม่มี StudentProfile",
+        );
+      }
+    }
     await this.prisma.user.update({
       where: { id: targetUserId },
       data: {
@@ -572,40 +609,6 @@ export class AdminService {
       hasStudentProfile: !!fresh.studentProfile,
       bookingCount: fresh._count.bookingsAsStudent,
     };
-  }
-
-  /**
-   * Hard-delete a user. Existing Prisma onDelete: Cascade relations
-   * drop TutorProfile, StudentProfile, KycSubmission, bookings as
-   * student, etc. The Supabase auth row stays — admin must delete that
-   * separately in the Supabase dashboard.
-   *
-   * Refuses to delete the acting admin's own account (would log them
-   * out and leave the system without an admin if they were the last).
-   */
-  async deleteUserAsAdmin(
-    adminUserId: string,
-    targetUserId: string,
-    requesterIp: string,
-  ): Promise<void> {
-    if (targetUserId === adminUserId) {
-      throw new BadRequestException(
-        "ไม่สามารถลบบัญชีของตัวเองได้",
-      );
-    }
-    const target = await this.prisma.user.findUnique({
-      where: { id: targetUserId },
-      select: { id: true, email: true },
-    });
-    if (!target) throw new NotFoundException("User not found");
-    await this.prisma.user.delete({ where: { id: targetUserId } });
-    await this.prisma.loginAuditLog.create({
-      data: {
-        userId: adminUserId,
-        ip: requesterIp,
-        userAgent: `admin-delete-user:target=${targetUserId}:email=${target.email}`,
-      },
-    });
   }
 
   async listReports({
