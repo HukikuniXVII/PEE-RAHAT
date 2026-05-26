@@ -497,6 +497,22 @@ export class TutorsService {
       );
     }
 
+    // Require live bank columns to already be populated before we accept
+    // a pending edit. Without a live row the response shape can't be
+    // satisfied honestly — fabricating one from the pending submission
+    // would render as if the change had been approved. Bouncing here
+    // (before the write) avoids saving phantom pending state.
+    if (
+      !tutor.bankName ||
+      !tutor.bankAccountNumber ||
+      !tutor.bankAccountName ||
+      !tutor.bankUpdatedAt
+    ) {
+      throw new BadRequestException(
+        "ข้อมูลบัญชีรับเงินของคุณยังไม่ครบ ติดต่อแอดมินเพื่อรีเซ็ตสถานะ KYC",
+      );
+    }
+
     const encryptedAccount = this.crypto.encrypt(dto.bank.bankAccountNumber);
 
     await this.prisma.tutorProfile.update({
@@ -511,24 +527,16 @@ export class TutorsService {
       },
     });
 
-    // Return the LIVE bank info — the response shape stays the same for
-    // the tutor's bank page, with a populated `pending` payload so the
-    // UI can render the "awaiting review" banner.
-    return (
-      (await this.getMyBank(supabaseId)) ?? {
-        bankName: dto.bank.bankName,
-        accountLast4: dto.bank.bankAccountNumber.slice(-4),
-        accountName: bankAccountName,
-        updatedAt: new Date().toISOString(),
-        pending: {
-          bankName: dto.bank.bankName,
-          accountLast4: dto.bank.bankAccountNumber.slice(-4),
-          accountName: bankAccountName,
-          idName,
-          submittedAt: new Date().toISOString(),
-        },
-      }
-    );
+    // getMyBank will not return null here — the live-column check above
+    // guarantees the masked record is well-formed, and re-reading via
+    // getMyBank also picks up the freshly-written pending payload.
+    const live = await this.getMyBank(supabaseId);
+    if (!live) {
+      throw new Error(
+        "updateMyBank: live bank disappeared between guard and re-read",
+      );
+    }
+    return live;
   }
 
   private async requireTutorBySupabaseId(supabaseId: string) {

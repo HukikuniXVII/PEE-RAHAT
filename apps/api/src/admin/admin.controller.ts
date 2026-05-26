@@ -212,6 +212,11 @@ export class AdminController {
     return this.admin.updateUserAsAdmin(admin.id, targetId, dto, ip);
   }
 
+  // FR-TH-02: hard delete a user. Service-level history gate (bookings/
+  // intents/reviews/reports) returns USER_HAS_HISTORY 400 for any account
+  // with activity — only clean test signups can actually be purged. Kept
+  // on main per user direction; Kamin's c6329d4 removed this surface but
+  // the service-side guardrails make it safe.
   @Delete("users/:id")
   async deleteUser(
     @CurrentUser() user: SupabaseJwtPayload,

@@ -460,6 +460,9 @@ export function createApiClient(opts: ApiClientOptions = {}) {
             { method: "PATCH", body: JSON.stringify(dto) },
             token,
           ),
+        // FR-TH-02: hard delete a user via the admin panel. Server-side
+        // history gate keeps any non-clean account safe; UI surfaces
+        // USER_HAS_HISTORY 400 with a hint to suspend instead.
         delete: (id: string) =>
           request<{ ok: true }>(
             API_PATHS.adminUserById(id),
