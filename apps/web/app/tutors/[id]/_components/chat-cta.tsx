@@ -28,7 +28,7 @@ export function ChatCta({ tutor, hasInitialSession }: Props) {
   });
   if (meQuery.data?.tutorProfileId === tutor.id) return null;
 
-  const chatHref = `/chat/${tutor.id}` as Route;
+  const chatHref = `/chat?with=${tutor.id}` as Route;
   return (
     <Link
       href={chatHref}

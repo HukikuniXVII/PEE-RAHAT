@@ -13,9 +13,9 @@ import { ChatRoom } from "./chat-room";
 
 interface Props {
   initialThreads: ChatThread[];
-  /** Preselect a thread on first render. Used by /chat/[tutorId] and
-   *  /chat/thread/[threadId] so deep-links land in the split-pane view
-   *  with the target conversation already active. */
+  /** Preselect a thread on first render. Used by /chat?with=<tutorId>
+   *  and /chat?thread=<threadId> so every chat entry lands in the
+   *  split-pane view with the target conversation already active. */
   initialSelectedId?: string | null;
 }
 
@@ -56,8 +56,8 @@ export function ThreadsList({ initialThreads, initialSelectedId = null }: Props)
   const allThreads = data ?? initialThreads;
   const [search, setSearch] = useState("");
   // Split-pane state: clicking a thread row activates it inline in the
-  // right column. The deep-link route /chat/thread/[id] still exists for
-  // SSR + share-links but is no longer used as the primary interaction.
+  // right column. Server preselection comes in via initialSelectedId
+  // when the page receives `?with=<tutorId>` or `?thread=<threadId>`.
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
   const selectedThread = useMemo(
     () => allThreads.find((t) => t.id === selectedId) ?? null,
@@ -249,9 +249,8 @@ export function ThreadsList({ initialThreads, initialSelectedId = null }: Props)
       {/* Right pane — placeholder when nothing is selected, ChatRoom
           when a thread is active. On mobile the right pane only renders
           once a thread is picked so the list isn't pushed off-screen.
-          ChatRoom hydrates messages itself via useQuery, so passing an
-          empty initialMessages is safe — the deep-link /chat/thread/[id]
-          SSR path is the only place that pre-fetches them. */}
+          ChatRoom hydrates messages itself via useQuery so passing an
+          empty initialMessages is safe. */}
       {selectedThread ? (
         <div className="bg-white rounded-[32px] border border-violet-100 shadow-[0_8px_24px_-16px_rgba(85,65,139,0.25)] overflow-hidden min-h-[420px]">
           <ChatRoom

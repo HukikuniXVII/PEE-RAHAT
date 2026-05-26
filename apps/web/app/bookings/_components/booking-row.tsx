@@ -231,7 +231,7 @@ export function BookingRow({ booking }: Props) {
           {negotiating && (
             <button
               type="button"
-              onClick={() => router.push(`/chat/thread/${booking.chatThreadId}`)}
+              onClick={() => router.push(`/chat?thread=${booking.chatThreadId}`)}
               className="px-4 py-2.5 bg-amber-500 text-white rounded-xl font-bold text-sm hover:bg-amber-600 transition-all flex items-center gap-2"
             >
               <CalendarX size={14} />
@@ -285,7 +285,7 @@ export function BookingRow({ booking }: Props) {
           onOpened={({ threadId }) => {
             queryClient.invalidateQueries({ queryKey: ["bookings", "mine"] });
             toast.success("เปิดห้องเจรจาแล้ว — ตอบกลับภายใน 2 ชั่วโมง");
-            router.push(`/chat/thread/${threadId}`);
+            router.push(`/chat?thread=${threadId}`);
           }}
         />
       )}

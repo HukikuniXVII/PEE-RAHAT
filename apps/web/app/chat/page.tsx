@@ -1,15 +1,60 @@
 import { PageBackground } from "@peerahat/ui";
 import { MessagesSquare } from "lucide-react";
+import { redirect } from "next/navigation";
 
 import { createApiClient } from "@/lib/api-client";
 import { requireAuth } from "@/lib/auth";
 
 import { ThreadsList } from "./_components/threads-list";
 
-export default async function ChatThreadsPage() {
-  const token = await requireAuth("/chat");
+interface Props {
+  // `?with=<tutorProfileId>` — opens (or fetches) the thread with that tutor
+  // and preselects it. Used by ChatCta on tutor profiles.
+  // `?thread=<threadId>` — preselects an existing thread by id. Used by
+  // booking rows / scheduled events so chat-from-booking lands here too.
+  // Both keep every chat entry on this single canonical /chat URL.
+  searchParams: { with?: string; thread?: string };
+}
+
+export default async function ChatPage({ searchParams }: Props) {
+  const withTutorId = searchParams.with?.trim() || null;
+  const threadParam = searchParams.thread?.trim() || null;
+  const nextUrl = withTutorId
+    ? `/chat?with=${withTutorId}`
+    : threadParam
+      ? `/chat?thread=${threadParam}`
+      : "/chat";
+  const token = await requireAuth(nextUrl);
   const api = createApiClient({ accessToken: token });
-  const initial = await api.chat.threads();
+
+  let initialSelectedId: string | null = null;
+  let threads = await api.chat.threads();
+
+  if (withTutorId) {
+    const me = await api.users.me();
+    // Tutors landing on /chat?with=<their own profile id> would hit the
+    // backend's self-chat guard with a 403; strip the param and show the
+    // threads list instead.
+    if (me.tutorProfileId === withTutorId) {
+      redirect("/chat");
+    }
+    const thread = await api.chat.openWithTutor(withTutorId);
+    initialSelectedId = thread.id;
+    // Defensive merge: openWithTutor may have just created the thread, in
+    // which case the threads() call above might not see it yet.
+    if (!threads.some((t) => t.id === thread.id)) {
+      threads = [thread, ...threads];
+    }
+  } else if (threadParam) {
+    initialSelectedId = threadParam;
+    // If the thread isn't in the list (rare — e.g. just-created), fetch
+    // it directly so the right pane has something to render.
+    if (!threads.some((t) => t.id === threadParam)) {
+      const fetched = await api.chat.threadById(threadParam).catch(() => null);
+      if (fetched) threads = [fetched, ...threads];
+      else initialSelectedId = null;
+    }
+  }
 
   return (
     <>
@@ -35,7 +80,10 @@ export default async function ChatThreadsPage() {
           </p>
         </header>
 
-        <ThreadsList initialThreads={initial} />
+        <ThreadsList
+          initialThreads={threads}
+          initialSelectedId={initialSelectedId}
+        />
       </div>
     </>
   );
