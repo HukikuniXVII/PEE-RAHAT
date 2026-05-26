@@ -19,7 +19,7 @@ import { addHours } from "date-fns";
 import { GroupSessionService } from "../bookings/group-session.service";
 import { GoogleCalendarService } from "../integrations/google-calendar/google-calendar.service";
 import { PrismaService } from "../prisma/prisma.service";
-import { encodePromptPayPayload } from "./promptpay";
+import { buildPromptPayPayload } from "./promptpay";
 import { ZercleSlipService } from "./zercle-slip/zercle-slip.service";
 
 @Injectable()
@@ -114,7 +114,7 @@ export class PaymentsService {
         bookingId,
         sheetId,
         amountThb,
-        promptPayQrPayload: this.buildPromptPayPayload(amountThb),
+        promptPayQrPayload: buildPromptPayPayload(amountThb),
         expiresAt: addHours(new Date(), 1),
       },
     });
@@ -277,25 +277,6 @@ export class PaymentsService {
     }
   }
 
-  private buildPromptPayPayload(amountThb: number): string {
-    const merchantId = process.env.PROMPTPAY_MERCHANT_ID;
-    if (merchantId) {
-      return encodePromptPayPayload({ merchantId, amountThb });
-    }
-    // TEMP (FR-PM-01): the payment dialog hard-codes a static PromptPay QR
-    // image (see payment-dialog.tsx, commit 5379d2b) and never renders this
-    // payload, so a missing PROMPTPAY_MERCHANT_ID must NOT hard-500 the
-    // create-intent path. Return the stub in every environment until escrow
-    // goes live. At that point: set PROMPTPAY_MERCHANT_ID, drop the static
-    // QR in the dialog, and restore the production throw below so a misconfig
-    // can never silently ship an unscannable QR.
-    if (process.env.NODE_ENV === "production") {
-      this.logger.warn(
-        "PROMPTPAY_MERCHANT_ID is not set — using the PromptPay stub. Expected while the payment dialog shows a hard-coded QR image; configure the env before escrow goes live.",
-      );
-    }
-    return `promptpay-stub:amount=${amountThb}`;
-  }
 
   /**
    * FR-PM-05 / FR-PM-06: once the 24h report window closes without dispute

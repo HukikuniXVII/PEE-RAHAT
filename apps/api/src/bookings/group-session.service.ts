@@ -14,7 +14,7 @@ import { addHours, subHours } from "date-fns";
 import { ChatService } from "../chat/chat.service";
 import { GoogleCalendarService } from "../integrations/google-calendar/google-calendar.service";
 import { NotificationService } from "../notifications/notification.service";
-import { encodePromptPayPayload } from "../payments/promptpay";
+import { buildPromptPayPayload } from "../payments/promptpay";
 import { PrismaService } from "../prisma/prisma.service";
 import { BookingsService } from "./bookings.service";
 
@@ -989,12 +989,3 @@ export function shouldConfirmGroup(
   return participants.every((p) => p.status === "paid");
 }
 
-// PromptPay payload — duplicated from PaymentsService.buildPromptPayPayload
-// to avoid a circular dep with PaymentsService. Both call the same shared
-// encoder; a future refactor can extract the env-stub logic to promptpay.ts
-// and have both services use that. ~5 lines of duplication.
-function buildPromptPayPayload(amountThb: number): string {
-  const merchantId = process.env.PROMPTPAY_MERCHANT_ID;
-  if (merchantId) return encodePromptPayPayload({ merchantId, amountThb });
-  return `promptpay-stub:amount=${amountThb}`;
-}

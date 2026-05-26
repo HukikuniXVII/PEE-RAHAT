@@ -98,6 +98,26 @@ export function encodePromptPayPayload(input: PromptPayInput): string {
   return head + crc16ccittFalse(head);
 }
 
+/**
+ * Env-aware wrapper: returns a real EMVCo payload when
+ * PROMPTPAY_MERCHANT_ID is configured, else a `promptpay-stub:` string.
+ *
+ * The stub exists because the payment dialog currently hard-codes a
+ * static QR image (see payment-dialog.tsx, commit 5379d2b) and never
+ * renders this payload, so a missing merchant id must NOT hard-500 the
+ * create-intent path. When escrow goes live: set PROMPTPAY_MERCHANT_ID,
+ * drop the static QR in the dialog, and tighten this helper to throw
+ * when the env is missing.
+ *
+ * Lives here (not on PaymentsService) so group-session.service can
+ * reach it without re-introducing the documented circular dep.
+ */
+export function buildPromptPayPayload(amountThb: number): string {
+  const merchantId = process.env.PROMPTPAY_MERCHANT_ID;
+  if (merchantId) return encodePromptPayPayload({ merchantId, amountThb });
+  return `promptpay-stub:amount=${amountThb}`;
+}
+
 // ─── Round-trip parser ────────────────────────────────────────────────────
 // Used by tests / verification scripts. Not consumed by the runtime path,
 // but the encoder is too easy to silently break — keeping the inverse in
