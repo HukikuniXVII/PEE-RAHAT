@@ -1,16 +1,10 @@
 import { z } from "zod";
 
+import { dateStringSchema } from "./time";
+
 export const paymentItemTypeSchema = z.enum(["booking", "sheet"]);
 export type PaymentItemType = z.infer<typeof paymentItemTypeSchema>;
 
-/** Loose ISO date parser used by payout DTOs that the controller hands
- *  to `new Date(...)`. Matches the dateStringSchema in admin.ts. */
-const dateStringSchema = z
-  .string()
-  .min(1)
-  .refine((v) => !Number.isNaN(Date.parse(v)), {
-    message: "Invalid date",
-  });
 
 export type PaymentStatus =
   | "pending_transfer"
@@ -59,12 +53,6 @@ export interface SlipVerificationResult {
   /** Bank transaction id from ZercleSlip — used for duplicate-slip dedupe. */
   transactionId?: string;
   failureReason?: string;
-}
-
-export interface ReportIssueDto {
-  bookingId: string;
-  reason: string;
-  details: string;
 }
 
 export interface Payout {

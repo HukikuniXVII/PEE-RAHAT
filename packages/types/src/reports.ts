@@ -52,6 +52,17 @@ export const reportStatusSchema = z.enum([
 ]);
 export type ReportStatus = z.infer<typeof reportStatusSchema>;
 
+/**
+ * Terminal statuses for a report — no further state changes expected.
+ * Centralised so the admin queue's `notIn`, the resolution-guard's
+ * "already closed" check, and the overdue flag all agree on the set.
+ */
+export const REPORT_CLOSED_STATUSES: readonly ReportStatus[] = [
+  "resolved",
+  "rejected",
+  "duplicate",
+];
+
 export const reportPrioritySchema = z.enum(["low", "normal", "high", "urgent"]);
 export type ReportPriority = z.infer<typeof reportPrioritySchema>;
 

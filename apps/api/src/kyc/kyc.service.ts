@@ -19,7 +19,7 @@ import { PrismaService } from "../prisma/prisma.service";
  * Thai has no case so toLowerCase is a no-op for ID names, but the trim +
  * whitespace-collapse covers the common slips (extra spaces, NBSP runs).
  */
-export function normalizeName(s: string): string {
+function normalizeName(s: string): string {
   return s.replace(/\s+/g, " ").trim().toLowerCase();
 }
 

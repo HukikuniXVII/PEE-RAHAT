@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import {
+  REPORT_CLOSED_STATUSES,
   REPORT_STATUS_LABELS,
   REPORT_TARGET_LABELS,
   type AdminReportDetail,
@@ -24,7 +25,7 @@ import { ReportResolutionService } from "./report-resolution.service";
 import { TargetResolverService } from "./target-resolver.service";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const CLOSED = new Set<ReportStatus>(["resolved", "rejected", "duplicate"]);
+const CLOSED = new Set<ReportStatus>(REPORT_CLOSED_STATUSES);
 /** Cap on a queue page — the admin scale stays small in Phase 1. */
 const QUEUE_LIMIT = 200;
 
@@ -72,7 +73,7 @@ export class AdminReportsService {
     const reports = await this.prisma.report.findMany({
       where: {
         slaDeadline: { lt: new Date() },
-        status: { notIn: ["resolved", "rejected", "duplicate"] },
+        status: { notIn: [...REPORT_CLOSED_STATUSES] },
       },
       orderBy: [{ priority: "desc" }, { slaDeadline: "asc" }],
       take: QUEUE_LIMIT,
@@ -118,7 +119,7 @@ export class AdminReportsService {
           ? (nameById.get(e.authorId) ?? "ผู้ใช้")
           : "ระบบ",
         text: e.text,
-        evidenceUrls: await this.signEvidence(e.evidenceKeys),
+        evidenceUrls: await this.storage.signEvidenceUrls(e.evidenceKeys),
         createdAt: e.createdAt.toISOString(),
       })),
     );
@@ -161,7 +162,7 @@ export class AdminReportsService {
       targetUserId: report.targetUserId,
       category: report.category,
       description: report.description,
-      evidenceUrls: await this.signEvidence(report.evidenceKeys),
+      evidenceUrls: await this.storage.signEvidenceUrls(report.evidenceKeys),
       status: report.status,
       priority: report.priority,
       slaDeadline: report.slaDeadline.toISOString(),
@@ -523,13 +524,6 @@ export class AdminReportsService {
     });
     if (!user) throw new BadRequestException("Unknown admin");
     return user;
-  }
-
-  private async signEvidence(keys: string[]): Promise<string[]> {
-    const signed = await Promise.all(
-      keys.map((key) => this.storage.signDownload(key)),
-    );
-    return signed.map((s) => s.url);
   }
 
   /** Map report rows into queue items, batching the reporter + assignee

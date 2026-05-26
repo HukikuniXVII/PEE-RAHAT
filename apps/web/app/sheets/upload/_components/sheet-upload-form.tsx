@@ -50,12 +50,7 @@ export function SheetUploadForm() {
     mutationFn: async ({ kind, file }: { kind: UploadKind; file: File }) => {
       const api = createApiClient();
       const intent = await api.sheets.requestUpload(kind, file.type);
-      const put = await fetch(intent.uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!put.ok) throw new Error("Upload failed");
+      await api.uploads.putPresigned(intent, file);
       return { kind, objectKey: intent.objectKey, fileName: file.name };
     },
     onSuccess: ({ kind, objectKey, fileName }) => {

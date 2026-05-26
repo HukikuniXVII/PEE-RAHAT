@@ -34,6 +34,15 @@ export class CryptoService {
     return Buffer.concat([iv, ciphertext, tag]).toString("base64");
   }
 
+  /**
+   * Decrypt an encrypted bank-account ciphertext and return only the
+   * last 4 digits. Centralised so masking call sites can't accidentally
+   * forget the `.slice(-4)` and leak the full account number.
+   */
+  maskedAccountLast4(encrypted: string): string {
+    return this.decrypt(encrypted).slice(-4);
+  }
+
   decrypt(blob: string): string {
     const key = this.key();
     const buf = Buffer.from(blob, "base64");

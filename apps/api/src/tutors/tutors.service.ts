@@ -416,10 +416,9 @@ export class TutorsService {
     ) {
       return null;
     }
-    const accountNumber = this.crypto.decrypt(tutor.bankAccountNumber);
     return {
       bankName: tutor.bankName as MaskedBankInfo["bankName"],
-      accountLast4: accountNumber.slice(-4),
+      accountLast4: this.crypto.maskedAccountLast4(tutor.bankAccountNumber),
       accountName: tutor.bankAccountName,
       updatedAt: tutor.bankUpdatedAt.toISOString(),
       pending: this.buildPendingBankInfo(tutor),
@@ -447,10 +446,9 @@ export class TutorsService {
     ) {
       return null;
     }
-    const accountNumber = this.crypto.decrypt(tutor.pendingBankAccountNumber);
     return {
       bankName: tutor.pendingBankName as MaskedBankInfo["bankName"],
-      accountLast4: accountNumber.slice(-4),
+      accountLast4: this.crypto.maskedAccountLast4(tutor.pendingBankAccountNumber),
       accountName: tutor.pendingBankAccountName,
       idName: tutor.pendingIdName ?? tutor.pendingBankAccountName,
       submittedAt: tutor.pendingBankSubmittedAt.toISOString(),

@@ -17,6 +17,7 @@ import {
 import { Prisma } from "@prisma/client";
 import { addHours, subHours } from "date-fns";
 
+import { requireUserBySupabaseId } from "../common/user-lookup";
 import { PrismaService } from "../prisma/prisma.service";
 
 /** Prisma errors raised when a Serializable transaction is aborted because a
@@ -233,8 +234,7 @@ export class BookingsService {
   }
 
   async findById(supabaseId: string, bookingId: string) {
-    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
-    if (!user) throw new BadRequestException();
+    const user = await requireUserBySupabaseId(this.prisma, supabaseId);
     const row = await this.prisma.booking.findUnique({
       where: { id: bookingId },
       include: BOOKING_DTO_INCLUDE,
@@ -247,8 +247,7 @@ export class BookingsService {
   }
 
   async create(supabaseId: string, input: CreateBookingDto) {
-    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
-    if (!user) throw new BadRequestException();
+    const user = await requireUserBySupabaseId(this.prisma, supabaseId);
     const tutor = await this.prisma.tutorProfile.findUnique({
       where: { id: input.tutorId },
       include: { user: { select: { suspendedUntil: true } } },
@@ -657,8 +656,7 @@ export class BookingsService {
    * consistent) — students can't use this method on a group booking.
    */
   async cancelByStudent(supabaseId: string, bookingId: string) {
-    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
-    if (!user) throw new BadRequestException();
+    const user = await requireUserBySupabaseId(this.prisma, supabaseId);
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
     });
@@ -700,8 +698,7 @@ export class BookingsService {
    * student-cancel path. Group bookings go through GroupSessionService.
    */
   async rejectByTutor(supabaseId: string, bookingId: string) {
-    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
-    if (!user) throw new BadRequestException();
+    const user = await requireUserBySupabaseId(this.prisma, supabaseId);
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
       include: { tutor: { select: { userId: true } } },
@@ -737,8 +734,7 @@ export class BookingsService {
   }
 
   async accept(supabaseId: string, bookingId: string) {
-    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
-    if (!user) throw new BadRequestException();
+    const user = await requireUserBySupabaseId(this.prisma, supabaseId);
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
       include: { tutor: true },
@@ -777,8 +773,7 @@ export class BookingsService {
     bookingId: string,
     dto: BookingReportDto,
   ) {
-    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
-    if (!user) throw new BadRequestException();
+    const user = await requireUserBySupabaseId(this.prisma, supabaseId);
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
       include: { paymentIntent: true },

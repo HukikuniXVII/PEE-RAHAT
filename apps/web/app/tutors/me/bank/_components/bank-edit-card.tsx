@@ -21,9 +21,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { toast } from "sonner";
 
 import { createApiClient } from "@/lib/api-client";
+import { useMutationWithToast } from "@/lib/hooks/use-mutation-with-toast";
 
 const BANK_OPTIONS: { value: BankName; label: string }[] = [
   { value: "SCB", label: "ไทยพาณิชย์ (SCB)" },
@@ -247,14 +247,7 @@ function BankEditDialog({
     mutationFn: async (file: File) => {
       const api = createApiClient();
       const intent = await api.kyc.requestUpload("passbook", file.type);
-      const put = await fetch(intent.uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!put.ok && !intent.uploadUrl.startsWith("https://storage.local")) {
-        throw new Error(`Upload failed: ${put.status}`);
-      }
+      await api.uploads.putPresigned(intent, file);
       return { objectKey: intent.objectKey, file };
     },
     onSuccess: ({ objectKey, file }) => {
@@ -264,7 +257,7 @@ function BankEditDialog({
     onError: (e) => setFileError(e.message),
   });
 
-  const save = useMutation({
+  const save = useMutationWithToast({
     mutationFn: async () => {
       if (!passbookObjectKey) throw new Error("กรุณาอัปโหลดสมุดบัญชีใหม่");
       const dto: UpdateBankDto = updateBankSchema.parse({
@@ -278,13 +271,9 @@ function BankEditDialog({
       });
       return createApiClient().tutors.bank.update(dto);
     },
-    onSuccess: () => {
-      toast.success(
-        "ส่งให้ทีมงานตรวจสอบแล้ว — รออนุมัติภายใน 24 ชม.",
-      );
-      onSaved();
-    },
-    onError: (e) => toast.error(e.message),
+    successMessage: "ส่งให้ทีมงานตรวจสอบแล้ว — รออนุมัติภายใน 24 ชม.",
+    errorMessage: true,
+    onSuccess: onSaved,
   });
 
   const handleFile = (file: File) => {

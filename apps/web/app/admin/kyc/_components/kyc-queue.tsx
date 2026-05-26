@@ -2,14 +2,14 @@
 
 import type { AdminKycQueueItem } from "@peerahat/types";
 import { Button } from "@peerahat/ui";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, CheckCircle2, Loader2, XCircle } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useState } from "react";
-import { toast } from "sonner";
 
 import { createApiClient } from "@/lib/api-client";
+import { useMutationWithToast } from "@/lib/hooks/use-mutation-with-toast";
 
 interface Props {
   initial: AdminKycQueueItem[];
@@ -70,21 +70,19 @@ function SubmissionCard({
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
 
-  const review = useMutation({
+  const review = useMutationWithToast({
     mutationFn: (vars: { decision: "approve" | "reject"; reason?: string }) =>
       createApiClient().admin.reviewKyc(item.id, vars.decision, vars.reason),
-    onSuccess: (_, vars) => {
-      toast.success(
-        vars.decision === "approve"
-          ? "อนุมัติ KYC เรียบร้อย"
-          : "ปฏิเสธ KYC เรียบร้อย",
-      );
+    successMessage: (_, vars) =>
+      vars.decision === "approve"
+        ? "อนุมัติ KYC เรียบร้อย"
+        : "ปฏิเสธ KYC เรียบร้อย",
+    errorMessage: true,
+    onSuccess: () => {
       setRejecting(false);
       setReason("");
       onReviewed();
     },
-    onError: (err: Error) =>
-      toast.error(err.message || "ตรวจสอบ KYC ไม่สำเร็จ กรุณาลองใหม่"),
   });
 
   return (

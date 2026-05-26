@@ -929,6 +929,35 @@ export function createApiClient(opts: ApiClientOptions = {}) {
           token,
         ),
     },
+    uploads: {
+      /**
+       * PUT a file to a presigned URL returned by one of the
+       * request*Upload endpoints. Centralised so the dev-stub guard
+       * (storage.local URLs are DNS-unresolvable in local dev) and the
+       * error-message shape stay consistent across every upload surface.
+       *
+       * Note: presigned URLs go straight to the storage backend — no
+       * Authorization header, no 401-refresh path needed.
+       */
+      putPresigned: async (
+        intent: { uploadUrl: string },
+        file: File,
+      ): Promise<void> => {
+        const isStub = intent.uploadUrl.startsWith("https://storage.local");
+        try {
+          const put = await fetch(intent.uploadUrl, {
+            method: "PUT",
+            headers: { "Content-Type": file.type },
+            body: file,
+          });
+          if (!put.ok && !isStub) {
+            throw new Error(`อัปโหลดไม่สำเร็จ: ${put.status}`);
+          }
+        } catch (err) {
+          if (!isStub) throw err;
+        }
+      },
+    },
     auth: {
       // FR-TH-17 rev3: tutor's Google connect / disconnect / status surface.
       googleConnect: () =>

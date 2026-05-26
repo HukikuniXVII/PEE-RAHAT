@@ -5,12 +5,13 @@ import {
   type TutorUnavailability,
 } from "@peerahat/types";
 import { Button } from "@peerahat/ui";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { CalendarOff, Loader2, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { createApiClient } from "@/lib/api-client";
+import { useMutationWithToast } from "@/lib/hooks/use-mutation-with-toast";
 
 // "all" splats into 7 rules client-side. Mon-first labels but values
 // follow JS Date.getDay (0=Sun … 6=Sat) so the API contract matches what
@@ -50,7 +51,6 @@ function weekdayLabel(weekday: number): string {
 }
 
 export function UnavailabilityEditor() {
-  const queryClient = useQueryClient();
   const [weekday, setWeekday] = useState<WeekdayValue>("all");
   const [startMinute, setStartMinute] = useState<number>(12 * 60);
   const [endMinute, setEndMinute] = useState<number>(13 * 60);
@@ -61,10 +61,7 @@ export function UnavailabilityEditor() {
     queryFn: () => createApiClient().tutors.unavailability.list(),
   });
 
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: ["tutors", "me", "unavailability"] });
-
-  const create = useMutation({
+  const create = useMutationWithToast({
     // For "ทุกวัน" we fire 7 parallel creates and aggregate the result.
     // Promise.all means a partial failure is surfaced (rare; the user can
     // retry the missing days from the chip list).
@@ -81,24 +78,24 @@ export function UnavailabilityEditor() {
         ),
       );
     },
-    onSuccess: () => {
-      invalidate();
-      // Also invalidate any picker that's currently rendering this tutor's
-      // availability so blocked slots immediately grey out.
-      queryClient.invalidateQueries({ queryKey: ["tutors", "availability"] });
-      setReason("");
-      toast.success("เพิ่มเวลาไม่ว่างเรียบร้อย");
-    },
-    onError: (err) => toast.error(err.message),
+    successMessage: "เพิ่มเวลาไม่ว่างเรียบร้อย",
+    errorMessage: true,
+    // Also invalidate any picker that's currently rendering this tutor's
+    // availability so blocked slots immediately grey out.
+    invalidateKeys: [
+      ["tutors", "me", "unavailability"],
+      ["tutors", "availability"],
+    ],
+    onSuccess: () => setReason(""),
   });
 
-  const remove = useMutation({
+  const remove = useMutationWithToast({
     mutationFn: (id: string) => createApiClient().tutors.unavailability.remove(id),
-    onSuccess: () => {
-      invalidate();
-      queryClient.invalidateQueries({ queryKey: ["tutors", "availability"] });
-    },
-    onError: (err) => toast.error(err.message),
+    errorMessage: true,
+    invalidateKeys: [
+      ["tutors", "me", "unavailability"],
+      ["tutors", "availability"],
+    ],
   });
 
   const submit = () => {

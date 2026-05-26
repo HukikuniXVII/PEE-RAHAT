@@ -2,7 +2,7 @@
 
 import type { Booking, PostponeRequest } from "@peerahat/types";
 import { Button } from "@peerahat/ui";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CalendarClock,
@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { createApiClient } from "@/lib/api-client";
+import { useMutationWithToast } from "@/lib/hooks/use-mutation-with-toast";
 
 import { ProposeSlotDialog } from "./propose-slot-dialog";
 
@@ -65,20 +66,22 @@ export function PostponePanel({ booking, request }: Props) {
     queryClient.invalidateQueries({ queryKey: ["chat", "messages"] });
   };
 
-  const confirm = useMutation({
+  const invalidateKeys = [
+    ["bookings", "byId", booking.id],
+    ["chat", "threads"],
+    ["chat", "messages"],
+  ] as const;
+
+  const confirm = useMutationWithToast({
     mutationFn: () => createApiClient().bookings.postpone.confirm(booking.id),
-    onSuccess: () => {
-      toast.success("ยอมรับเวลาใหม่แล้ว — สร้างการจองใหม่เรียบร้อย");
-      invalidate();
-    },
+    successMessage: "ยอมรับเวลาใหม่แล้ว — สร้างการจองใหม่เรียบร้อย",
+    invalidateKeys,
   });
 
-  const cancel = useMutation({
+  const cancel = useMutationWithToast({
     mutationFn: () => createApiClient().bookings.postpone.cancel(booking.id),
-    onSuccess: () => {
-      toast.success("ปิดการเจรจาแล้ว");
-      invalidate();
-    },
+    successMessage: "ปิดการเจรจาแล้ว",
+    invalidateKeys,
   });
 
   return (

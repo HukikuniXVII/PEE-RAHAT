@@ -1,6 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import type { ReportTarget } from "@peerahat/types";
 
+import { readPositiveInt } from "../common/env";
 import { PrismaService } from "../prisma/prisma.service";
 
 /**
@@ -16,17 +17,6 @@ import { PrismaService } from "../prisma/prisma.service";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
-
-/** Parse a positive-integer env var, falling back to a default. */
-function readPositiveInt(name: string, fallback: number): number {
-  const raw = process.env[name];
-  if (raw === undefined || raw.trim() === "") return fallback;
-  const n = Number(raw);
-  if (!Number.isInteger(n) || n <= 0) {
-    throw new Error(`${name} must be a positive integer`);
-  }
-  return n;
-}
 
 /** Whole hours from `now` until `retryAt`, never below 1. */
 function hoursUntil(retryAt: number, now: number): number {

@@ -12,9 +12,10 @@ import { Prisma } from "@prisma/client";
 import { addHours, subHours } from "date-fns";
 
 import { ChatService } from "../chat/chat.service";
+import { requireUserBySupabaseId } from "../common/user-lookup";
 import { GoogleCalendarService } from "../integrations/google-calendar/google-calendar.service";
 import { NotificationService } from "../notifications/notification.service";
-import { encodePromptPayPayload } from "../payments/promptpay";
+import { buildPromptPayPayload } from "../payments/promptpay";
 import { PrismaService } from "../prisma/prisma.service";
 import { BookingsService } from "./bookings.service";
 
@@ -49,8 +50,7 @@ export class GroupSessionService {
    * + over-capacity get hard rejected so the host sees the constraint.
    */
   async invite(supabaseId: string, bookingId: string, emailsRaw: string[]) {
-    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
-    if (!user) throw new BadRequestException();
+    const user = await requireUserBySupabaseId(this.prisma, supabaseId);
 
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
@@ -155,8 +155,7 @@ export class GroupSessionService {
    * 'tutor_review' inside the same Serializable transaction.
    */
   async acceptInvite(supabaseId: string, code: string) {
-    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
-    if (!user) throw new BadRequestException();
+    const user = await requireUserBySupabaseId(this.prisma, supabaseId);
     const booking = await this.requireBookingByInviteCode(code);
     if (booking.groupStatus !== "forming") {
       throw new BadRequestException(
@@ -248,8 +247,7 @@ export class GroupSessionService {
 
   // ── Invitee: decline ──────────────────────────────────────────────────
   async declineInvite(supabaseId: string, code: string, reason?: string) {
-    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
-    if (!user) throw new BadRequestException();
+    const user = await requireUserBySupabaseId(this.prisma, supabaseId);
     const booking = await this.requireBookingByInviteCode(code);
     if (booking.groupStatus !== "forming") {
       throw new BadRequestException(
@@ -697,8 +695,7 @@ export class GroupSessionService {
    * forming-state only.
    */
   async extendInvite(supabaseId: string, bookingId: string) {
-    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
-    if (!user) throw new BadRequestException();
+    const user = await requireUserBySupabaseId(this.prisma, supabaseId);
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
     });
@@ -989,12 +986,3 @@ export function shouldConfirmGroup(
   return participants.every((p) => p.status === "paid");
 }
 
-// PromptPay payload — duplicated from PaymentsService.buildPromptPayPayload
-// to avoid a circular dep with PaymentsService. Both call the same shared
-// encoder; a future refactor can extract the env-stub logic to promptpay.ts
-// and have both services use that. ~5 lines of duplication.
-function buildPromptPayPayload(amountThb: number): string {
-  const merchantId = process.env.PROMPTPAY_MERCHANT_ID;
-  if (merchantId) return encodePromptPayPayload({ merchantId, amountThb });
-  return `promptpay-stub:amount=${amountThb}`;
-}

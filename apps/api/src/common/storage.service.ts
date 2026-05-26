@@ -266,6 +266,18 @@ export class StorageService {
     return { url, expiresAt };
   }
 
+  /**
+   * Batch-sign a list of evidence object keys into short-lived download
+   * URLs. Used by both reports.service and admin-reports.service so the
+   * TTL and signing path live in one place.
+   */
+  async signEvidenceUrls(keys: string[]): Promise<string[]> {
+    const signed = await Promise.all(
+      keys.map((key) => this.signDownload(key)),
+    );
+    return signed.map((s) => s.url);
+  }
+
   private async signPut(
     bucket: string | undefined,
     objectKey: string,

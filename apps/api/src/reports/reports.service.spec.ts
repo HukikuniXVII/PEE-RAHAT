@@ -95,6 +95,11 @@ function makeService(over: Overrides = {}) {
     signDownload: jest
       .fn()
       .mockResolvedValue({ url: "https://signed.example/x", expiresAt: "x" }),
+    signEvidenceUrls: jest
+      .fn()
+      .mockImplementation((keys: string[]) =>
+        Promise.resolve(keys.map(() => "https://signed.example/x")),
+      ),
   };
   const targetResolver = {
     resolve: jest.fn().mockResolvedValue(over.resolution ?? POST_RESOLUTION),

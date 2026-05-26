@@ -2,7 +2,7 @@
 
 import type { Booking } from "@peerahat/types";
 import { Button, cn } from "@peerahat/ui";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   CalendarClock,
   CalendarX,
@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { ReportButton } from "@/app/_components/report-button";
 import { PaymentDialog } from "@/components/payment-dialog";
 import { createApiClient } from "@/lib/api-client";
+import { useMutationWithToast } from "@/lib/hooks/use-mutation-with-toast";
 
 import { PostponeReasonDialog } from "./postpone-reason-dialog";
 import { ReviewDialog } from "./review-dialog";
@@ -88,27 +89,21 @@ export function BookingRow({ booking }: Props) {
     minutesFromStart <= 5 &&
     minutesFromStart >= -5;
 
-  const accept = useMutation({
+  const accept = useMutationWithToast({
     mutationFn: () => createApiClient().bookings.accept(booking.id),
-    meta: { toast: "กดรับงานไม่สำเร็จ" },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["bookings", "mine"] });
-      toast.success("รับงานเรียบร้อย รอนักเรียนชำระเงิน");
-    },
+    successMessage: "รับงานเรียบร้อย รอนักเรียนชำระเงิน",
+    errorMessage: "กดรับงานไม่สำเร็จ",
+    invalidateKeys: [["bookings", "mine"]],
   });
 
   // FR-TH-06: student-side cancel for pre-payment 1-on-1 bookings.
   // Group bookings are blocked at the server (they use failGroup).
-  const cancelStudent = useMutation({
+  const cancelStudent = useMutationWithToast({
     mutationFn: () => createApiClient().bookings.cancel(booking.id),
-    onSuccess: () => {
-      setConfirmingCancel(false);
-      queryClient.invalidateQueries({ queryKey: ["bookings", "mine"] });
-      toast.success("ยกเลิกการจองเรียบร้อย");
-    },
-    onError: (err) => {
-      toast.error(err instanceof Error ? err.message : "ยกเลิกไม่สำเร็จ");
-    },
+    successMessage: "ยกเลิกการจองเรียบร้อย",
+    errorMessage: true,
+    invalidateKeys: [["bookings", "mine"]],
+    onSuccess: () => setConfirmingCancel(false),
   });
   const studentCancelable =
     isStudent &&
@@ -118,16 +113,12 @@ export function BookingRow({ booking }: Props) {
   // FR-TH-06: tutor-side reject for still-requested 1-on-1 bookings.
   // Replaces the implicit "let it expire after 24h" UX with an explicit
   // action. Once accepted, tutor uses postpone instead.
-  const rejectTutor = useMutation({
+  const rejectTutor = useMutationWithToast({
     mutationFn: () => createApiClient().bookings.reject(booking.id),
-    onSuccess: () => {
-      setConfirmingReject(false);
-      queryClient.invalidateQueries({ queryKey: ["bookings", "mine"] });
-      toast.success("ปฏิเสธคำขอเรียบร้อย");
-    },
-    onError: (err) => {
-      toast.error(err instanceof Error ? err.message : "ปฏิเสธไม่สำเร็จ");
-    },
+    successMessage: "ปฏิเสธคำขอเรียบร้อย",
+    errorMessage: true,
+    invalidateKeys: [["bookings", "mine"]],
+    onSuccess: () => setConfirmingReject(false),
   });
   const tutorRejectable =
     booking.viewerSide === "tutor" &&

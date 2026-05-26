@@ -2,15 +2,14 @@
 
 import type { AdminKycDetail } from "@peerahat/types";
 import { Button } from "@peerahat/ui";
-import { useMutation } from "@tanstack/react-query";
 import { CheckCircle2, Loader2, ShieldCheck, XCircle } from "lucide-react";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { toast } from "sonner";
 
 import { AdminPassbookBlock } from "@/components/admin-passbook-block";
 import { createApiClient } from "@/lib/api-client";
+import { useMutationWithToast } from "@/lib/hooks/use-mutation-with-toast";
 
 interface Props {
   submission: AdminKycDetail;
@@ -32,20 +31,18 @@ export function ReviewForm({ submission }: Props) {
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
 
-  const review = useMutation({
+  const review = useMutationWithToast({
     mutationFn: (vars: { decision: "approve" | "reject"; reason?: string }) =>
       createApiClient().admin.reviewKyc(submission.id, vars.decision, vars.reason),
-    onSuccess: (_, vars) => {
-      toast.success(
-        vars.decision === "approve"
-          ? "อนุมัติ KYC เรียบร้อย"
-          : "ปฏิเสธ KYC เรียบร้อย",
-      );
+    successMessage: (_, vars) =>
+      vars.decision === "approve"
+        ? "อนุมัติ KYC เรียบร้อย"
+        : "ปฏิเสธ KYC เรียบร้อย",
+    errorMessage: true,
+    onSuccess: () => {
       router.push("/admin/kyc" as Route);
       router.refresh();
     },
-    onError: (err: Error) =>
-      toast.error(err.message || "ตรวจสอบ KYC ไม่สำเร็จ กรุณาลองใหม่"),
   });
 
   const alreadyReviewed = submission.status !== "pending";

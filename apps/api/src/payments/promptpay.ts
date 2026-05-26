@@ -98,6 +98,41 @@ export function encodePromptPayPayload(input: PromptPayInput): string {
   return head + crc16ccittFalse(head);
 }
 
+/**
+ * Env-aware wrapper: returns a real EMVCo payload when
+ * PROMPTPAY_MERCHANT_ID is configured, else a `promptpay-stub:` string.
+ *
+ * The stub exists because the payment dialog currently hard-codes a
+ * static QR image (see payment-dialog.tsx, commit 5379d2b) and never
+ * renders this payload, so a missing merchant id must NOT hard-500 the
+ * create-intent path. When escrow goes live: set PROMPTPAY_MERCHANT_ID,
+ * drop the static QR in the dialog, and tighten this helper to throw
+ * when the env is missing.
+ *
+ * Lives here (not on PaymentsService) so group-session.service can
+ * reach it without re-introducing the documented circular dep.
+ */
+export function buildPromptPayPayload(amountThb: number): string {
+  const merchantId = process.env.PROMPTPAY_MERCHANT_ID;
+  if (merchantId) return encodePromptPayPayload({ merchantId, amountThb });
+  return `promptpay-stub:amount=${amountThb}`;
+}
+
+// One-shot prod warning when the env is missing — the stub QR is
+// expected in dev (storage.local backend) but in prod it means a
+// misconfig and create-intent will silently ship an unscannable code.
+// Fires once at module load instead of per call, so prod logs aren't
+// flooded but the signal is still there at startup.
+if (
+  process.env.NODE_ENV === "production" &&
+  !process.env.PROMPTPAY_MERCHANT_ID
+) {
+  // eslint-disable-next-line no-console
+  console.warn(
+    "[promptpay] PROMPTPAY_MERCHANT_ID is not set — buildPromptPayPayload() will return the `promptpay-stub:` placeholder. Configure the env before escrow goes live.",
+  );
+}
+
 // ─── Round-trip parser ────────────────────────────────────────────────────
 // Used by tests / verification scripts. Not consumed by the runtime path,
 // but the encoder is too easy to silently break — keeping the inverse in

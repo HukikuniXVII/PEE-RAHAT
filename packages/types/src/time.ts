@@ -4,7 +4,22 @@
 // Asia/Bangkok year-round with no DST, so a fixed +07:00 offset is exact
 // and avoids pulling in a TZ database on either side.
 
+import { z } from "zod";
+
 const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+/**
+ * Loose ISO date/datetime parser used by DTOs that the controller pipes
+ * straight into `new Date(...)`. Shared between admin DTOs (period
+ * ranges), payout DTOs (batchDate), and any other date-bearing input —
+ * keeps the validation surface consistent across packages.
+ */
+export const dateStringSchema = z
+  .string()
+  .min(1)
+  .refine((v) => !Number.isNaN(Date.parse(v)), {
+    message: "Invalid date",
+  });
 
 /**
  * Returns the UTC instant corresponding to 00:00 of the next calendar day in

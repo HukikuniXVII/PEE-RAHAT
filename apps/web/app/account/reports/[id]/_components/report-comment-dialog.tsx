@@ -7,15 +7,14 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@peerahat/ui";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { toast } from "sonner";
 
 import {
   EvidenceUploader,
   type EvidenceItem,
 } from "@/app/_components/evidence-uploader";
 import { createApiClient } from "@/lib/api-client";
+import { useMutationWithToast } from "@/lib/hooks/use-mutation-with-toast";
 
 interface Props {
   reportId: string;
@@ -28,24 +27,19 @@ interface Props {
  * EvidenceUploader.
  */
 export function ReportCommentDialog({ reportId, onClose }: Props) {
-  const queryClient = useQueryClient();
   const [text, setText] = useState("");
   const [evidence, setEvidence] = useState<EvidenceItem[]>([]);
   const trimmed = text.trim();
 
-  const submit = useMutation({
+  const submit = useMutationWithToast({
     mutationFn: () =>
       createApiClient().reports.addComment(reportId, {
         text: trimmed,
         evidenceKeys: evidence.map((e) => e.objectKey),
       }),
-    onSuccess: () => {
-      toast.success("เพิ่มข้อมูลเรียบร้อย");
-      queryClient.invalidateQueries({
-        queryKey: ["reports", "detail", reportId],
-      });
-      onClose();
-    },
+    successMessage: "เพิ่มข้อมูลเรียบร้อย",
+    invalidateKeys: [["reports", "detail", reportId]],
+    onSuccess: onClose,
   });
 
   return (

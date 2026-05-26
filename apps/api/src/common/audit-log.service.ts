@@ -19,8 +19,12 @@ export class AuditLogService {
   /**
    * NFR-05: log every login with IP + timestamp, retain ≥90 days.
    */
-  recordLogin(userId: string, ip: string, userAgent?: string): Promise<unknown> {
-    return this.prisma.loginAuditLog.create({
+  async recordLogin(
+    userId: string,
+    ip: string,
+    userAgent?: string,
+  ): Promise<void> {
+    await this.prisma.loginAuditLog.create({
       data: { userId, ip, userAgent },
     });
   }
@@ -31,15 +35,15 @@ export class AuditLogService {
    * payout slip, etc.). Persisted to AdminAuditLog so the action/target
    * columns can be queried directly.
    */
-  recordAdminAction(args: {
+  async recordAdminAction(args: {
     adminId: string;
     action: AdminAuditAction;
     targetType: AdminAuditTargetType;
     targetId: string;
     ip?: string;
     userAgent?: string;
-  }): Promise<unknown> {
-    return this.prisma.adminAuditLog.create({
+  }): Promise<void> {
+    await this.prisma.adminAuditLog.create({
       data: {
         adminId: args.adminId,
         action: args.action,
