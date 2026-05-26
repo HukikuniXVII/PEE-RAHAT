@@ -4,6 +4,7 @@ import type { UserRole } from "./auth";
 import type { ReportTargetType } from "./community";
 import type { BankName, KycStatus } from "./kyc";
 import type { PayoutStatus, PaymentItemType, PaymentStatus } from "./payment";
+import { dateStringSchema } from "./time";
 
 /** Zod mirror of the UserRole union from ./auth — used by admin user
  *  edit endpoints. Kept here (not in ./auth) because only admin tools
@@ -11,15 +12,6 @@ import type { PayoutStatus, PaymentItemType, PaymentStatus } from "./payment";
  *  role comes from the JWT or DB. */
 export const userRoleSchema = z.enum(["student", "tutor", "parent", "admin"]);
 
-/** Loose ISO date/datetime parser used by admin DTOs that the controller
- *  pipes into `new Date(...)`. Same shape used by createBookingSchema so
- *  the validation surface is consistent. */
-const dateStringSchema = z
-  .string()
-  .min(1)
-  .refine((v) => !Number.isNaN(Date.parse(v)), {
-    message: "Invalid date",
-  });
 
 export interface AdminReport {
   id: string;

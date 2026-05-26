@@ -10,21 +10,12 @@ import {
 } from "@peerahat/types";
 import type { Prisma, Report } from "@prisma/client";
 
+import { readPositiveInt } from "../common/env";
 import { PrismaService } from "../prisma/prisma.service";
 
 /** suspension_perm / account_banned park suspendedUntil far in the future. */
 const PERMANENT_SUSPENSION_UNTIL = new Date("2099-12-31T23:59:59.000Z");
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-function readPositiveInt(name: string, fallback: number): number {
-  const raw = process.env[name];
-  if (raw === undefined || raw.trim() === "") return fallback;
-  const n = Number(raw);
-  if (!Number.isInteger(n) || n <= 0) {
-    throw new Error(`${name} must be a positive integer`);
-  }
-  return n;
-}
 
 export interface ExecuteResolutionArgs {
   reportId: string;

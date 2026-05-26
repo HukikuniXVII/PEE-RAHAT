@@ -17,6 +17,7 @@ import type {
 } from "@peerahat/types";
 import type { ReportEvent } from "@prisma/client";
 
+import { readPositiveInt } from "../common/env";
 import { StorageService } from "../common/storage.service";
 import { NotificationService } from "../notifications/notification.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -38,16 +39,6 @@ export interface UploadedEvidenceFile {
   buffer: Buffer;
   mimetype: string;
   size: number;
-}
-
-function readPositiveInt(name: string, fallback: number): number {
-  const raw = process.env[name];
-  if (raw === undefined || raw.trim() === "") return fallback;
-  const n = Number(raw);
-  if (!Number.isInteger(n) || n <= 0) {
-    throw new Error(`${name} must be a positive integer`);
-  }
-  return n;
 }
 
 /**
@@ -258,7 +249,7 @@ export class ReportsService {
       targetId: report.targetId,
       category: report.category,
       description: report.description,
-      evidenceUrls: await this.signEvidence(report.evidenceKeys),
+      evidenceUrls: await this.storage.signEvidenceUrls(report.evidenceKeys),
       status: report.status,
       slaDeadline: report.slaDeadline.toISOString(),
       createdAt: report.createdAt.toISOString(),
@@ -315,14 +306,6 @@ export class ReportsService {
     return user;
   }
 
-  /** Resolve evidence object keys to 5-minute signed download URLs. */
-  private async signEvidence(keys: string[]): Promise<string[]> {
-    const signed = await Promise.all(
-      keys.map((key) => this.storage.signDownload(key)),
-    );
-    return signed.map((s) => s.url);
-  }
-
   private async toEventView(event: ReportEvent): Promise<ReportEventView> {
     return {
       id: event.id,
@@ -331,7 +314,7 @@ export class ReportsService {
       // actions read as "แอดมิน" and never carry an admin identity.
       authorLabel: event.kind === "reporter_comment" ? "คุณ" : "แอดมิน",
       text: event.text,
-      evidenceUrls: await this.signEvidence(event.evidenceKeys),
+      evidenceUrls: await this.storage.signEvidenceUrls(event.evidenceKeys),
       createdAt: event.createdAt.toISOString(),
     };
   }

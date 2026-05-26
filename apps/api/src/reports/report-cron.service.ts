@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 
+import { readPositiveInt } from "../common/env";
 import { StorageService } from "../common/storage.service";
 import { NotificationService } from "../notifications/notification.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -10,16 +11,6 @@ const STALE_REPORT_DAYS = 90;
 /** The SLA cron runs every 30m; the window is a touch wider so a deadline
  *  crossing is picked up exactly once. */
 const SLA_WINDOW_MS = 35 * 60 * 1000;
-
-function readPositiveInt(name: string, fallback: number): number {
-  const raw = process.env[name];
-  if (raw === undefined || raw.trim() === "") return fallback;
-  const n = Number(raw);
-  if (!Number.isInteger(n) || n <= 0) {
-    throw new Error(`${name} must be a positive integer`);
-  }
-  return n;
-}
 
 /**
  * Recurring report-system maintenance (FR-CM-05). Driven by JobsService:
