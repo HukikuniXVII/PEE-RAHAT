@@ -223,7 +223,9 @@ export class GroupSessionService {
       type: "group_invite_responded",
       title: "เพื่อนตอบรับคำเชิญแล้ว",
       body: `${user.displayName} เข้าร่วมคลาสกลุ่มของคุณ`,
-      linkUrl: `/bookings/${booking.id}/group`,
+      actionUrl: `/bookings/${booking.id}/group`,
+      sourceType: "booking",
+      sourceId: booking.id,
     });
 
     if (movedToTutorReview) {
@@ -237,7 +239,9 @@ export class GroupSessionService {
           type: "group_ready_for_review",
           title: "กลุ่มพร้อมรอตรวจสอบ",
           body: "กลุ่มของผู้ใช้รายหนึ่งครบจำนวนแล้ว — โปรดพิจารณาอนุมัติ",
-          linkUrl: `/bookings/${booking.id}`,
+          actionUrl: `/bookings/${booking.id}`,
+          sourceType: "booking",
+          sourceId: booking.id,
         });
       }
     }
@@ -294,7 +298,9 @@ export class GroupSessionService {
       body: reason
         ? `${user.displayName} ปฏิเสธคำเชิญ: ${reason}`
         : `${user.displayName} ปฏิเสธคำเชิญเข้าร่วมคลาสกลุ่มของคุณ`,
-      linkUrl: `/bookings/${booking.id}/group`,
+      actionUrl: `/bookings/${booking.id}/group`,
+      sourceType: "booking",
+      sourceId: booking.id,
     });
 
     return this.toParticipantRow(updated, user);
@@ -389,7 +395,9 @@ export class GroupSessionService {
       type: "group_decision",
       title: "ติวเตอร์อนุมัติคลาสกลุ่มแล้ว",
       body: "เพื่อนของคุณกำลังชำระเงิน — คลาสจะยืนยันเมื่อทุกคนชำระครบ",
-      linkUrl: `/bookings/${bookingId}/group`,
+      actionUrl: `/bookings/${bookingId}/group`,
+      sourceType: "booking",
+      sourceId: bookingId,
     });
     for (const p of invitees) {
       await this.notifications.notify({
@@ -397,7 +405,9 @@ export class GroupSessionService {
         type: "group_decision",
         title: "ติวเตอร์อนุมัติคลาสกลุ่มแล้ว",
         body: "ชำระเงินภายใน 24 ชั่วโมงเพื่อยืนยันที่นั่งของคุณ",
-        linkUrl: `/bookings/${bookingId}/group`,
+        actionUrl: `/bookings/${bookingId}/group`,
+        sourceType: "booking",
+        sourceId: bookingId,
       });
     }
 
@@ -439,7 +449,9 @@ export class GroupSessionService {
       type: "group_decision",
       title: "ติวเตอร์ไม่อนุมัติคลาสกลุ่ม",
       body: `เหตุผล: ${reason} — คุณจะได้รับเงินคืนเต็มจำนวนภายใน 1-3 วันทำการ`,
-      linkUrl: `/bookings/${bookingId}`,
+      actionUrl: `/bookings/${bookingId}`,
+      sourceType: "booking",
+      sourceId: bookingId,
     });
   }
 
@@ -552,7 +564,9 @@ export class GroupSessionService {
         type: "group_status_changed",
         title: "คลาสกลุ่มของคุณได้รับการยืนยันแล้ว",
         body: "ทุกคนชำระเงินครบ — กดดูลิงก์ห้องเรียนในแชทกลุ่ม",
-        linkUrl: `/bookings/${bookingId}`,
+        actionUrl: `/bookings/${bookingId}`,
+        sourceType: "booking",
+        sourceId: bookingId,
       });
     }
   }

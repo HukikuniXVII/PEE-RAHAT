@@ -48,6 +48,7 @@ model User {
   upvotes                   PostUpvote[]
   reports                   Report[]          @relation("ReportsFiled")
   notifications             Notification[]
+  notificationPreference    NotificationPreference?
   paymentIntents            PaymentIntent[]
   sentMessages              ChatMessage[]
   threadsAsStudent          ChatThread[]      @relation("StudentChat")
@@ -669,22 +670,89 @@ enum NotificationType {
   group_ready_for_review
   group_decision
   group_status_changed
+  // FR-CM-08 — canonical types for the rewritten notification system.
+  // Existing report_* / group_* names above stay so old callers + old
+  // rows don't break. New code should prefer the canonical names below.
+  booking_requested
+  booking_accepted
+  booking_rejected
+  booking_paid
+  booking_meeting_ready
+  booking_starting_soon
+  group_invite
+  group_approval_needed
+  group_confirmed
+  group_failed
+  payment_verified
+  payment_failed
+  payout_processed
+  postpone_requested
+  postpone_proposal
+  postpone_agreed
+  postpone_expired
+  report_received
+  review_received
+  chat_new_message
+  account_warning
+  account_suspended
+  kyc_approved
+  kyc_rejected
+}
+
+/// FR-CM-08: every NotificationType maps to exactly one category. UI
+/// groups the per-type preference toggles by these buckets; settings
+/// accordion renders one section per value.
+enum NotificationCategory {
+  bookings
+  payments
+  chat
+  reports
+  reviews
+  account
+  system
 }
 
 model Notification {
-  id        String           @id @default(uuid())
-  userId    String
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      NotificationType
-  title     String
-  body      String
-  linkUrl   String?  // in-app deep link, e.g. /account/reports/:id
-  reportId  String?  // the report that triggered this, if any
-  readAt    DateTime?
-  createdAt DateTime         @default(now())
+  id         String               @id @default(cuid())
+  userId     String
+  user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       NotificationType
+  category   NotificationCategory
+  title      String
+  body       String
+  // Short lucide-react icon name ("calendar", "wallet", etc.) so the
+  // panel can render a category-appropriate glyph without re-deriving
+  // it from `type` on every render.
+  iconKind   String?
+  // In-app deep link the panel + push notificationclick handler navigate
+  // to. e.g. "/bookings/abc123" or "/account/reports/xyz".
+  actionUrl  String?
+  // Polymorphic pointer back at the row that triggered this notification
+  // — used by the 5-min dedup in NotificationsService.notify() so the
+  // same booking confirmation can't fan out a stream of duplicates.
+  // Replaces the old (report-only) `reportId` column.
+  sourceType String?
+  sourceId   String?
+  readAt     DateTime?
+  createdAt  DateTime             @default(now())
 
-  @@index([userId, createdAt])
-  @@index([userId, readAt])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([sourceType, sourceId])
+}
+
+/// FR-CM-08: per-user notification preferences. Push fields stay
+/// inert until the Phase-3 push delivery PR ships; columns added now
+/// so adopting push won't require another migration. typeOverrides is
+/// a JSON map of NotificationType → boolean; missing keys = enabled.
+model NotificationPreference {
+  userId          String   @id
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pushEnabled     Boolean  @default(true)
+  typeOverrides   Json     @default("{}")
+  quietHoursStart Int?
+  quietHoursEnd   Int?
+  timezone        String   @default("Asia/Bangkok")
+  updatedAt       DateTime @updatedAt
 }
 
 // ─── Payments & Escrow ─────────────────────────────────────────────────────

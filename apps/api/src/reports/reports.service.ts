@@ -167,8 +167,9 @@ export class ReportsService {
       type: "report_filed",
       title: "ส่งรายงานเรียบร้อย",
       body: "เราได้รับรายงานของคุณแล้ว ทีมงานจะตรวจสอบและตอบกลับโดยเร็ว",
-      linkUrl: `/account/reports/${report.id}`,
-      reportId: report.id,
+      actionUrl: `/account/reports/${report.id}`,
+      sourceType: "report",
+      sourceId: report.id,
     });
 
     return {

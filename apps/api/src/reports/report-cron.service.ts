@@ -58,7 +58,8 @@ export class ReportCronService {
           type: "report_sla_overdue",
           title: "รายงานเกินกำหนด",
           body: `รายงาน ${report.id} เกินกำหนด SLA แล้ว — กรุณาตรวจสอบ`,
-          reportId: report.id,
+          sourceType: "report",
+          sourceId: report.id,
         });
         pinged++;
         continue;
@@ -82,7 +83,8 @@ export class ReportCronService {
           type: "report_sla_overdue",
           title: "รายงานเกินกำหนด (ยังไม่มีผู้ดูแล)",
           body: `รายงาน ${report.id} เกินกำหนด SLA และยังไม่มีผู้รับผิดชอบ — ยกระดับเป็นเร่งด่วนแล้ว`,
-          reportId: report.id,
+          sourceType: "report",
+          sourceId: report.id,
         });
       }
       escalated++;

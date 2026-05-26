@@ -104,8 +104,101 @@ export const notificationTypeSchema = z.enum([
   "group_ready_for_review",
   "group_decision",
   "group_status_changed",
+  // FR-CM-08 — canonical types for the rewritten notification system.
+  // New code should prefer these names; the report_* / group_* values
+  // above stay for backwards compatibility with old rows + callers.
+  "booking_requested",
+  "booking_accepted",
+  "booking_rejected",
+  "booking_paid",
+  "booking_meeting_ready",
+  "booking_starting_soon",
+  "group_invite",
+  "group_approval_needed",
+  "group_confirmed",
+  "group_failed",
+  "payment_verified",
+  "payment_failed",
+  "payout_processed",
+  "postpone_requested",
+  "postpone_proposal",
+  "postpone_agreed",
+  "postpone_expired",
+  "report_received",
+  "review_received",
+  "chat_new_message",
+  "account_warning",
+  "account_suspended",
+  "kyc_approved",
+  "kyc_rejected",
 ]);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
+
+// FR-CM-08 — every NotificationType maps to exactly one category, used
+// by the settings accordion to group the per-type preference toggles
+// and by the notification panel to render a category-appropriate icon.
+export const notificationCategorySchema = z.enum([
+  "bookings",
+  "payments",
+  "chat",
+  "reports",
+  "reviews",
+  "account",
+  "system",
+]);
+export type NotificationCategory = z.infer<typeof notificationCategorySchema>;
+
+/**
+ * FR-CM-08 — static map every NotificationType → category. Used by
+ * NotificationsService.notify() so callers don't have to remember to
+ * pass a category arg, and by the settings UI to group toggles into
+ * accordion sections. Legacy report_* and group_* values are slotted
+ * into "reports" and "bookings" respectively.
+ */
+export const NOTIFICATION_CATEGORY_BY_TYPE: Record<
+  NotificationType,
+  NotificationCategory
+> = {
+  // Legacy report system → reports
+  report_filed: "reports",
+  report_under_review: "reports",
+  report_resolved: "reports",
+  report_warning: "reports",
+  report_suspension: "reports",
+  report_content_removed: "reports",
+  report_reporter_warned: "reports",
+  report_sla_overdue: "reports",
+  // Legacy group session lifecycle → bookings
+  group_invite_responded: "bookings",
+  group_ready_for_review: "bookings",
+  group_decision: "bookings",
+  group_status_changed: "bookings",
+  // FR-CM-08 canonical buckets
+  booking_requested: "bookings",
+  booking_accepted: "bookings",
+  booking_rejected: "bookings",
+  booking_paid: "bookings",
+  booking_meeting_ready: "bookings",
+  booking_starting_soon: "bookings",
+  group_invite: "bookings",
+  group_approval_needed: "bookings",
+  group_confirmed: "bookings",
+  group_failed: "bookings",
+  payment_verified: "payments",
+  payment_failed: "payments",
+  payout_processed: "payments",
+  postpone_requested: "bookings",
+  postpone_proposal: "bookings",
+  postpone_agreed: "bookings",
+  postpone_expired: "bookings",
+  report_received: "reports",
+  review_received: "reviews",
+  chat_new_message: "chat",
+  account_warning: "account",
+  account_suspended: "account",
+  kyc_approved: "account",
+  kyc_rejected: "account",
+};
 
 // ─── Category filtering by target type ─────────────────────────────────────
 // The ReportDialog category dropdown is filtered by targetType; the server
@@ -512,13 +605,55 @@ export interface AdminReportDetail {
   related: RelatedReportItem[];
 }
 
-/** An in-app notification row. */
+/** An in-app notification row. FR-CM-08 added category + icon + source
+ *  pointer + renamed linkUrl → actionUrl. linkUrl kept as a deprecated
+ *  alias on the wire so old client builds still find the deep link. */
 export interface NotificationItem {
   id: string;
   type: NotificationType;
+  category: NotificationCategory;
   title: string;
   body: string;
+  iconKind: string | null;
+  actionUrl: string | null;
+  /** @deprecated FR-CM-08 — same value as actionUrl, kept until every
+   *  client is on the new field. New code should read actionUrl. */
   linkUrl: string | null;
+  sourceType: string | null;
+  sourceId: string | null;
   readAt: string | null;
   createdAt: string;
 }
+
+/** Cursor-paginated notification feed for the bell panel and the
+ *  /account/notifications page. `nextCursor` is the createdAt ISO of
+ *  the oldest row in the current page; clients pass it back as `before`
+ *  to load the next chunk. Null when no more rows exist. */
+export interface NotificationFeedPage {
+  items: NotificationItem[];
+  nextCursor: string | null;
+}
+
+/** FR-CM-08 — per-user notification preferences. typeOverrides maps a
+ *  NotificationType to a boolean; missing keys = type is enabled.
+ *  pushEnabled + quietHours* are inert until the Phase-3 push PR. */
+export interface NotificationPreferenceDto {
+  pushEnabled: boolean;
+  typeOverrides: Partial<Record<NotificationType, boolean>>;
+  quietHoursStart: number | null;
+  quietHoursEnd: number | null;
+  timezone: string;
+}
+
+export const updateNotificationPreferenceSchema = z.object({
+  pushEnabled: z.boolean().optional(),
+  typeOverrides: z
+    .record(notificationTypeSchema, z.boolean())
+    .optional(),
+  quietHoursStart: z.number().int().min(0).max(23).nullable().optional(),
+  quietHoursEnd: z.number().int().min(0).max(23).nullable().optional(),
+  timezone: z.string().min(1).max(64).optional(),
+});
+export type UpdateNotificationPreferenceDto = z.infer<
+  typeof updateNotificationPreferenceSchema
+>;

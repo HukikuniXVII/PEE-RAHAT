@@ -336,7 +336,8 @@ export class AdminReportsService {
         type: "report_under_review",
         title: "มีรายงานเกี่ยวกับเนื้อหาของคุณ",
         body: `มีรายงานเกี่ยวกับ${REPORT_TARGET_LABELS[report.targetType]}ของคุณ — กำลังตรวจสอบโดยแอดมิน`,
-        reportId,
+        sourceType: "report",
+        sourceId: reportId,
       });
     }
   }
@@ -394,8 +395,9 @@ export class AdminReportsService {
         type: "report_reporter_warned",
         title: "การรายงานล่าสุดของคุณไม่เป็นความจริง",
         body: "กรุณารายงานอย่างมีหลักฐานเพื่อให้ทีมงานตรวจสอบได้ถูกต้อง",
-        linkUrl: reporterLink,
-        reportId,
+        actionUrl: reporterLink,
+        sourceType: "report",
+        sourceId: reportId,
       });
     } else {
       await this.notifications.notify({
@@ -405,8 +407,9 @@ export class AdminReportsService {
         body:
           report.publicResponse ??
           "แอดมินได้ตรวจสอบและดำเนินการกับรายงานของคุณแล้ว",
-        linkUrl: reporterLink,
-        reportId,
+        actionUrl: reporterLink,
+        sourceType: "report",
+        sourceId: reportId,
       });
     }
 
@@ -419,7 +422,8 @@ export class AdminReportsService {
         title: "บัญชีของคุณได้รับคำเตือน",
         body:
           report.publicResponse ?? "กรุณาปฏิบัติตามกฎของแพลตฟอร์ม Pee Rahat",
-        reportId,
+        sourceType: "report",
+        sourceId: reportId,
       });
     } else if (
       dto.resolution === "suspension_temp" ||
@@ -433,7 +437,8 @@ export class AdminReportsService {
         body:
           report.publicResponse ??
           "บัญชีของคุณถูกพักการใช้งานจากผลการตรวจสอบของแอดมิน",
-        reportId,
+        sourceType: "report",
+        sourceId: reportId,
       });
     } else if (dto.resolution === "content_removed") {
       await this.notifications.notify({
@@ -441,7 +446,8 @@ export class AdminReportsService {
         type: "report_content_removed",
         title: "เนื้อหาของคุณถูกซ่อน",
         body: `เหตุผล: ${dto.removedReason ?? "ละเมิดกฎของแพลตฟอร์ม"}`,
-        reportId,
+        sourceType: "report",
+        sourceId: reportId,
       });
     }
   }
