@@ -19,12 +19,19 @@ export class ChatService {
   async threadsForUser(supabaseId: string): Promise<ChatThread[]> {
     const user = await this.prisma.user.findUnique({ where: { supabaseId } });
     if (!user) return [];
-    // FR-TH-18: query by ChatThreadParticipant.userId. The step-1 migration
-    // backfilled junction rows for every existing 1-on-1 thread, so this
-    // covers both 1-on-1 and group threads in one shape.
+    // FR-TH-18: junction membership is the new authoritative filter, but
+    // we also accept the legacy 1-on-1 columns (studentId / tutor.userId)
+    // as a fallback. This matches assertParticipant and prevents orphan
+    // threads — created by older openWithTutor / ensureThreadForBooking
+    // paths that pre-dated the participant insert — from disappearing
+    // from /chat before they get backfilled.
     const rows = await this.prisma.chatThread.findMany({
       where: {
-        participants: { some: { userId: user.id } },
+        OR: [
+          { participants: { some: { userId: user.id } } },
+          { studentId: user.id },
+          { tutor: { userId: user.id } },
+        ],
       },
       include: {
         messages: { orderBy: { createdAt: "desc" }, take: 1 },
@@ -246,6 +253,11 @@ export class ChatService {
       },
     });
     if (existing) {
+      // FR-TH-18: backfill participant rows for threads created before
+      // junction membership was wired in here. threadsForUser filters on
+      // ChatThreadParticipant — without these rows the thread vanishes
+      // from /chat on the next client refetch.
+      await this.ensureOneOnOneParticipants(existing.id, user.id, tutor.userId);
       const unreadCount = await this.unreadCountFor(
         existing.id,
         user.id,
@@ -268,7 +280,13 @@ export class ChatService {
       };
     }
     const created = await this.prisma.chatThread.create({
-      data: { studentId: user.id, tutorId },
+      data: {
+        studentId: user.id,
+        tutorId,
+        participants: {
+          create: [{ userId: user.id }, { userId: tutor.userId }],
+        },
+      },
     });
     return {
       id: created.id,
@@ -281,6 +299,24 @@ export class ChatService {
       viewerUserId: user.id,
       unreadCount: 0,
     };
+  }
+
+  // FR-TH-18: idempotent backfill of the two participant rows for a 1-on-1
+  // thread. Used by openWithTutor + ensureThreadForBooking when an existing
+  // thread is found, so any orphan thread becomes visible to threadsForUser
+  // the moment a user touches it again.
+  private async ensureOneOnOneParticipants(
+    threadId: string,
+    studentUserId: string,
+    tutorUserId: string,
+  ): Promise<void> {
+    await this.prisma.chatThreadParticipant.createMany({
+      data: [
+        { threadId, userId: studentUserId },
+        { threadId, userId: tutorUserId },
+      ],
+      skipDuplicates: true,
+    });
   }
 
   async messages(supabaseId: string, threadId: string): Promise<ChatMessage[]> {
@@ -336,7 +372,12 @@ export class ChatService {
   async ensureThreadForBooking(bookingId: string): Promise<{ id: string }> {
     const booking = await this.prisma.booking.findUniqueOrThrow({
       where: { id: bookingId },
-      select: { id: true, studentId: true, tutorId: true },
+      select: {
+        id: true,
+        studentId: true,
+        tutorId: true,
+        tutor: { select: { userId: true } },
+      },
     });
     const existing = await this.prisma.chatThread.findFirst({
       where: { studentId: booking.studentId, tutorId: booking.tutorId },
@@ -352,6 +393,13 @@ export class ChatService {
           },
         });
       }
+      // FR-TH-18: see openWithTutor — orphan threads without participant
+      // rows are invisible to threadsForUser; backfill on every touch.
+      await this.ensureOneOnOneParticipants(
+        existing.id,
+        booking.studentId,
+        booking.tutor.userId,
+      );
       return { id: existing.id };
     }
     const created = await this.prisma.chatThread.create({
@@ -359,6 +407,12 @@ export class ChatService {
         studentId: booking.studentId,
         tutorId: booking.tutorId,
         bookingId,
+        participants: {
+          create: [
+            { userId: booking.studentId },
+            { userId: booking.tutor.userId },
+          ],
+        },
       },
       select: { id: true },
     });
