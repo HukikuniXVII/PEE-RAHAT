@@ -12,9 +12,10 @@ import { PostComposer } from "./post-composer";
 
 interface Props {
   initialPage: Page<CommunityPost>;
+  currentDisplayName: string | null;
 }
 
-export function CommunityFeed({ initialPage }: Props) {
+export function CommunityFeed({ initialPage, currentDisplayName }: Props) {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useInfiniteQuery({
       queryKey: ["community", "posts"],
@@ -31,13 +32,25 @@ export function CommunityFeed({ initialPage }: Props) {
   const posts = data?.pages.flatMap((p) => p.items) ?? initialPage.items;
 
   return (
-    <div className="space-y-8">
-      <PostComposer />
-      <div className="space-y-6">
-        {posts.map((post) => (
-          <PostCard key={post.id} post={post} />
-        ))}
-      </div>
+    <div className="space-y-4">
+      {currentDisplayName && (
+        <PostComposer currentDisplayName={currentDisplayName} />
+      )}
+
+      {posts.length === 0 ? (
+        <div className="cozy-card p-10 text-center space-y-2">
+          <p className="text-[28px]">💬</p>
+          <p className="thai text-[14px] font-bold text-grape-deep">
+            ยังไม่มีโพสต์
+          </p>
+          <p className="thai text-[12px] text-ink-soft">
+            เป็นคนแรกที่เริ่มถามรุ่นพี่ในชุมชน
+          </p>
+        </div>
+      ) : (
+        posts.map((post) => <PostCard key={post.id} post={post} />)
+      )}
+
       {hasNextPage && (
         <div className="flex justify-center pt-2">
           <Button
@@ -49,7 +62,7 @@ export function CommunityFeed({ initialPage }: Props) {
             {isFetchingNextPage && (
               <Loader2 size={14} className="animate-spin" />
             )}
-            Show more
+            โหลดเพิ่มเติม
           </Button>
         </div>
       )}

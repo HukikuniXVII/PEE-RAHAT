@@ -46,6 +46,7 @@ model User {
   posts                     CommunityPost[]
   replies                   CommunityReply[]
   upvotes                   PostUpvote[]
+  bookmarks                 PostBookmark[]
   reports                   Report[]          @relation("ReportsFiled")
   notifications             Notification[]
   notificationPreference    NotificationPreference?
@@ -496,10 +497,26 @@ model CommunityPost {
   removedReason String?
   removedAt     DateTime?
 
-  replies CommunityReply[]
-  upvotes PostUpvote[]
+  replies   CommunityReply[]
+  upvotes   PostUpvote[]
+  bookmarks PostBookmark[]
 
   @@index([createdAt])
+}
+
+// V2 Community: per-user bookmarks. Composite PK prevents duplicate
+// rows for the same (user, post). Cascading delete on post removal so
+// we don't carry orphaned bookmarks.
+model PostBookmark {
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
+
+  @@id([userId, postId])
+  @@index([userId, createdAt])
+  @@index([postId])
 }
 
 model CommunityReply {

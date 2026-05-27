@@ -219,7 +219,10 @@ export default function TermsPage() {
             (https://mytcas.com) ก่อนการสมัครจริง
           </p>
 
-          <h2 className="text-base font-bold text-grape-deep pt-4">
+          <h2
+            id="community"
+            className="text-base font-bold text-grape-deep pt-4 scroll-mt-24"
+          >
             10. ชุมชนและความประพฤติของผู้ใช้
           </h2>
           <p>ในการใช้งานพื้นที่ชุมชน ผู้ใช้ตกลงที่จะ:</p>
@@ -235,6 +238,36 @@ export default function TermsPage() {
             <li>
               ไม่ใช้บอตหรือสคริปต์อัตโนมัติเพื่อโพสต์ คอมเมนต์
               หรือสกัดเนื้อหาจากระบบ
+            </li>
+          </ul>
+
+          <p className="pt-2">
+            <strong>การยอมรับเมื่อโพสต์ (PDPA):</strong>{" "}
+            ทุกครั้งที่กด <em>โพสต์</em> หรือ <em>ตอบกลับ</em>{" "}
+            ในชุมชน ผู้ใช้ยืนยันว่า:
+          </p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>
+              ได้ตรวจสอบเนื้อหาของตนเองแล้วว่า{" "}
+              <strong>
+                ไม่มีข้อมูลส่วนบุคคลของผู้อื่น
+              </strong>{" "}
+              (เช่น ชื่อ-นามสกุลจริง, เบอร์โทร, เลขประจำตัวประชาชน,
+              ที่อยู่, รูปบัตรนักเรียน/นักศึกษา) ที่ยังไม่ได้รับความยินยอม
+            </li>
+            <li>
+              ยอมรับข้อกำหนดชุมชนข้างต้น และ{" "}
+              <a
+                href="/legal/privacy"
+                className="text-violet-500 hover:underline"
+              >
+                นโยบายความเป็นส่วนตัวของ Pee Rahat (PDPA)
+              </a>
+            </li>
+            <li>
+              เข้าใจว่าโพสต์ที่ละเมิดข้อกำหนดอาจถูกซ่อน ลบ
+              หรือนำไปสู่การพักการใช้งานบัญชี
+              ตามที่ระบุในระบบรายงานเนื้อหา
             </li>
           </ul>
 

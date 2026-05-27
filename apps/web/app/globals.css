@@ -35,6 +35,27 @@
     font-feature-settings: "tnum", "lnum";
   }
 
+  /* V2 community: cozy white card with subtle violet border + soft lift
+     shadow. Matches the handoff `.cs-card` spec; values were tuned for
+     warm lavender backgrounds and don't map cleanly to existing tokens. */
+  .cozy-card {
+    background: #ffffff;
+    border-radius: 20px;
+    border: 1px solid rgba(85, 65, 139, 0.08);
+    box-shadow:
+      0 1px 0 rgba(85, 65, 139, 0.04),
+      0 12px 28px -18px rgba(85, 65, 139, 0.22);
+  }
+  .cozy-hairline {
+    border-top: 1px solid rgba(85, 65, 139, 0.08);
+  }
+  .cozy-hover {
+    transition: background-color 0.15s ease;
+  }
+  .cozy-hover:hover {
+    background-color: rgba(85, 65, 139, 0.04);
+  }
+
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
   }

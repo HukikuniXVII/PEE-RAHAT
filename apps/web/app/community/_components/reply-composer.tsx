@@ -39,19 +39,23 @@ export function ReplyComposer({ postId }: Props) {
   return (
     <form
       onSubmit={form.handleSubmit((values) => createReply.mutate(values))}
-      className="flex gap-3 pt-2"
+      className="flex items-center gap-2"
     >
-      <textarea
-        placeholder="ตอบกลับ..."
-        className="flex-1 bg-slate-50 border-none rounded-xl px-4 py-2 text-xs focus:ring-1 focus:ring-indigo-500/20"
-        {...form.register("content")}
-      />
+      <div className="flex-1 px-3 py-1.5 rounded-full flex items-center gap-2 bg-white border border-[rgba(85,65,139,0.1)]">
+        <input
+          type="text"
+          placeholder="แสดงความเห็น…"
+          className="flex-1 thai text-[12.5px] outline-none bg-transparent text-ink placeholder:text-ink-mute"
+          {...form.register("content")}
+        />
+      </div>
       <button
         type="submit"
         disabled={!form.formState.isValid || createReply.isPending}
-        className="px-4 py-2 bg-slate-100 text-slate-400 rounded-xl hover:bg-indigo-600 hover:text-white transition-all disabled:opacity-50"
+        className="w-9 h-9 inline-flex items-center justify-center rounded-full bg-violet-500 text-white hover:bg-violet-600 transition disabled:bg-grape-soft disabled:text-ink-mute"
+        aria-label="ส่งความเห็น"
       >
-        <Send size={14} />
+        <Send size={13} strokeWidth={2} />
       </button>
     </form>
   );

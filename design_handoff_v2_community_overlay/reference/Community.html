@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Pee Rahat · เว็บบอร์ด</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  html, body { background: #f0eee9; margin: 0; }
+  body { font-family: 'Plus Jakarta Sans', 'IBM Plex Sans Thai', system-ui, sans-serif; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="env,react" src="community-shared.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="community-v1-x.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="community-v2-fb.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="community-v2-profile-overlay.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="community-v3-qa.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="community-v4-mag.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="community-v5-reddit.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="community-v6-clean.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="design-canvas.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+const { useState, useEffect } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "showPostit": true
+}/*EDITMODE-END*/;
+
+function useTweaks() {
+  const [t, setT] = useState(TWEAK_DEFAULTS);
+  const setTweak = (k, v) => {
+    const next = typeof k === 'object' ? { ...t, ...k } : { ...t, [k]: v };
+    setT(next);
+    try { window.parent.postMessage({ type:'__edit_mode_set_keys', edits: next }, '*'); } catch {}
+  };
+  return [t, setTweak];
+}
+
+function TweaksPanel({ t, setT, onClose }) {
+  return (
+    <div className="fixed bottom-6 right-6 z-50 w-[280px] bg-white rounded-2xl shadow-xl p-5"
+      style={{border:'1px solid rgba(85,65,139,0.18)', fontFamily:'Plus Jakarta Sans, sans-serif'}}>
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-[14px] font-bold" style={{color:'#3F2F6B'}}>Tweaks</span>
+        <button className="text-[22px] leading-none" style={{color:'#8C84A6'}} onClick={onClose}>×</button>
+      </div>
+      <p className="text-[10.5px] uppercase tracking-wider font-semibold mb-2" style={{color:'#8C84A6'}}>Canvas</p>
+      <label className="flex items-center justify-between text-[12.5px]" style={{color:'#2A2240'}}>
+        แสดง Post-it
+        <input type="checkbox" checked={t.showPostit} onChange={e => setT('showPostit', e.target.checked)}/>
+      </label>
+      <p className="text-[10.5px] mt-4 leading-relaxed" style={{color:'#8C84A6'}}>
+        ลากการ์ดได้ · ดับเบิลคลิกชื่อเพื่อแก้ · คลิกการ์ดเพื่อขยายเต็มจอ (Esc ปิด)
+      </p>
+    </div>
+  );
+}
+
+function App() {
+  const [t, setT] = useTweaks();
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const onMsg = (e) => {
+      if (!e.data || !e.data.type) return;
+      if (e.data.type === '__activate_edit_mode')   setOpen(true);
+      if (e.data.type === '__deactivate_edit_mode') setOpen(false);
+    };
+    window.addEventListener('message', onMsg);
+    try { window.parent.postMessage({ type:'__edit_mode_available' }, '*'); } catch {}
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  const W = 1320, H = 1080;
+
+  return (
+    <>
+      <DesignCanvas>
+        <DCSection id="community" title="Community · 6 Directions"
+                   subtitle="✨ V6 Clean Scroll (ล่าสุด — scroll-first ไม่ใช่ Reddit) + V1–V5 ไว้เทียบ">
+          <DCArtboard id="clean"  label="✨ V6 · Clean Scroll (ตามที่ขอ)"           width={W} height={1500}><CommunityV6Clean/></DCArtboard>
+          <DCArtboard id="reddit" label="V5 · Reddit-style (ไม่ใช่ — ดิบไป)"        width={W} height={1500}><CommunityV5Reddit/></DCArtboard>
+          <DCArtboard id="x"   label="V1 · X-style (ฟีด 3 คอลัมน์)"          width={W} height={H}><CommunityV1X/></DCArtboard>
+          <DCArtboard id="fb"  label="V2 · Facebook-style (การ์ดอบอุ่น)"      width={W} height={H}><CommunityV2FB/></DCArtboard>
+          <DCArtboard id="v2-student" label="✨ V2 · State: Mini-profile (นักเรียน)"   width={W} height={H}><CommunityV2WithStudentOverlay/></DCArtboard>
+          <DCArtboard id="v2-tutor"   label="✨ V2 · State: Mini-profile (ติวเตอร์)"    width={W} height={H}><CommunityV2WithTutorOverlay/></DCArtboard>
+          <DCArtboard id="qa"  label="V3 · Q&A Stack (ถามรุ่นพี่ตรงจุด)"     width={W} height={H}><CommunityV3QA/></DCArtboard>
+          <DCArtboard id="mag" label="V4 · Magazine (อ่านเหมือนนิตยสาร)"           width={W} height={1400}><CommunityV4Magazine/></DCArtboard>
+
+          {t.showPostit && (
+            <>
+              <DCPostIt x={20} y={-90} w={270} color="#FBEED3">
+                <b>✨ V6 · Clean Scroll</b> <span style={{color:'#55418B'}}>← ตามที่ขอ</span><br/>
+                Single feed, scroll-first, ไม่มีปุ่ม vote/tab strip · ระยะห่างโปร่ง · ปุ่มใหญ่จับง่าย · brand-forward — ไม่หน้าตา Reddit
+              </DCPostIt>
+              <DCPostIt x={W + 80} y={-90} w={260} color="#F0E5E5">
+                <b>V5 · Reddit-style</b> <span style={{color:'#8E7373'}}>(ไม่ใช่)</span><br/>
+                Single scroll feed · vote ▲▼ ซ้าย · sort dropdown (Best/Hot/New) ไม่มี tab · กดโพสต์→ขยาย inline
+              </DCPostIt>
+              <DCPostIt x={W*2 + 140} y={-90} w={240}>
+                <b>V1 · X-style</b><br/>
+                ฟีดสไตล์ Twitter · 3 คอลัมน์ · โพสต์ compact · tab strip · trending + suggest รุ่นพี่ทางขวา
+              </DCPostIt>
+              <DCPostIt x={W*3 + 200} y={-90} w={240} color="#E5DBE6">
+                <b>V2 · Facebook-style</b><br/>
+                การ์ดใหญ่ · story-bar รุ่นพี่ออนไลน์ · reactions/comments inline · ปฏิทิน TCAS ขวา
+              </DCPostIt>
+              <DCPostIt x={W*4 + 260} y={-90} w={240} color="#D5EEE2">
+                <b>V3 · Q&A Stack</b><br/>
+                Stack Overflow + Quora — vote ซ้าย, accepted-answer เขียว· Top Expert · ระบบ rep
+              </DCPostIt>
+              <DCPostIt x={W*5 + 320} y={-90} w={240} color="#FBC0D2">
+                <b>V4 · Magazine</b><br/>
+                อ่านเหมือน Medium/Pinterest · hero story-of-day · Q&A rail · ranked tags · quote callout
+              </DCPostIt>
+            </>
+          )}
+        </DCSection>
+      </DesignCanvas>
+
+      {open && <TweaksPanel t={t} setT={setT} onClose={() => {
+        setOpen(false);
+        try { window.parent.postMessage({ type:'__edit_mode_dismissed' }, '*'); } catch {}
+      }}/>}
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

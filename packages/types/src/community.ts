@@ -11,6 +11,45 @@ export interface CommunityPost {
   hasUpvoted: boolean;
   replyCount: number;
   createdAt: string;
+  // V2 community: per-viewer bookmark state + aggregate count.
+  // Bookmark count is denormalized at read time (COUNT join), not stored.
+  hasBookmarked: boolean;
+  bookmarkCount: number;
+}
+
+// V2 community trending: aggregated hashtag mentions over a recent window
+// (last 7 days). Parsed server-side from post title + content. No schema
+// change required.
+export interface TrendingTag {
+  tag: string;           // includes leading "#"
+  count: number;         // total posts mentioning the tag in the window
+  category: string;      // human label e.g. "เทรนด์ในชุมชน"
+}
+
+// Shared hashtag definition: 2–40 Unicode word chars after a "#". Used by
+// the trending aggregator (server), the body renderer (post card), and
+// the in-card tag chip — keeping one source so all three stay in sync if
+// the rule changes.
+//
+// `HASHTAG_RE_GLOBAL` is the global variant for matchAll / split — DO NOT
+// mutate its lastIndex from multiple call sites (always use matchAll/split
+// which create independent iterators). Use `HASHTAG_RE_FIRST` for single
+// "give me the first tag" queries.
+export const HASHTAG_RE_GLOBAL = /#[\p{L}\p{N}_-]{2,40}/gu;
+export const HASHTAG_RE_FIRST = /#[\p{L}\p{N}_-]{2,40}/u;
+// Capture-group variant: for trending aggregation where we want the tag
+// body WITHOUT the leading "#". Same shape as the others.
+export const HASHTAG_RE_GLOBAL_CAPTURE = /#([\p{L}\p{N}_-]{2,40})/gu;
+// Split variant: capture group includes the "#" so String#split keeps
+// matched tags as full "#tag" tokens interleaved with the text. Use this
+// when rendering a body with tags highlighted; consumers should NOT
+// reconstruct this from HASHTAG_RE_GLOBAL.source at runtime.
+export const HASHTAG_RE_GLOBAL_SPLIT = /(#[\p{L}\p{N}_-]{2,40})/gu;
+
+/** First hashtag in a string, or null. Returns the full "#tag" form. */
+export function firstHashtag(text: string): string | null {
+  const m = text.match(HASHTAG_RE_FIRST);
+  return m ? m[0] : null;
 }
 
 export interface CommunityReply {

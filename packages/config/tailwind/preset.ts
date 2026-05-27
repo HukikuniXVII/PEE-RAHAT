@@ -69,6 +69,16 @@ const preset: Partial<Config> = {
         "ink-soft": "#5B5176",
         "ink-mute": "#8C84A6",
 
+        // Status accents — emerald for verified/online, rose for heart/notification.
+        // Values match the V2 community handoff (not Tailwind defaults).
+        emerald: {
+          600: "#2F9B6E",
+          soft: "#D5EEE2",
+        },
+        rose: {
+          600: "#D9436E",
+          soft: "#FBC0D2",
+        },
         // Butter yellow — hover state on primary CTAs, premium chips.
         accent: {
           50: "#F2EAD5",

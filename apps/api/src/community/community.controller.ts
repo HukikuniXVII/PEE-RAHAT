@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -15,6 +16,7 @@ import {
 
 import { CurrentUser } from "../auth/current-user.decorator";
 import { SupabaseAuthGuard } from "../auth/auth.guard";
+import { OptionalSupabaseAuthGuard } from "../auth/optional-auth.guard";
 import type { SupabaseJwtPayload } from "../auth/supabase-jwt.strategy";
 import { CommunityService } from "./community.service";
 
@@ -26,9 +28,15 @@ const createReplyBodySchema = createReplySchema.pick({ content: true });
 export class CommunityController {
   constructor(private readonly community: CommunityService) {}
 
+  // Public list. Personalizes hasBookmarked when the viewer is signed in
+  // (via OptionalSupabaseAuthGuard); otherwise returns false for everyone.
   @Get("community/posts")
-  list(@Query("page") page?: string) {
-    return this.community.list(page ? Number(page) : 1);
+  @UseGuards(OptionalSupabaseAuthGuard)
+  list(
+    @CurrentUser() user: SupabaseJwtPayload | undefined,
+    @Query("page") page?: string,
+  ) {
+    return this.community.list(user?.sub ?? null, page ? Number(page) : 1);
   }
 
   @Post("community/posts")
@@ -42,6 +50,41 @@ export class CommunityController {
   @UseGuards(SupabaseAuthGuard)
   upvote(@CurrentUser() user: SupabaseJwtPayload, @Param("id") id: string) {
     return this.community.upvote(user.sub, id);
+  }
+
+  // V2 community: toggle bookmark. Single endpoint (POST) for both
+  // add/remove — the service returns the new boolean state so the client
+  // doesn't need to track which verb to call.
+  @Post("community/posts/:id/bookmark")
+  @UseGuards(SupabaseAuthGuard)
+  toggleBookmark(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") id: string,
+  ) {
+    return this.community.toggleBookmark(user.sub, id);
+  }
+
+  // DELETE alias for the toggle, in case a future client prefers explicit
+  // verbs. Behaviour is identical — service is idempotent.
+  @Delete("community/posts/:id/bookmark")
+  @UseGuards(SupabaseAuthGuard)
+  removeBookmark(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") id: string,
+  ) {
+    return this.community.toggleBookmark(user.sub, id);
+  }
+
+  @Get("community/me/bookmarks")
+  @UseGuards(SupabaseAuthGuard)
+  myBookmarks(@CurrentUser() user: SupabaseJwtPayload) {
+    return this.community.myBookmarks(user.sub);
+  }
+
+  @Get("community/trending")
+  trending(@Query("limit") limit?: string) {
+    const n = limit ? Math.min(20, Math.max(1, Number(limit))) : 5;
+    return this.community.trending(n);
   }
 
   @Get("community/posts/:id/replies")

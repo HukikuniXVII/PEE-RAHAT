@@ -39,6 +39,7 @@ import {
   type CreatePaymentIntentDto,
   type CreatePostDto,
   type CreateReplyDto,
+  type TrendingTag,
   type CreateReviewDto,
   type CreateSheetDto,
   type KycSubmitDto,
@@ -819,9 +820,23 @@ export function createApiClient(opts: ApiClientOptions = {}) {
           token,
         ),
       upvote: (id: string) =>
-        request<{ upvotes: number }>(
+        request<{ upvotes: number; hasUpvoted: boolean }>(
           API_PATHS.upvotePost(id),
           { method: "POST" },
+          token,
+        ),
+      toggleBookmark: (id: string) =>
+        request<{ hasBookmarked: boolean; bookmarkCount: number }>(
+          API_PATHS.bookmarkPost(id),
+          { method: "POST" },
+          token,
+        ),
+      myBookmarks: () =>
+        request<CommunityPost[]>(API_PATHS.communityBookmarks, {}, token),
+      trending: (limit?: number) =>
+        request<TrendingTag[]>(
+          `${API_PATHS.communityTrending}${qs({ limit })}`,
+          {},
           token,
         ),
       replies: (

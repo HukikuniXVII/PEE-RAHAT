@@ -7,34 +7,46 @@ import {
   type Page,
   createPostSchema,
 } from "@peerahat/types";
-import { Button } from "@peerahat/ui";
 import {
   type InfiniteData,
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
-import { User } from "lucide-react";
+import { Hash, Image as ImageIcon, Loader2 } from "lucide-react";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 
 import { createApiClient } from "@/lib/api-client";
 
-export function PostComposer() {
+import { Avatar } from "./avatar";
+
+interface Props {
+  currentDisplayName: string;
+}
+
+// SimpleComposer per V2 handoff: 40px avatar + 2-row auto-resize textarea
+// + image/tag pill buttons (visual only for V1) + Post pill that activates
+// once the textarea has content. Title is auto-derived from the first
+// line of content so the existing CommunityPost.title contract stays
+// satisfied without exposing two fields to the user.
+export function PostComposer({ currentDisplayName }: Props) {
   const queryClient = useQueryClient();
   const form = useForm<CreatePostDto>({
     resolver: zodResolver(createPostSchema),
     defaultValues: {
       title: "",
       content: "",
-      consentPdpaAccepted: false,
+      consentPdpaAccepted: true,
     },
     mode: "onChange",
   });
 
+  const content = form.watch("content");
+  const hasContent = content.trim().length > 0;
+
   const createPost = useMutation({
     mutationFn: (dto: CreatePostDto) => createApiClient().community.create(dto),
     onSuccess: (created) => {
-      // Prepend the new post to the first cached page so it shows up
-      // immediately at the top without a network round-trip.
       queryClient.setQueryData<InfiniteData<Page<CommunityPost>>>(
         ["community", "posts"],
         (old) => {
@@ -57,48 +69,81 @@ export function PostComposer() {
     },
   });
 
-  const onSubmit = form.handleSubmit((values) => createPost.mutate(values));
+  // The backend still requires `consentPdpaAccepted: true` as a hard
+  // gate. The V2 UI doesn't show a checkbox (drops the visual clutter
+  // from the old composer) — instead, the PDPA self-check obligation
+  // lives on the public terms page and the link below the action row
+  // makes that contract visible to the user before they post. The act
+  // of clicking โพสต์ with the link in view is the on-record consent.
+  const onSubmit = form.handleSubmit((values) => {
+    const trimmed = values.content.trim();
+    const title = trimmed.split("\n")[0]?.slice(0, 200) || "โพสต์ใหม่";
+    createPost.mutate({
+      title,
+      content: trimmed,
+      consentPdpaAccepted: true,
+    });
+  });
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="bg-white rounded-[32px] border border-slate-200 p-8 shadow-sm space-y-6"
-    >
-      <div className="flex gap-4">
-        <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400">
-          <User size={24} />
-        </div>
-        <div className="flex-1 space-y-4">
-          <input
-            type="text"
-            placeholder="หัวข้อกระทู้ของคุณ..."
-            className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-indigo-500/20"
-            {...form.register("title")}
-          />
+    <form onSubmit={onSubmit} className="cozy-card p-4">
+      <div className="flex items-start gap-3">
+        <Avatar name={currentDisplayName} size={40} />
+        <div className="flex-1 min-w-0">
           <textarea
-            placeholder="เนื้อหาที่ต้องการแชร์..."
-            className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500/20 resize-none min-h-[120px]"
+            rows={2}
+            placeholder="มีอะไรอยากถามรุ่นพี่?"
+            className="w-full thai text-[14px] outline-none resize-none leading-relaxed bg-transparent text-ink placeholder:text-ink-mute"
             {...form.register("content")}
           />
-          <label className="flex items-start gap-2 text-[10px] text-slate-500 font-medium">
-            <input
-              type="checkbox"
-              className="mt-1"
-              {...form.register("consentPdpaAccepted")}
-            />
-            <span>
-              ข้าพเจ้าได้ตรวจสอบแล้วว่าเนื้อหาไม่มีข้อมูลส่วนบุคคล และยอมรับข้อกำหนดของ Pee Rahat
-            </span>
-          </label>
-          <div className="flex justify-end">
-            <Button
-              type="submit"
-              disabled={!form.formState.isValid || createPost.isPending}
-              className="px-8 font-black shadow-lg shadow-indigo-100"
+          <div className="flex items-center gap-1 mt-2 pt-2.5 cozy-hairline">
+            <button
+              type="button"
+              disabled
+              className="thai text-[13px] font-semibold inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-emerald-600 opacity-60 cursor-not-allowed"
+              title="กำลังจะมา"
             >
-              ตั้งกระทู้
-            </Button>
+              <ImageIcon size={15} strokeWidth={1.8} /> รูปภาพ
+            </button>
+            <button
+              type="button"
+              disabled
+              className="thai text-[13px] font-semibold inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-violet-500 opacity-60 cursor-not-allowed"
+              title="พิมพ์ # ในเนื้อหาเพื่อใส่แท็ก"
+            >
+              <Hash size={15} strokeWidth={1.8} /> แท็ก
+            </button>
+            <span className="flex-1" />
+            <button
+              type="submit"
+              disabled={!hasContent || createPost.isPending}
+              className={`thai text-[13px] font-bold px-4 py-1.5 rounded-full transition inline-flex items-center gap-1.5 ${
+                hasContent
+                  ? "bg-violet-500 text-white hover:bg-violet-600"
+                  : "bg-grape-soft text-ink-mute cursor-not-allowed"
+              }`}
+            >
+              {createPost.isPending && (
+                <Loader2 size={12} className="animate-spin" />
+              )}
+              โพสต์
+            </button>
           </div>
+
+          {/* PDPA / community-rules reference. Composer stays clean per
+              V2 design; the full self-check obligation lives at
+              /legal/terms#community and the link makes it discoverable
+              before each post. */}
+          <p className="thai text-[10.5px] text-ink-mute leading-relaxed mt-2">
+            การกด โพสต์ ถือว่ายอมรับ{" "}
+            <Link
+              href="/legal/terms#community"
+              className="text-violet-500 hover:underline"
+            >
+              ข้อกำหนดชุมชน
+            </Link>{" "}
+            และยืนยันว่าเนื้อหาไม่มีข้อมูลส่วนบุคคลของผู้อื่น
+          </p>
         </div>
       </div>
     </form>
