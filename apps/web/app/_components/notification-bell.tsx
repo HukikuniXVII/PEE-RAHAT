@@ -18,12 +18,15 @@ import { createApiClient } from "@/lib/api-client";
 /**
  * FR-CM-08 — floating notification bell.
  *
- * Lives top-right of every authenticated page (NOT in the nav bar per
- * spec). Click opens the panel; the panel pulls the paginated feed +
- * marks rows read on click. Unread count comes from the dedicated
- * endpoint so the bell badge stays cheap even when the user has
- * hundreds of rows; SSE listener (separate component) invalidates the
- * `notifications-unread` query the moment a new event arrives.
+ * Lives bottom-right of every authenticated page (NOT in the nav bar
+ * per spec). Click opens the panel above the bell on desktop; on mobile
+ * the panel slides up as a bottom sheet sitting just above the bell.
+ *
+ * Pulls the paginated feed + marks rows read on click. Unread count
+ * comes from the dedicated endpoint so the bell badge stays cheap even
+ * when the user has hundreds of rows; SSE listener (separate component)
+ * invalidates the `notifications-unread` query the moment a new event
+ * arrives.
  *
  * No SSE subscription happens here — that's the listener component's
  * job. The bell only reads + mutates; it doesn't open sockets.
@@ -76,7 +79,7 @@ export function NotificationBell() {
   return (
     <div
       ref={wrapRef}
-      className="fixed top-4 right-4 z-[60] md:top-6 md:right-6"
+      className="fixed bottom-4 right-4 z-[60] md:bottom-6 md:right-6"
     >
       <motion.button
         type="button"
@@ -150,13 +153,14 @@ function NotificationPanel({ onClose }: { onClose: () => void }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -8, scale: 0.96 }}
+      initial={{ opacity: 0, y: 8, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -8, scale: 0.96 }}
+      exit={{ opacity: 0, y: 8, scale: 0.96 }}
       transition={{ duration: 0.14 }}
-      // Mobile = bottom sheet (full-width, slide-up); desktop = floating
-      // panel anchored under the bell.
-      className="fixed inset-x-4 bottom-4 top-20 md:absolute md:inset-auto md:top-14 md:right-0 md:bottom-auto md:w-[380px] md:max-h-[560px] bg-white rounded-[24px] border border-slate-200 shadow-xl flex flex-col overflow-hidden"
+      // Mobile = sheet that sits ABOVE the bell (bottom-20 leaves room
+      // for the bell at bottom-4 + ~48px button + breathing space).
+      // Desktop = floating panel anchored ABOVE the bell.
+      className="fixed inset-x-4 bottom-20 top-20 md:absolute md:inset-auto md:bottom-14 md:right-0 md:top-auto md:w-[380px] md:max-h-[560px] bg-white rounded-[24px] border border-slate-200 shadow-xl flex flex-col overflow-hidden"
     >
       <header className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
         <h2 className="thai text-base font-bold text-slate-900">การแจ้งเตือน</h2>
