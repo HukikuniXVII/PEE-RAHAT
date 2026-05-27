@@ -2,12 +2,14 @@ import { ArrowRight, Sparkles } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 
+import { FadeIn } from "./FadeIn";
+
 const STEPS = [
   {
     n: "01",
     taupe: false,
-    title: "เลือกพี่ที่เข้าใจ",
-    body: "ระบบเรียงพี่รหัสให้ตามวิชา และงบของน้อง",
+    title: "เลือกพี่รหัส",
+    body: "ดูตัวอย่างการสอน, ราคา, และรีวิว บนโปรไฟล์ของพี่รหัส",
   },
   {
     n: "02",
@@ -19,7 +21,7 @@ const STEPS = [
     n: "03",
     taupe: false,
     title: "จ่ายผ่าน PromptPay",
-    body: "เงินถูก Escrow ไว้ ปล่อยให้พี่เมื่อเรียนจบจริงเท่านั้น",
+    body: "เงินถูกพักไว้ ปล่อยให้พี่เมื่อเรียนจบจริงเท่านั้น",
   },
   {
     n: "04",
@@ -35,7 +37,7 @@ export function HowItWorks() {
       <div className="w-full max-w-[1200px] mx-auto">
 
         {/* Header */}
-        <div className="text-center mb-10 md:mb-14">
+        <FadeIn trigger="view" className="text-center mb-10 md:mb-14">
           <div className="inline-flex items-center gap-2 thai text-[13px] font-semibold text-dusty-grape border border-dusty-grape/25 rounded-full px-4 py-1.5 bg-white/50 backdrop-blur-sm mb-5">
             <Sparkles size={12} />
             พี่รหัสทำงานยังไง?
@@ -46,7 +48,7 @@ export function HowItWorks() {
           >
             สี่ขั้นตอน จากการค้นหา ถึงห้องสอบ
           </h2>
-        </div>
+        </FadeIn>
 
         {/* Steps */}
         <div className="relative grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-y-8 sm:gap-y-10 md:gap-0">
@@ -61,9 +63,11 @@ export function HowItWorks() {
             aria-hidden="true"
           />
 
-          {STEPS.map((s) => (
-            <div
+          {STEPS.map((s, i) => (
+            <FadeIn
               key={s.n}
+              trigger="view"
+              delay={i * 0.1}
               className="flex flex-col items-center text-center px-4 relative z-10"
             >
               {/* Step circle */}
@@ -88,12 +92,12 @@ export function HowItWorks() {
               <p className="thai text-[13px] text-ink-soft leading-relaxed max-w-[170px]">
                 {s.body}
               </p>
-            </div>
+            </FadeIn>
           ))}
         </div>
 
         {/* CTA */}
-        <div className="flex justify-center mt-14">
+        <FadeIn trigger="view" delay={0.4} className="flex justify-center mt-14">
           <Link
             href={"/login" as Route}
             className="thai inline-flex items-center gap-2 rounded-[16px] bg-dusty-grape px-10 py-4 text-[16px] font-bold text-white-smoke transition-all hover:bg-accent-500 hover:text-neutral-800 hover:shadow-lg hover:shadow-accent-500/30 shadow-lg"
@@ -101,7 +105,7 @@ export function HowItWorks() {
             เริ่มต้นใช้งาน
             <ArrowRight size={18} strokeWidth={2.5} />
           </Link>
-        </div>
+        </FadeIn>
       </div>
     </div>
   );

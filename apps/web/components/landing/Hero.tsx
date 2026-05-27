@@ -9,6 +9,8 @@ import type { Route } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { FadeIn } from "./FadeIn";
+
 const CARDS = [
   {
     icon: <Search size={22} strokeWidth={1.9} />,
@@ -33,46 +35,55 @@ export function Hero() {
       <Sparkles />
 
       {/* Main headline */}
-      <h1
-        className="relative z-10 thai font-bold text-grape-deep text-center leading-[1.1] tracking-tight"
-        style={{ fontSize: "clamp(34px, 6vw, 78px)", letterSpacing: "-0.02em" }}
-      >
-        ติวถูกจุด คุยถูกคอ สไตล์พี่รหัส
-      </h1>
+      <FadeIn delay={0.05}>
+        <h1
+          className="relative z-10 thai font-bold text-grape-deep text-center leading-[1.1] tracking-tight"
+          style={{ fontSize: "clamp(34px, 6vw, 78px)", letterSpacing: "-0.02em" }}
+        >
+          ติวถูกจุด คุยถูกคอ สไตล์พี่รหัส
+        </h1>
+      </FadeIn>
 
       {/* Subtitle */}
-      <p className="relative z-10 mt-4 md:mt-6 thai text-center text-[15px] md:text-[18px] text-ink-soft leading-[1.8] max-w-[600px]">
-        หาพี่รหัสเองก็เหนื่อย จะตามโฆษณาก็ไม่มั่นใจ บางทีก็เรียนไม่เข้าใจ
-        <br />
-        ที่นี่เราให้น้องเจอพี่รหัส ที่คุยภาษาเดียวกันที่นี่
-      </p>
+      <FadeIn delay={0.15}>
+        <p className="relative z-10 mt-4 md:mt-6 thai text-center text-[15px] md:text-[18px] text-ink-soft leading-[1.8] max-w-[600px]">
+          หาพี่รหัสเองก็เหนื่อย จะตามโฆษณาก็ไม่มั่นใจ บางทีก็เรียนไม่เข้าใจ
+          <br />
+          ที่นี่เราให้น้องเจอพี่รหัส ที่คุยภาษาเดียวกันที่นี่
+        </p>
+      </FadeIn>
 
       {/* Feature cards — icon overflows the top edge of each card */}
       <div className="relative z-10 mt-10 md:mt-14 grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-[860px]">
-        {CARDS.map((c) => (
-          <OverflowCard key={c.title} icon={c.icon} title={c.title} body={c.body} />
+        {CARDS.map((c, i) => (
+          <FadeIn key={c.title} delay={0.25 + i * 0.08}>
+            <OverflowCard icon={c.icon} title={c.title} body={c.body} />
+          </FadeIn>
         ))}
       </div>
 
       {/* CTAs */}
-      <div className="relative z-10 mt-8 md:mt-10 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full max-w-sm sm:max-w-none sm:w-auto">
-        <Link
-          href={"/login" as Route}
-          className="thai inline-flex items-center justify-center gap-2 rounded-[16px] bg-dusty-grape px-8 py-4 text-[16px] font-bold text-white-smoke transition-all hover:bg-accent-500 hover:text-neutral-800 hover:shadow-lg hover:shadow-accent-500/30 shadow-lg"
-        >
-          เริ่มต้นใช้งาน
-          <ArrowRight size={16} strokeWidth={2.5} />
-        </Link>
-        <a
-          href="#about"
-          className="thai inline-flex items-center justify-center gap-2 rounded-[16px] border-[2px] border-dusty-grape px-8 py-4 text-[16px] font-bold text-dusty-grape hover:bg-dusty-grape/5 transition-colors"
-        >
-          อะไรคือพี่รหัส?
-        </a>
-      </div>
+      <FadeIn delay={0.55}>
+        <div className="relative z-10 mt-8 md:mt-10 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full max-w-sm sm:max-w-none sm:w-auto">
+          <Link
+            href={"/login" as Route}
+            className="thai inline-flex items-center justify-center gap-2 rounded-[16px] bg-dusty-grape px-8 py-4 text-[16px] font-bold text-white-smoke transition-all hover:bg-accent-500 hover:text-neutral-800 hover:shadow-lg hover:shadow-accent-500/30 shadow-lg"
+          >
+            เริ่มต้นใช้งาน
+            <ArrowRight size={16} strokeWidth={2.5} />
+          </Link>
+          <a
+            href="#about"
+            className="thai inline-flex items-center justify-center gap-2 rounded-[16px] border-[2px] border-dusty-grape px-8 py-4 text-[16px] font-bold text-dusty-grape hover:bg-dusty-grape/5 transition-colors"
+          >
+            อะไรคือพี่รหัส?
+          </a>
+        </div>
+      </FadeIn>
 
       {/* Trust row */}
-      <div className="relative z-10 mt-6 md:mt-8 flex flex-wrap justify-center items-center gap-x-4 gap-y-2 md:gap-7 text-[12px] md:text-[13px] text-ink-mute thai">
+      <FadeIn delay={0.7} className="relative z-10 mt-6 md:mt-8">
+        <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-2 md:gap-7 text-[12px] md:text-[13px] text-ink-mute thai">
         <span className="flex items-center gap-1.5">
           <Check size={13} className="text-dusty-grape" /> พี่รหัสผ่านการยืนยันตัวตน
         </span>
@@ -85,7 +96,8 @@ export function Hero() {
         <span className="flex items-center gap-1.5">
           <Check size={13} className="text-dusty-grape" /> ยกเลิกได้ภายใน 24 ชม.
         </span>
-      </div>
+        </div>
+      </FadeIn>
     </div>
   );
 }

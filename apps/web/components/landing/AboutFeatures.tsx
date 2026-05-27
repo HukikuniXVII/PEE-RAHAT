@@ -2,21 +2,23 @@ import { ArrowRight, Sparkles } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 
+import { FadeIn } from "./FadeIn";
+
 const FEATURES = [
   {
     n: "01",
     href: "/tutors" as Route,
     title: "Tutor Match",
-    thai: "ระบบจับคู่พี่รหัสอัตโนมัติ",
-    body: "แนะนำพี่ที่ติดคณะตรงเป้า ในงบที่น้องไหว",
+    thai: "เลือกพี่รหัสที่ใช่",
+    body: "ดูตัวอย่างการสอนของพี่รหัส และรีวิวจากน้องคนก่อน", 
     taupe: false,
   },
   {
     n: "02",
     href: "/sheets" as Route,
     title: "Sheet Market",
-    thai: "ตลาดชีทสรุปจากรุ่นพี่ตัวจริง",
-    body: "PDF พรีวิวได้ก่อนซื้อ พิมพ์อ่านได้เลยไม่ต้องสรุปเอง",
+    thai: "ตลาดชีทสรุป",
+    body: "PDF พรีวิวได้ก่อนซื้อ ไม่ต้องสรุปเอง",
     taupe: true,
   },
   {
@@ -24,7 +26,7 @@ const FEATURES = [
     href: "/tcas" as Route,
     title: "TCAS Calc",
     thai: "คำนวณคะแนนแบบ What-If",
-    body: "บอกชัด ๆ ว่ายังขาดอีกกี่คะแนนต่อวิชา ถึงจะติดเป้า",
+    body: "ช่วยน้องประเมิน และวางแผนเพื่อคณะในฝัน",
     taupe: false,
   },
 ];
@@ -35,7 +37,7 @@ export function AboutFeatures() {
       <div className="w-full max-w-[1400px] mx-auto grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-14 items-center">
 
         {/* ── Left: อะไรคือพี่รหัส? ── */}
-        <div className="md:col-span-5 space-y-6">
+        <FadeIn trigger="view" className="md:col-span-5 space-y-6">
           {/* Chip */}
           <div className="inline-flex items-center gap-2 thai text-[13px] font-semibold text-dusty-grape border border-dusty-grape/25 rounded-full px-4 py-1.5 bg-white/50 backdrop-blur-sm">
             <Sparkles size={12} />
@@ -46,29 +48,28 @@ export function AboutFeatures() {
             className="thai font-bold text-grape-deep leading-[1.15]"
             style={{ fontSize: "clamp(28px, 2.6vw, 42px)", letterSpacing: "-0.02em" }}
           >
-            พี่ที่{" "}
-            <span className="text-dusty-grape">เพิ่งสอบติด</span>
+            พี่รหัส{" "}
+            <span className="text-dusty-grape">จากมหาลัยในฝัน</span>
             <br />
             ไม่ใช่ครูในตำรา
           </h2>
 
           <p className="thai text-[16px] text-ink-soft leading-[1.9] max-w-[420px]">
             พี่รหัสคือพื้นที่ที่น้องจะได้เจอ{" "}
-            <span className="font-semibold text-grape-deep">"รุ่นพี่ตัวจริง"</span>{" "}
-            ที่กำลังเรียนในคณะที่น้องอยากเข้า ไม่ต้องเสียค่าเทอมโรงเรียนกวด
-            เราคัดพี่ที่เพิ่งผ่านสนามสอบมา
+            <span className="font-semibold text-grape-deep">"ติวโดยพี่รหัส"</span>{" "}
+            ที่กำลังเรียน / จบการศึกษาในมหาลัยที่น้องอยากเข้า
           </p>
 
           {/* Mini stat cards */}
           <div className="grid grid-cols-2 gap-3 pt-2">
             <div className="rounded-2xl p-4 bg-white/60 border border-dusty-grape/10 backdrop-blur-sm shadow-card">
               <p className="thai text-[13px] font-bold text-dusty-grape mb-1">
-                พี่รหัสรุ่นจริง
+                พี่รหัสเชื่อถือได้
               </p>
               <p className="thai text-[12px] text-ink-soft leading-relaxed">
-                เพิ่งติดคณะที่น้องเล็ง
+                ทุกคนผ่านการยืนยันมหาวิทยาลัย
                 <br />
-                ผ่าน KYC ทุกคน
+                และการยืนยันตัวตนแล้ว
               </p>
             </div>
             <div className="rounded-2xl p-4 bg-white/60 border border-rosy-taupe/20 backdrop-blur-sm shadow-card">
@@ -82,7 +83,7 @@ export function AboutFeatures() {
               </p>
             </div>
           </div>
-        </div>
+        </FadeIn>
 
         {/* ── Right: ฟีเจอร์ ── */}
         <div className="md:col-span-7">
@@ -93,9 +94,9 @@ export function AboutFeatures() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {FEATURES.map((it) => (
+            {FEATURES.map((it, i) => (
+              <FadeIn key={it.n} trigger="view" delay={i * 0.08}>
               <Link
-                key={it.n}
                 href={it.href}
                 className="group block rounded-2xl p-6 bg-white/65 border border-white/80 backdrop-blur-sm shadow-card hover:-translate-y-0.5 transition-all hover:shadow-lg hover:bg-white/80"
               >
@@ -133,6 +134,7 @@ export function AboutFeatures() {
                   ดูเพิ่ม <ArrowRight size={12} strokeWidth={2.5} />
                 </div>
               </Link>
+              </FadeIn>
             ))}
           </div>
         </div>
