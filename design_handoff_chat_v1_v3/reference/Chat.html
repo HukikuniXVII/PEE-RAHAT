@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Pee Rahat · แชท</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  html, body { background: #f0eee9; margin: 0; }
+  body { font-family: 'Plus Jakarta Sans', 'IBM Plex Sans Thai', system-ui, sans-serif; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- Reuse palette + Avatar + UniBadge + icons + RedditEmbed (for sheet card inside message) from the community page -->
+<script type="text/babel" data-presets="env,react" src="community-shared.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="community-v5-reddit.jsx"></script>
+<!-- Chat-specific data + 2 directions -->
+<script type="text/babel" data-presets="env,react" src="chat-shared.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="chat-v1-split.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="chat-v2-focus.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="chat-v3-mobile.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="chat-v4-workspace.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="chat-v5-ai.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="ios-frame.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="design-canvas.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+const { useState, useEffect } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "showPostit": true
+}/*EDITMODE-END*/;
+
+function useTweaks() {
+  const [t, setT] = useState(TWEAK_DEFAULTS);
+  const setTweak = (k, v) => {
+    const next = typeof k === 'object' ? { ...t, ...k } : { ...t, [k]: v };
+    setT(next);
+    try { window.parent.postMessage({ type:'__edit_mode_set_keys', edits: next }, '*'); } catch {}
+  };
+  return [t, setTweak];
+}
+
+function TweaksPanel({ t, setT, onClose }) {
+  return (
+    <div className="fixed bottom-6 right-6 z-50 w-[280px] bg-white rounded-2xl shadow-xl p-5"
+      style={{border:'1px solid rgba(85,65,139,0.18)', fontFamily:'Plus Jakarta Sans, sans-serif'}}>
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-[14px] font-bold" style={{color:'#3F2F6B'}}>Tweaks</span>
+        <button className="text-[22px] leading-none" style={{color:'#8C84A6'}} onClick={onClose}>×</button>
+      </div>
+      <p className="text-[10.5px] uppercase tracking-wider font-semibold mb-2" style={{color:'#8C84A6'}}>Canvas</p>
+      <label className="flex items-center justify-between text-[12.5px]" style={{color:'#2A2240'}}>
+        แสดง Post-it
+        <input type="checkbox" checked={t.showPostit} onChange={e => setT('showPostit', e.target.checked)}/>
+      </label>
+      <p className="text-[10.5px] mt-4 leading-relaxed" style={{color:'#8C84A6'}}>
+        คลิกการ์ดเพื่อขยายเต็มจอ (Esc ปิด) · ลากการ์ดได้
+      </p>
+    </div>
+  );
+}
+
+function App() {
+  const [t, setT] = useTweaks();
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const onMsg = (e) => {
+      if (!e.data || !e.data.type) return;
+      if (e.data.type === '__activate_edit_mode')   setOpen(true);
+      if (e.data.type === '__deactivate_edit_mode') setOpen(false);
+    };
+    window.addEventListener('message', onMsg);
+    try { window.parent.postMessage({ type:'__edit_mode_available' }, '*'); } catch {}
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  const W = 1320, H = 900;
+
+  return (
+    <>
+      <DesignCanvas>
+        <DCSection id="chat" title="Chat · 5 Directions"
+                   subtitle="Desktop + Focus + Mobile + Study Workspace + AI Copilot · คลิกเพื่อขยายเต็มจอ">
+          <DCArtboard id="split"     label="V1 · Classic Split (2-col · เลือกแล้ว)"          width={W} height={H}><ChatV1Split/></DCArtboard>
+          <DCArtboard id="focus"     label="V2 · Focus Mode (drawer + immersive)"             width={W} height={H}><ChatV2Focus/></DCArtboard>
+          <DCArtboard id="mobile"    label="✨ V3 · Mobile (iPhone frame)"                       width={460} height={900}><ChatV3Mobile/></DCArtboard>
+          <DCArtboard id="workspace" label="✨ V4 · Study Workspace (กระดาน+การบ้าน+ชีท)" width={W} height={H}><ChatV4Workspace/></DCArtboard>
+          <DCArtboard id="ai"        label="✨ V5 · AI Copilot (ช่วยเขียน/สรุป/ตรวจความปลอดภัย)" width={W} height={H}><ChatV5AI/></DCArtboard>
+
+          {t.showPostit && (
+            <>
+              <DCPostIt x={20} y={-90} w={240}>
+                <b>V1 · Classic Split</b><br/>
+                3-col แบบ Messenger/Slack · รายการซ้าย + แชทกลาง + โปรไฟล์ขวา · booking strip · system cards
+              </DCPostIt>
+              <DCPostIt x={W + 80} y={-90} w={240} color="#E5E6F8">
+                <b>V2 · Focus Mode</b><br/>
+                เน้นแชทเต็มจอ · รายการเลื่อน drawer · floating actions (เลื่อน/Meet/จอง)
+              </DCPostIt>
+              <DCPostIt x={W*2 + 140} y={-90} w={260} color="#FBEED3">
+                <b>✨ V3 · Mobile (iOS)</b><br/>
+                สิ่งที่นักเรียนใช้จริง · ฟระม iPhone · typing indicator · booking strip บนหัว · ปุ่มโทร/Meet เด่น
+              </DCPostIt>
+              <DCPostIt x={W*2 + 600} y={-90} w={260} color="#D5EEE2">
+                <b>✨ V4 · Study Workspace</b><br/>
+                สำหรับตอนเรียนสด — กระดานเขียน/โจทย์/ชีท/โน้ต AI + แชทขวา + Meet call status ล่าง
+              </DCPostIt>
+              <DCPostIt x={W*3 + 660} y={-90} w={260} color="#F0E5E5">
+                <b>✨ V5 · AI Copilot</b><br/>
+                AI ช่วยเขียนคำตอบ 3 ตัวเลือก · ค้นคำถามคล้ายกัน · สรุป session · bypass warning + คะแนนปลอดภัย
+              </DCPostIt>
+            </>
+          )}
+        </DCSection>
+      </DesignCanvas>
+
+      {open && <TweaksPanel t={t} setT={setT} onClose={() => {
+        setOpen(false);
+        try { window.parent.postMessage({ type:'__edit_mode_dismissed' }, '*'); } catch {}
+      }}/>}
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

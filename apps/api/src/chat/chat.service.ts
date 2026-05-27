@@ -4,7 +4,12 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import type { ChatMessage, ChatThread } from "@peerahat/types";
+import type {
+  ChatBookingProposal,
+  ChatMessage,
+  ChatThread,
+  ChatThreadBookingSummary,
+} from "@peerahat/types";
 
 import { BypassFilterService } from "../common/bypass-filter.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -40,6 +45,15 @@ export class ChatService {
         participants: {
           include: { user: { select: { id: true, displayName: true, avatarUrl: true } } },
         },
+        // V2 chat redesign: pull the linked Booking + its currently
+        // negotiating PostponeRequest so threadRowBookingSummary() can
+        // compute the badge (paid/proposed/completed) + scheduledAt +
+        // subject without a follow-up query per row.
+        booking: {
+          include: {
+            postponeRequest: true,
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -48,6 +62,8 @@ export class ChatService {
         const lastMessagePreview = t.messages[0]?.body ?? "";
         const lastMessageAt =
           t.messages[0]?.createdAt.toISOString() ?? t.createdAt.toISOString();
+
+        const bookingSummary = this.threadRowBookingSummary(t.booking);
 
         if (t.sessionType === "group") {
           const me = t.participants.find((p) => p.userId === user.id);
@@ -74,7 +90,9 @@ export class ChatService {
               role: "tutor" as const,
               tutorId: t.tutorId,
               subtitle: `Group • ${t.participants.length} members`,
+              verified: t.tutor.isVerified,
             },
+            bookingSummary,
             participants: t.participants.map((p) => ({
               userId: p.userId,
               displayName: p.user.displayName,
@@ -99,11 +117,13 @@ export class ChatService {
               role: "tutor" as const,
               tutorId: t.tutorId,
               subtitle: `${t.tutor.faculty} • ${t.tutor.university}`,
+              verified: t.tutor.isVerified,
             }
           : {
               displayName: student.displayName,
               avatarUrl: student.avatarUrl ?? undefined,
               role: "student" as const,
+              verified: false,
             };
         const lastReadAt = isStudentSide
           ? t.studentLastReadAt
@@ -124,9 +144,80 @@ export class ChatService {
           counterparty,
           viewerUserId: user.id,
           unreadCount,
+          bookingSummary,
         };
       }),
     );
+  }
+
+  // V2 chat redesign helper: derive the thread-row booking pill from the
+  // joined Booking + its active PostponeRequest. Returns undefined when
+  // the thread has no linked booking (e.g. open-with-tutor conversations
+  // that haven't booked yet). "proposed" wins over the underlying
+  // booking status while a negotiation is in flight.
+  private threadRowBookingSummary(
+    booking:
+      | (null | undefined)
+      | {
+          status: string;
+          scheduledAt: Date;
+          subject: string;
+          postponeRequest: { status: string } | null;
+        },
+  ): ChatThreadBookingSummary | undefined {
+    if (!booking) return undefined;
+    const negotiating =
+      booking.postponeRequest?.status === "negotiating";
+    let status: ChatThreadBookingSummary["status"];
+    if (negotiating) status = "proposed";
+    else if (booking.status === "paid") status = "paid";
+    else if (booking.status === "completed") status = "completed";
+    else status = "other";
+    return {
+      status,
+      scheduledAt: booking.scheduledAt.toISOString(),
+      subject: booking.subject,
+    };
+  }
+
+  // V2 chat redesign: synthesize the inline booking-proposal card from
+  // the thread's linked PostponeRequest. Returns null when there's no
+  // active proposal — the client suppresses the card in that case.
+  // Authorization piggy-backs on assertParticipant so only thread members
+  // can read the proposal.
+  async bookingProposal(
+    supabaseId: string,
+    threadId: string,
+  ): Promise<ChatBookingProposal | null> {
+    await this.assertParticipant(supabaseId, threadId);
+    const thread = await this.prisma.chatThread.findUnique({
+      where: { id: threadId },
+      select: {
+        booking: {
+          select: {
+            subject: true,
+            durationMinutes: true,
+            postponeRequest: {
+              include: {
+                initiator: { select: { id: true, displayName: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+    const pr = thread?.booking?.postponeRequest;
+    if (!pr || !thread?.booking) return null;
+    return {
+      id: pr.id,
+      fromUserId: pr.initiatorId,
+      fromDisplayName: pr.initiator.displayName,
+      proposedAt: pr.proposedAt?.toISOString() ?? null,
+      durationMinutes: pr.proposedDuration ?? thread.booking.durationMinutes,
+      subject: thread.booking.subject,
+      note: pr.reason,
+      status: pr.status as ChatBookingProposal["status"],
+    };
   }
 
   /**
@@ -181,6 +272,7 @@ export class ChatService {
         messages: { orderBy: { createdAt: "desc" }, take: 1 },
         student: true,
         tutor: { include: { user: true } },
+        booking: { include: { postponeRequest: true } },
       },
     });
     // FR-TH-18: see threadsForUser — Step 9 widens this for group threads.
@@ -194,11 +286,13 @@ export class ChatService {
           role: "tutor" as const,
           tutorId: full.tutorId,
           subtitle: `${full.tutor.faculty} • ${full.tutor.university}`,
+          verified: full.tutor.isVerified,
         }
       : {
           displayName: student.displayName,
           avatarUrl: student.avatarUrl ?? undefined,
           role: "student" as const,
+          verified: false,
         };
     const lastReadAt = isStudentSide
       ? full.studentLastReadAt
@@ -217,6 +311,7 @@ export class ChatService {
       viewerUserId: user.id,
       unreadCount,
       closedAt: full.closedAt?.toISOString() ?? undefined,
+      bookingSummary: this.threadRowBookingSummary(full.booking),
     };
   }
 
@@ -245,6 +340,7 @@ export class ChatService {
       role: "tutor" as const,
       tutorId,
       subtitle: `${tutor.faculty} • ${tutor.university}`,
+      verified: tutor.isVerified,
     };
     const existing = await this.prisma.chatThread.findFirst({
       where: { studentId: user.id, tutorId },

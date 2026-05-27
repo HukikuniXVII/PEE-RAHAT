@@ -1,5 +1,4 @@
 import { PageBackground } from "@peerahat/ui";
-import { MessagesSquare } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { asNotFound, createApiClient } from "@/lib/api-client";
@@ -62,25 +61,11 @@ export default async function ChatPage({ searchParams }: Props) {
     <>
       <PageBackground photo={false} sparkles="sparse" />
 
-      <div className="max-w-5xl mx-auto space-y-8 pb-20">
-        <header className="space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-grape-soft rounded-full text-[10px] font-bold uppercase tracking-widest text-dusty-grape">
-            <MessagesSquare size={12} />
-            My Conversations
-          </div>
-          <h1
-            className="thai font-bold text-grape-deep leading-[1.15]"
-            style={{
-              fontSize: "clamp(28px, 2.6vw, 40px)",
-              letterSpacing: "-0.02em",
-            }}
-          >
-            พูดคุยกับพี่รหัส
-          </h1>
-          <p className="thai text-[15px] text-ink-soft leading-relaxed">
-            คุยกับพี่รหัสที่คุณจองคลาสไว้ หรือสอบถามก่อนตัดสินใจ
-          </p>
-        </header>
+      <div className="mx-auto max-w-[1200px] px-5 md:px-6 py-6 md:py-8">
+        {/* sr-only h1 for assistive tech + SEO — matches the community
+            page chrome rule. The handoff intentionally has no visible
+            page heading. */}
+        <h1 className="sr-only">แชทกับพี่รหัส</h1>
 
         <ThreadsList
           initialThreads={threads}

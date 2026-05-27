@@ -23,7 +23,10 @@ function bgFor(initial: string): string {
 }
 
 function initialOf(name: string): string {
-  const stripped = name.replace(/^พี่/, "").replace(/^น้อง/, "");
+  // trim() handles names like "น้อง Pim" or "พี่ กิ๊ฟ" where a space
+  // follows the honorific — without it, slice(0,1) returns " " which is
+  // truthy, masks the "?" fallback, and renders a blank chip.
+  const stripped = name.replace(/^พี่/, "").replace(/^น้อง/, "").trim();
   return (stripped.slice(0, 1) || "?").toUpperCase();
 }
 

@@ -31,6 +31,7 @@ import {
   type InviteParticipantsDto,
   type InviteSummaryDto,
   type TutorRejectGroupDto,
+  type ChatBookingProposal,
   type ChatMessage,
   type ChatThread,
   type CommunityPost,
@@ -915,6 +916,12 @@ export function createApiClient(opts: ApiClientOptions = {}) {
         request<ChatMessage>(
           API_PATHS.chatMessages(dto.threadId),
           { method: "POST", body: JSON.stringify({ body: dto.body }) },
+          token,
+        ),
+      proposal: (threadId: string) =>
+        request<ChatBookingProposal | null>(
+          API_PATHS.chatThreadProposal(threadId),
+          {},
           token,
         ),
     },

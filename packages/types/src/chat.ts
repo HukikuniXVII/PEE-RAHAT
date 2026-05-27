@@ -44,6 +44,10 @@ export interface ChatThreadCounterparty {
   tutorId?: string;
   /** Free-form subtitle (e.g. "Faculty • University" for tutor counterparties). */
   subtitle?: string;
+  /** V2 chat redesign: KYC-verified tutor flag for the verified checkmark
+   *  next to the name. Derived from `TutorProfile.isVerified` server-side.
+   *  Always false when role === "student". */
+  verified?: boolean;
 }
 
 // FR-TH-18: group chat threads have no canonical "counterparty" — render
@@ -76,6 +80,40 @@ export interface ChatThread {
   unreadCount: number;
   /** Set when a postpone negotiation finalized (FR-TH-12) — hides the composer. */
   closedAt?: string;
+  /** V2 chat redesign: optional joined-booking summary for the thread-row
+   *  badge ("● จองแล้ว"/"● รอตอบ"/"● เสร็จแล้ว") + booked date + subject
+   *  shown under the preview. Computed server-side from the linked
+   *  Booking row (+ active PostponeRequest for "proposed"). Omitted when
+   *  the thread has no associated booking. */
+  bookingSummary?: ChatThreadBookingSummary;
+}
+
+export interface ChatThreadBookingSummary {
+  /** Maps to the thread-list pill states from the handoff. "proposed" is
+   *  the special case set when an active PostponeRequest exists for the
+   *  booking; the booking's real status is something else. */
+  status: "proposed" | "paid" | "completed" | "other";
+  scheduledAt: string;   // ISO; UI formats as "25 พ.ค." / "25 พ.ค. 19:00"
+  subject: string;
+}
+
+/** V2 chat redesign: booking-proposal card rendered inline in the
+ *  conversation between two messages. Synthesized client-side from the
+ *  thread's active PostponeRequest — not stored as a ChatMessage.
+ *  Returned by GET /chat/threads/:id/proposal; null when no active
+ *  proposal exists. */
+export interface ChatBookingProposal {
+  id: string;             // PostponeRequest.id
+  fromUserId: string;
+  fromDisplayName: string;
+  /** Proposed start time (PostponeRequest.proposedAt). Null until the
+   *  initiator submits an actual slot — pre-propose state still shows the
+   *  card but with "รอเสนอเวลา" instead of a date. */
+  proposedAt: string | null;
+  durationMinutes: number;
+  subject: string;        // from the linked Booking
+  note: string;           // PostponeRequest.reason
+  status: "negotiating" | "accepted" | "rejected" | "expired";
 }
 
 export const sendMessageSchema = z.object({

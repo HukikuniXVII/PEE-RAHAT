@@ -133,6 +133,10 @@ export const API_PATHS = {
   chatThreadWithTutor: (tutorId: string) => `/chat/threads/with/${tutorId}`,
   chatMessages: (threadId: string) => `/chat/threads/${threadId}/messages`,
   chatThreadRead: (threadId: string) => `/chat/threads/${threadId}/read`,
+  // V2 chat redesign: active PostponeRequest synthesized as a booking
+  // proposal card. Returns null when no active proposal exists.
+  chatThreadProposal: (threadId: string) =>
+    `/chat/threads/${threadId}/proposal`,
   // FR-TH-18 group sessions
   inviteToBooking: (id: string) => `/bookings/${id}/invite`,
   extendBookingInvite: (id: string) => `/bookings/${id}/invite/extend`,

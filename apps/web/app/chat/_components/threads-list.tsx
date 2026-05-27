@@ -1,9 +1,12 @@
 "use client";
 
-import type { ChatThread } from "@peerahat/types";
+import type {
+  ChatThread,
+  ChatThreadBookingSummary,
+} from "@peerahat/types";
 import { cn } from "@peerahat/ui";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, MessagesSquare, Search, ShieldCheck } from "lucide-react";
+import { ArrowRight, MessagesSquare, Plus, Search } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -21,30 +24,62 @@ interface Props {
   initialSelectedId?: string | null;
 }
 
+type Filter = "all" | "booked" | "unread";
+
 function formatRelative(iso: string): string {
   const ts = new Date(iso).getTime();
   const diff = Date.now() - ts;
   const minutes = Math.floor(diff / 60_000);
   if (minutes < 1) return "เพิ่งกี้";
-  if (minutes < 60) return `${minutes} นาทีที่แล้ว`;
+  if (minutes < 60) return `${minutes} นาที`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} ชม.ที่แล้ว`;
+  if (hours < 24) return `${hours} ชม.`;
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days} วันที่แล้ว`;
+  if (days < 7) return `${days} วัน`;
   return new Date(iso).toLocaleDateString("th-TH", {
     day: "numeric",
     month: "short",
   });
 }
 
+function formatBookedDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+}
+
+// Mirrors apps/web/app/community/_components/avatar.tsx so the same user
+// renders with the same chip letter (and therefore the same hash-derived
+// color) across chat + community. trim() handles "น้อง Pim" / "พี่ กิ๊ฟ"
+// where a space follows the honorific.
 function initialsOf(name: string): string {
+  const stripped = name.replace(/^พี่/, "").replace(/^น้อง/, "").trim();
+  return (stripped.slice(0, 1) || "?").toUpperCase();
+}
+
+function BookingBadge({ summary }: { summary: ChatThreadBookingSummary }) {
+  // Maps the handoff palette: paid=emerald, proposed=accent, completed=grape-soft.
+  // "other" (e.g. requested/cancelled) is suppressed at the call site.
+  const styles =
+    summary.status === "paid"
+      ? "bg-[rgba(47,155,110,0.12)] text-emerald-600"
+      : summary.status === "proposed"
+        ? "bg-[rgba(240,203,103,0.25)] text-accent-700"
+        : "bg-grape-soft text-grape-deep";
+  const label =
+    summary.status === "paid"
+      ? "จองแล้ว"
+      : summary.status === "proposed"
+        ? "รอตอบ"
+        : "เสร็จแล้ว";
   return (
-    name
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((s) => s[0]?.toUpperCase() ?? "")
-      .join("") || "?"
+    <span
+      className={cn(
+        "thai text-[9.5px] font-bold inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full",
+        styles,
+      )}
+    >
+      ● {label}
+    </span>
   );
 }
 
@@ -58,7 +93,8 @@ export function ThreadsList({ initialThreads, initialSelectedId = null }: Props)
   });
   const allThreads = data ?? initialThreads;
   const [search, setSearch] = useState("");
-  // Split-pane state: clicking a thread row activates it inline in the
+  const [filter, setFilter] = useState<Filter>("all");
+  // Split-pane selection — clicking a thread activates it inline in the
   // right column. Server preselection comes in via initialSelectedId
   // when the page receives `?with=<tutorId>` or `?thread=<threadId>`.
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
@@ -84,10 +120,22 @@ export function ThreadsList({ initialThreads, initialSelectedId = null }: Props)
     router.replace(next, { scroll: false });
   }
 
-  const threads = useMemo(() => {
+  const filteredThreads = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return allThreads;
     return allThreads.filter((t) => {
+      if (filter === "booked") {
+        // Treat "booked" as anything that has a paid or completed linked
+        // booking. "proposed" stays off this filter since it's not yet
+        // a confirmed class.
+        if (
+          t.bookingSummary?.status !== "paid" &&
+          t.bookingSummary?.status !== "completed"
+        ) {
+          return false;
+        }
+      }
+      if (filter === "unread" && t.unreadCount === 0) return false;
+      if (!q) return true;
       const haystack = [
         t.counterparty.displayName,
         t.counterparty.subtitle ?? "",
@@ -97,197 +145,223 @@ export function ThreadsList({ initialThreads, initialSelectedId = null }: Props)
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [allThreads, search]);
+  }, [allThreads, search, filter]);
+
+  const counts = useMemo(() => {
+    return {
+      all: allThreads.length,
+      booked: allThreads.filter(
+        (t) =>
+          t.bookingSummary?.status === "paid" ||
+          t.bookingSummary?.status === "completed",
+      ).length,
+      unread: allThreads.filter((t) => t.unreadCount > 0).length,
+    };
+  }, [allThreads]);
 
   if (allThreads.length === 0) {
-    // Future layout will be split-screen: contacts list on the left,
-    // active chat on the right. Render the empty state in the right
-    // column already so the first thread doesn't trigger a layout jump.
     return (
-      <div className="grid md:grid-cols-[280px_1fr] gap-6">
-        {/* Left — placeholder for the contacts list */}
-        <aside className="hidden md:block">
-          <div className="bg-white/50 border border-dashed border-violet-200 rounded-[28px] p-6 min-h-[420px] flex items-center justify-center">
-            <div className="text-center space-y-2">
-              <MessagesSquare
-                size={24}
-                className="text-violet-300 mx-auto"
-                strokeWidth={1.8}
-              />
-              <p className="thai text-[11px] font-semibold text-ink-mute leading-relaxed">
-                รายชื่อบทสนทนา
-                <br />
-                จะอยู่ตรงนี้
-              </p>
-            </div>
-          </div>
-        </aside>
-
-        {/* Right — empty state with brand CTA */}
-        <div className="bg-white p-10 rounded-[32px] border border-violet-100 shadow-[0_8px_24px_-16px_rgba(85,65,139,0.25)] text-center flex flex-col items-center gap-5 min-h-[420px] justify-center">
-          <div className="space-y-2">
-            <h3 className="thai text-xl font-bold text-grape-deep">
-              ยังไม่มีบทสนทนา
-            </h3>
-            <p className="thai text-sm text-ink-soft leading-relaxed max-w-sm">
-              เริ่มสนทนาด้วยการเข้าไปที่โปรไฟล์พี่รหัส แล้วกดปุ่ม Chat
-            </p>
-          </div>
-          <Link
-            href="/tutors"
-            className="thai inline-flex items-center gap-2 rounded-[16px] bg-dusty-grape px-8 py-4 text-[16px] font-bold text-white-smoke shadow-lg transition-all hover:bg-accent-500 hover:text-neutral-800 hover:shadow-lg hover:shadow-accent-500/30"
-          >
-            ค้นหาพี่รหัสเลย
-            <ArrowRight size={16} strokeWidth={2.5} />
-          </Link>
+      <div className="cozy-card p-10 text-center flex flex-col items-center gap-5 min-h-[420px] justify-center">
+        <div className="space-y-2">
+          <h3 className="thai text-xl font-bold text-grape-deep">
+            ยังไม่มีบทสนทนา
+          </h3>
+          <p className="thai text-sm text-ink-soft leading-relaxed max-w-sm">
+            เริ่มสนทนาด้วยการเข้าไปที่โปรไฟล์พี่รหัส แล้วกดปุ่ม Chat
+          </p>
         </div>
+        <Link
+          href="/tutors"
+          className="thai inline-flex items-center gap-2 rounded-[16px] bg-violet-500 px-8 py-4 text-[16px] font-bold text-white shadow-lg transition-all hover:bg-accent-500 hover:text-neutral-800"
+        >
+          ค้นหาพี่รหัสเลย
+          <ArrowRight size={16} strokeWidth={2.5} />
+        </Link>
       </div>
     );
   }
 
-  // Split-pane layout: left = conversation list, right = active chat
-  // (or a placeholder when nothing is selected). Mirrors the empty state
-  // so the page doesn't visually re-flow when the first thread arrives.
-  // On mobile (<md) the list and chat swap places: opening a thread
-  // hides the list and shows the chat full-width with a back button.
   return (
-    <div className="grid md:grid-cols-[280px_1fr] gap-6">
+    <div className="grid md:grid-cols-[340px_1fr] gap-4 items-stretch min-h-[calc(100dvh-160px)]">
+      {/* Left rail. Hidden on mobile when a thread is selected so the
+          conversation gets the full screen. */}
       <aside
         className={cn(
-          "space-y-3 min-w-0",
-          selectedThread ? "hidden md:block" : "block",
+          "cozy-card overflow-hidden flex flex-col min-h-0",
+          selectedThread ? "hidden md:flex" : "flex",
         )}
       >
-        <div className="relative">
-          <Search
-            size={16}
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-mute"
-          />
-          <input
-            type="text"
-            placeholder="ค้นหาบทสนทนา..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="thai w-full pl-10 pr-4 py-3 bg-white border border-violet-100 rounded-2xl text-sm text-ink placeholder:text-ink-mute focus:border-violet-300 focus:shadow-focus outline-none transition-all"
-          />
-        </div>
-
-        {threads.length === 0 ? (
-          <p className="thai text-center text-xs text-ink-mute py-8 font-medium">
-            ไม่พบบทสนทนาที่ตรงกับ &ldquo;{search}&rdquo;
-          </p>
-        ) : null}
-
-        {threads.map((thread) => {
-          const isStudentSide = thread.counterparty.role === "tutor";
-          const hasUnread = thread.unreadCount > 0;
-          const isActive = thread.id === selectedId;
-          return (
-            <button
-              key={thread.id}
-              type="button"
-              onClick={() => selectThread(thread.id)}
-              aria-pressed={isActive}
-              className="block w-full text-left"
+        <div className="px-4 pt-4 pb-3 shrink-0 space-y-3 border-b border-[rgba(85,65,139,0.06)]">
+          <div className="flex items-center justify-between">
+            <h2 className="thai text-[18px] font-bold tracking-tight text-grape-deep">
+              ข้อความ
+            </h2>
+            <Link
+              href="/tutors"
+              aria-label="หาพี่รหัสเพื่อเริ่มแชทใหม่"
+              className="grid place-items-center w-8 h-8 rounded-lg bg-violet-500 text-white hover:bg-violet-600 transition"
             >
-              <div
+              <Plus className="w-4 h-4" strokeWidth={2.4} />
+            </Link>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-grape-soft">
+            <Search size={16} className="text-ink-mute shrink-0" />
+            <input
+              type="text"
+              placeholder="ค้นหารุ่นพี่ / หัวข้อ"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="thai flex-1 outline-none text-[12.5px] bg-transparent text-ink placeholder:text-ink-mute"
+            />
+          </div>
+          <div className="flex gap-1.5">
+            {(
+              [
+                ["all", "ทั้งหมด"],
+                ["booked", "จองแล้ว"],
+                ["unread", "ยังไม่อ่าน"],
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setFilter(key)}
                 className={cn(
-                  "flex items-center gap-3 p-3 rounded-[20px] border transition-all shadow-[0_4px_12px_-8px_rgba(85,65,139,0.18)]",
-                  isActive
-                    ? "bg-grape-soft border-violet-400 ring-2 ring-violet-300/40"
-                    : hasUnread
-                      ? "bg-grape-soft/60 border-violet-200 hover:border-violet-300"
-                      : "bg-white border-violet-100 hover:border-violet-200",
+                  "thai text-[11.5px] font-semibold px-2.5 py-1 rounded-full inline-flex items-center gap-1 transition",
+                  filter === key
+                    ? "bg-violet-500 text-white"
+                    : "text-grape-deep border border-grape-soft hover:bg-grape-soft/60",
                 )}
               >
-                {thread.counterparty.avatarUrl ? (
-                  <img
-                    src={thread.counterparty.avatarUrl}
-                    alt={thread.counterparty.displayName}
-                    className="w-11 h-11 rounded-2xl object-cover bg-grape-soft shrink-0"
-                  />
-                ) : (
-                  <span className="w-11 h-11 rounded-2xl bg-dusty-grape text-white text-sm font-black flex items-center justify-center shrink-0">
-                    {initialsOf(thread.counterparty.displayName)}
-                  </span>
-                )}
-                <div className="flex-1 min-w-0 space-y-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3
-                      className={cn(
-                        "thai text-sm truncate",
-                        hasUnread
-                          ? "font-black text-grape-deep"
-                          : "font-bold text-ink",
-                      )}
-                    >
-                      {thread.counterparty.displayName}
-                    </h3>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-[10px] font-medium text-ink-mute">
-                        {formatRelative(thread.lastMessageAt)}
-                      </span>
-                      {hasUnread && (
-                        <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-dusty-grape text-white text-[10px] font-black flex items-center justify-center">
-                          {thread.unreadCount > 99 ? "99+" : thread.unreadCount}
+                {label}
+                <span className="num opacity-70">{counts[key]}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <ul className="flex-1 overflow-y-auto">
+          {filteredThreads.length === 0 ? (
+            <li className="thai text-center text-xs text-ink-mute py-8 px-4 font-medium">
+              {search
+                ? `ไม่พบบทสนทนาที่ตรงกับ "${search}"`
+                : "ยังไม่มีบทสนทนาในตัวกรองนี้"}
+            </li>
+          ) : (
+            filteredThreads.map((thread) => {
+              const isActive = thread.id === selectedId;
+              const hasUnread = thread.unreadCount > 0;
+              const showBadge =
+                thread.bookingSummary &&
+                thread.bookingSummary.status !== "other";
+              return (
+                <li key={thread.id}>
+                  <button
+                    type="button"
+                    onClick={() => selectThread(thread.id)}
+                    aria-pressed={isActive}
+                    className={cn(
+                      "w-full px-4 py-3 flex items-start gap-3 text-left transition border-l-[3px]",
+                      isActive
+                        ? "bg-grape-soft border-violet-500"
+                        : "border-transparent hover:bg-[rgba(85,65,139,0.04)]",
+                    )}
+                  >
+                    <div className="relative shrink-0">
+                      {thread.counterparty.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={thread.counterparty.avatarUrl}
+                          alt={thread.counterparty.displayName}
+                          className="w-[42px] h-[42px] rounded-full object-cover bg-grape-soft"
+                        />
+                      ) : (
+                        <span className="w-[42px] h-[42px] rounded-full bg-violet-500 text-white text-sm font-bold flex items-center justify-center">
+                          {initialsOf(thread.counterparty.displayName)}
                         </span>
                       )}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={cn(
-                        "text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded",
-                        isStudentSide
-                          ? "bg-grape-soft text-grape-deep"
-                          : "bg-neutral-100 text-ink-mute",
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3
+                          className={cn(
+                            "thai text-[13.5px] truncate",
+                            hasUnread
+                              ? "font-bold text-grape-deep"
+                              : "font-semibold text-ink",
+                          )}
+                        >
+                          {thread.counterparty.displayName}
+                        </h3>
+                        <span
+                          className={cn(
+                            "text-[10px] font-medium shrink-0 num",
+                            hasUnread ? "text-violet-500" : "text-ink-mute",
+                          )}
+                        >
+                          {formatRelative(thread.lastMessageAt)}
+                        </span>
+                      </div>
+                      {thread.counterparty.subtitle && (
+                        <p className="thai text-[10.5px] text-soft-periwinkle truncate mt-0.5">
+                          {thread.counterparty.subtitle}
+                        </p>
                       )}
-                    >
-                      {isStudentSide ? "Tutor" : "Student"}
-                    </span>
-                    <p
-                      className={cn(
-                        "thai text-xs truncate flex-1",
-                        hasUnread ? "font-bold text-ink-soft" : "text-ink-mute",
+                      <div className="flex items-center gap-2 mt-1">
+                        <p
+                          className={cn(
+                            "thai text-[12px] truncate flex-1",
+                            hasUnread
+                              ? "font-bold text-ink"
+                              : "text-ink-mute",
+                          )}
+                        >
+                          {thread.lastMessagePreview || "ยังไม่มีข้อความ"}
+                        </p>
+                        {hasUnread && (
+                          <span className="num min-w-[18px] h-[18px] px-1 rounded-full bg-violet-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                            {thread.unreadCount > 99
+                              ? "99+"
+                              : thread.unreadCount}
+                          </span>
+                        )}
+                      </div>
+                      {showBadge && thread.bookingSummary && (
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <BookingBadge summary={thread.bookingSummary} />
+                          <span className="thai text-[10px] text-ink-mute num truncate">
+                            {formatBookedDate(thread.bookingSummary.scheduledAt)}{" "}
+                            · {thread.bookingSummary.subject}
+                          </span>
+                        </div>
                       )}
-                    >
-                      {thread.lastMessagePreview || "ยังไม่มีข้อความ"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </button>
-          );
-        })}
-
-        <p className="thai pt-4 text-[10px] text-ink-mute text-center font-medium flex items-center justify-center gap-1.5">
-          <ShieldCheck size={12} className="text-emerald-500" />
-          ทุกข้อความถูกกรองช่องทางติดต่อนอกแพลตฟอร์มอัตโนมัติ
-        </p>
+                    </div>
+                  </button>
+                </li>
+              );
+            })
+          )}
+        </ul>
       </aside>
 
-      {/* Right pane — placeholder when nothing is selected, ChatRoom
-          when a thread is active. On mobile the right pane only renders
-          once a thread is picked so the list isn't pushed off-screen.
-          ChatRoom hydrates messages itself via useQuery so passing an
-          empty initialMessages is safe. */}
+      {/* Right pane — conversation when a thread is selected, otherwise
+          a desktop-only placeholder. On mobile the placeholder is hidden
+          because the list takes the full screen until a thread is picked. */}
       {selectedThread ? (
-        <div className="bg-white rounded-[32px] border border-violet-100 shadow-[0_8px_24px_-16px_rgba(85,65,139,0.25)] overflow-hidden min-h-[420px]">
-          <ChatRoom
-            key={selectedThread.id}
-            thread={selectedThread}
-            initialMessages={[]}
-            onBack={() => selectThread(null)}
-          />
-        </div>
+        <ChatRoom
+          key={selectedThread.id}
+          thread={selectedThread}
+          initialMessages={[]}
+          onBack={() => selectThread(null)}
+        />
       ) : (
-        <div className="hidden md:flex bg-white p-10 rounded-[32px] border border-violet-100 shadow-[0_8px_24px_-16px_rgba(85,65,139,0.25)] text-center flex-col items-center justify-center gap-3 min-h-[420px]">
+        <div className="hidden md:flex cozy-card p-10 flex-col items-center justify-center gap-3 min-h-[420px]">
           <MessagesSquare
             size={28}
-            className="text-violet-300"
+            className="text-violet-200"
             strokeWidth={1.8}
           />
-          <p className="thai text-sm text-ink-soft leading-relaxed max-w-xs">
+          <p className="thai text-sm text-ink-soft leading-relaxed max-w-xs text-center">
             เลือกบทสนทนาจากด้านซ้ายเพื่อเริ่มสนทนากับพี่รหัส
           </p>
         </div>

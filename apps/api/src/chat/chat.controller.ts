@@ -60,6 +60,17 @@ export class ChatController {
     return this.chat.messages(user.sub, threadId);
   }
 
+  // V2 chat redesign: inline booking-proposal card data. Returns null
+  // when the thread has no active PostponeRequest; the client suppresses
+  // the card on null.
+  @Get("threads/:threadId/proposal")
+  proposal(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("threadId") threadId: string,
+  ) {
+    return this.chat.bookingProposal(user.sub, threadId);
+  }
+
   @Post("threads/:threadId/messages")
   send(
     @CurrentUser() user: SupabaseJwtPayload,
