@@ -5,7 +5,7 @@ import { createReplySchema } from "@peerahat/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Send } from "lucide-react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
+import type { z } from "zod";
 
 import { createApiClient } from "@/lib/api-client";
 

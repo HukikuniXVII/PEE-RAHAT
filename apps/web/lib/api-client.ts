@@ -54,7 +54,6 @@ import {
   type ProposeSlotDto,
   type AddReportCommentDto,
   type NotificationFeedPage,
-  type NotificationItem,
   type NotificationPreferenceDto,
   type PushDeviceItem,
   type PushSubscriptionInput,

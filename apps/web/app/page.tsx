@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
 
-import { getInitialUser } from "@/lib/auth";
 import { AboutFeatures } from "@/components/landing/AboutFeatures";
 import { Hero } from "@/components/landing/Hero";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 import { Nav } from "@/components/landing/Nav";
 import { SnapLock } from "@/components/snap-lock";
+import { getInitialUser } from "@/lib/auth";
 
 export default async function HomePage() {
   const user = await getInitialUser();

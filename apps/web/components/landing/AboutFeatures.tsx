@@ -56,7 +56,7 @@ export function AboutFeatures() {
 
           <p className="thai text-[16px] text-ink-soft leading-[1.9] max-w-[420px]">
             พี่รหัสคือพื้นที่ที่น้องจะได้เจอ{" "}
-            <span className="font-semibold text-grape-deep">"ติวโดยพี่รหัส"</span>{" "}
+            <span className="font-semibold text-grape-deep">&ldquo;ติวโดยพี่รหัส&rdquo;</span>{" "}
             ที่กำลังเรียน / จบการศึกษาในมหาลัยที่น้องอยากเข้า
           </p>
 

@@ -1,19 +1,19 @@
 "use client";
 
-import { Button } from "@peerahat/ui";
-import { useMutation } from "@tanstack/react-query";
-import { Film, Link2, Upload } from "lucide-react";
-import { useState } from "react";
-
-import { createApiClient } from "@/lib/api-client";
-
-import {
+import { Button ,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@peerahat/ui";
+import { useMutation } from "@tanstack/react-query";
+import { Film, Link2, Upload } from "lucide-react";
+import { useState } from "react";
+
+import { createApiClient } from "@/lib/api-client";
+
+
 
 // Final step of tutor onboarding (FR-TH-04). Surfaces a soft nudge to
 // upload an intro video before landing on the dashboard. The skip path

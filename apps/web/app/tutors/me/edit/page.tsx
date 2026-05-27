@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
-import { requireAuth } from "@/lib/auth";
 import { createApiClient } from "@/lib/api-client";
+import { requireAuth } from "@/lib/auth";
 
 import { BankStatusBanner } from "./_components/bank-status-banner";
 import { GoogleCalendarCard } from "./_components/google-calendar-card";

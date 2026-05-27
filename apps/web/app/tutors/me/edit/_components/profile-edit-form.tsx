@@ -21,8 +21,8 @@ import { useForm } from "react-hook-form";
 import { createApiClient } from "@/lib/api-client";
 import { useMutationWithToast } from "@/lib/hooks/use-mutation-with-toast";
 
-import { SelectWithOther } from "../../../_components/select-with-other";
 import { UnavailabilityEditor } from "./unavailability-editor";
+import { SelectWithOther } from "../../../_components/select-with-other";
 
 const SUBJECT_OPTIONS = subjectSchema.options as readonly Subject[];
 

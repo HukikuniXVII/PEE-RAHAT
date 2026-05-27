@@ -25,17 +25,17 @@ import {
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
+import type { z } from "zod";
 
 import { createApiClient } from "@/lib/api-client";
 
-import { SelectWithOther } from "../../_components/select-with-other";
 import { IdentitySection } from "./identity-section";
 import { IntroVideoModal } from "./intro-video-modal";
 import {
   OnboardingProgress,
   type StepState,
 } from "./onboarding-progress";
+import { SelectWithOther } from "../../_components/select-with-other";
 
 // Combined schema: every field the new single-page form collects. The
 // final submit splits values back into the two existing API calls —

@@ -3,7 +3,6 @@
 import type { ChatThread } from "@peerahat/types";
 import { cn } from "@peerahat/ui";
 import { useQuery } from "@tanstack/react-query";
-import { AnimatePresence, motion } from "motion/react";
 import {
   BookOpen,
   CalendarCheck,
@@ -20,6 +19,7 @@ import {
   Wallet,
   X,
 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import type { Route } from "next";
 import Image from "next/image";
 import Link from "next/link";

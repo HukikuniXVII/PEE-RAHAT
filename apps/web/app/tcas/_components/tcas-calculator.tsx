@@ -569,7 +569,7 @@ function Chrome({
         {showSuggestions && top.length === 0 && (
           <div className="absolute z-30 left-0 right-0 mt-2 bg-white rounded-2xl border border-violet-100 shadow-[0_18px_40px_-22px_rgba(85,65,139,0.4)] px-4 py-6 text-center">
             <p className="thai text-sm text-ink-mute">
-              ไม่พบหลักสูตรที่ตรงกับ "{query}"
+              ไม่พบหลักสูตรที่ตรงกับ &ldquo;{query}&rdquo;
             </p>
           </div>
         )}
@@ -1260,7 +1260,7 @@ function UniFilterGroup({
       <div className="rounded-lg overflow-hidden bg-violet-100/30 max-h-[260px] overflow-y-auto custom-scrollbar">
         {filtered.length === 0 ? (
           <p className="thai text-[10.5px] py-3 text-center text-ink-mute">
-            ไม่พบมหา'ลัย "{q}"
+            ไม่พบมหา&apos;ลัย &ldquo;{q}&rdquo;
           </p>
         ) : (
           // Render the full list (scrollable container handles overflow).
@@ -2118,7 +2118,7 @@ function ZoneAdviceCard({
             <p className="thai text-[15px] font-bold">
               ขาดอีก{" "}
               <span className="tabular-nums">{need.toFixed(1)}</span> คะแนน
-              จะเข้า zone "<span style={{ color: "#F0CB67" }}>น่าจะติด</span>"
+              จะเข้า zone &ldquo;<span style={{ color: "#F0CB67" }}>น่าจะติด</span>&rdquo;
             </p>
           </div>
           <p className="thai text-[11.5px] mb-4 text-white/70">
@@ -2448,6 +2448,11 @@ function PieWeightCard({ program }: { program: UnifiedProgram }) {
 
 function PastYearCard({ program }: { program: UnifiedProgram }) {
   const real = program.history;
+  // Hooks must run in the same order on every render — keep useState above
+  // the early return. null means "user hasn't picked yet; default to the
+  // real year once it's available."
+  const [pickedYear, setPickedYear] = useState<number | null>(null);
+
   if (!real || real.year == null) {
     return (
       <div className="bg-white rounded-2xl border border-[rgba(85,65,139,0.08)] shadow-[0_1px_0_rgba(85,65,139,0.04),0_12px_28px_-18px_rgba(85,65,139,0.25)] p-4">
@@ -2475,8 +2480,8 @@ function PastYearCard({ program }: { program: UnifiedProgram }) {
     },
   };
 
-  const [pickedYear, setPickedYear] = useState<number>(real.year);
-  const picked = data[pickedYear]!;
+  const effectivePickedYear = pickedYear ?? real.year;
+  const picked = data[effectivePickedYear]!;
 
   return (
     <div className="bg-white rounded-2xl border border-[rgba(85,65,139,0.08)] shadow-[0_1px_0_rgba(85,65,139,0.04),0_12px_28px_-18px_rgba(85,65,139,0.25)] p-4">
@@ -2498,7 +2503,7 @@ function PastYearCard({ program }: { program: UnifiedProgram }) {
             onClick={() => setPickedYear(y)}
             className={cn(
               "flex-1 thai text-[12px] font-bold py-1.5 rounded-md transition tabular-nums",
-              pickedYear === y
+              effectivePickedYear === y
                 ? "bg-white text-grape-deep shadow-[0_1px_0_rgba(85,65,139,0.08),0_4px_10px_-6px_rgba(85,65,139,0.25)]"
                 : "bg-transparent text-ink-soft",
             )}
@@ -2536,16 +2541,18 @@ function PastYearCard({ program }: { program: UnifiedProgram }) {
       >
         <p className="thai text-[10.5px] flex items-center justify-between text-ink-soft">
           <span>
-            เทียบกับปี {pickedYear === real.year ? prev : real.year}
+            เทียบกับปี {effectivePickedYear === real.year ? prev : real.year}
           </span>
           <span
             className="tabular-nums font-bold"
             style={{
               color:
-                pickedYear === real.year ? Z.competitive : Z.borderline,
+                effectivePickedYear === real.year
+                  ? Z.competitive
+                  : Z.borderline,
             }}
           >
-            {pickedYear === real.year ? "+" : "−"}
+            {effectivePickedYear === real.year ? "+" : "−"}
             {Math.abs(
               (data[real.year]!.mean ?? 0) - (data[prev]!.mean ?? 0),
             ).toFixed(1)}{" "}

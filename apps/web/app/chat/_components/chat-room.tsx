@@ -21,7 +21,7 @@ import {
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
+import type { z } from "zod";
 
 import { ReportDialog } from "@/app/_components/report-dialog";
 import { createApiClient } from "@/lib/api-client";

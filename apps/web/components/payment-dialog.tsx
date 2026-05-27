@@ -10,7 +10,6 @@ import {
   DialogTitle,
   cn,
 } from "@peerahat/ui";
-import { motion } from "motion/react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -21,6 +20,7 @@ import {
   ShieldCheck,
   Upload,
 } from "lucide-react";
+import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 
 import { createApiClient } from "@/lib/api-client";

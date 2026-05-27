@@ -34,9 +34,9 @@ import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { SlotPicker, combineDateAndMinute } from "@/components/slot-picker";
 import { createApiClient } from "@/lib/api-client";
 import { getErrorMessage } from "@/lib/error-message";
-import { SlotPicker, combineDateAndMinute } from "@/components/slot-picker";
 
 interface Props {
   tutor: Tutor;
@@ -76,7 +76,7 @@ function formatScheduledAt(iso: string): string {
   });
 }
 
-export function BookingForm({ tutor, onClose }: Props) {
+export function BookingForm({ tutor, onClose: _onClose }: Props) {
   const [subject, setSubject] = useState<Subject>(
     (tutor.subjects[0] ?? "Math") as Subject,
   );

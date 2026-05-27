@@ -3,13 +3,13 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signUpSchema } from "@peerahat/types";
 import { Button, Input } from "@peerahat/ui";
-import { z } from "zod";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
+import { z } from "zod";
 
 import { createApiClient } from "@/lib/api-client";
 import { sanitizeNextPath } from "@/lib/auth-utils";

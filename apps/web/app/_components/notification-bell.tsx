@@ -6,8 +6,8 @@ import type {
 } from "@peerahat/types";
 import { cn } from "@peerahat/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AnimatePresence, motion } from "motion/react";
 import { Bell, CheckCheck, Inbox, X } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";

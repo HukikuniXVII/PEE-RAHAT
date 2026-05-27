@@ -181,7 +181,6 @@ function UserRow({
   onChanged: () => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
   // FR-TH-02: optimistic local state for the hide toggle so the row
   // updates immediately on click instead of waiting for the refetch.
   const [hiddenAt, setHiddenAt] = useState<string | undefined>(

@@ -19,7 +19,6 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import Link from "next/link";
 import { useState } from "react";
 
 import { createApiClient } from "@/lib/api-client";
