@@ -53,7 +53,6 @@ export function PageBackground({
       <div className="absolute inset-0 bg-gradient-to-br from-surface-cream via-surface-mist to-surface-dusk" />
 
       {photo && (
-        // eslint-disable-next-line @next/next/no-img-element
         <img
           src="/background.jpg"
           alt=""

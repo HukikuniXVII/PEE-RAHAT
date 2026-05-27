@@ -2,7 +2,7 @@
 module.exports = {
   root: true,
   extends: [
-    "@peerahat/config/eslint/base",
+    require.resolve("./base.cjs"),
     "next/core-web-vitals",
   ],
   rules: {
@@ -23,7 +23,7 @@ module.exports = {
       "error",
       {
         selector:
-          "VariableDeclarator[id.name=/^MOCK_|^INITIAL_/i][init.type=/Array|Object/Expression/]",
+          "VariableDeclarator[id.name=/^MOCK_|^INITIAL_/i][init.type=/(Array|Object)Expression/]",
         message:
           "Mock data is not allowed in apps/web. Fetch from the API via apiClient.",
       },

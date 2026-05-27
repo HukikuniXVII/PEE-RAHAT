@@ -1,7 +1,4 @@
-import type {
-  ProgramComponents,
-  TcasRound,
-} from "./tcas";
+import type { ProgramComponents } from "./tcas";
 
 // ─── AI-parsed row ────────────────────────────────────────────────────────
 // The single source of truth for what Gemini hands back. The same shape
@@ -97,7 +94,3 @@ export interface AiUsageSummary {
   rangeStart: string;
   rangeEnd: string;
 }
-
-// Re-exported here so consumers of the import surface (admin UI, api-client)
-// can pull a single type alias instead of touching the deep tcas.ts.
-export type { ProgramComponents, TcasRound };

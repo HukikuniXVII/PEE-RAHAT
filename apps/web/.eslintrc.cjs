@@ -1,3 +1,3 @@
 module.exports = {
-  extends: ["@peerahat/config/eslint/next"],
+  extends: [require.resolve("@peerahat/config/eslint/next")],
 };

@@ -1,3 +1,3 @@
 module.exports = {
-  extends: ["@peerahat/config/eslint/nest"],
+  extends: [require.resolve("@peerahat/config/eslint/nest")],
 };

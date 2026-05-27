@@ -1,7 +1,7 @@
 /** @type {import("eslint").Linter.Config} */
 module.exports = {
   root: true,
-  extends: ["@peerahat/config/eslint/base"],
+  extends: [require.resolve("./base.cjs")],
   parserOptions: {
     sourceType: "module",
   },
