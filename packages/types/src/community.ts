@@ -52,6 +52,78 @@ export function firstHashtag(text: string): string | null {
   return m ? m[0] : null;
 }
 
+// V2 community mini-profile overlay. Discriminated by `mode` so the
+// frontend renders the right body without a separate endpoint per kind.
+// Fields are deliberately limited to data that exists in the DB today
+// or is computable from existing tables — no new schema columns.
+
+export interface MiniProfileSubject {
+  userId: string;
+  name: string;            // displayName
+  avatarUrl: string | null;
+  verified: boolean;       // true iff the user has a TutorProfile and isVerified
+}
+
+export interface StudentMiniProfile {
+  mode: "student";
+  subject: MiniProfileSubject;
+  stats: {
+    posts: number;
+    comments: number;
+    bookmarks: number;
+  };
+  recentPosts: Array<{
+    id: string;
+    tag: string | null;    // first hashtag in body, if any
+    body: string;          // truncated by the renderer, not here
+    createdAt: string;     // ISO
+  }>;
+  joinedAt: string;        // ISO — overlay formats as "X เดือนก่อน"
+}
+
+export interface TutorMiniProfileReview {
+  id: string;
+  studentDisplayName: string;
+  rating: 1 | 2 | 3 | 4 | 5;
+  text: string;
+  createdAt: string;
+}
+
+export interface TutorMiniProfileTopSheet {
+  id: string;
+  title: string;
+  rating: number;
+  reviewCount: number;
+  soldCount: number;
+  priceThb: number;
+}
+
+export interface TutorMiniProfile {
+  mode: "tutor";
+  subject: MiniProfileSubject;
+  uniLine: string;         // e.g. "จุฬาฯ วิศวกรรมศาสตร์" (no year — not in DB)
+  stats: {
+    rating: number;
+    hoursTaught: number;   // sum of completed booking minutes / 60, rounded
+    studentsTaught: number;
+    totalReviews: number;
+  };
+  hourlyRate: number;
+  bio: string;
+  subjectsTaught: string[];  // raw Subject codes; UI maps via SUBJECT_LABELS
+  reviews: TutorMiniProfileReview[];   // top 3 by createdAt desc
+  // First-character initials only — exposing full student displayNames
+  // on a public endpoint is a PDPA concern (completing a booking is
+  // not consent-to-publish like reviewing is). The frontend renders
+  // these in colored avatar chips identical to the rest of the UI.
+  pastStudentInitials: string[];       // up to 5 distinct initials
+  otherStudentsCount: number;          // studentsTaught - returned initials length
+  topSheet: TutorMiniProfileTopSheet | null;
+  joinedAt: string;
+}
+
+export type MiniProfile = StudentMiniProfile | TutorMiniProfile;
+
 export interface CommunityReply {
   id: string;
   postId: string;

@@ -87,6 +87,14 @@ export class CommunityController {
     return this.community.trending(n);
   }
 
+  // Mini-profile overlay. Public — anyone reading the feed can open it.
+  // Discriminated response (`mode: "tutor" | "student"`) drives which
+  // body the frontend renders.
+  @Get("community/profile/:userId")
+  profile(@Param("userId") userId: string) {
+    return this.community.profile(userId);
+  }
+
   @Get("community/posts/:id/replies")
   replies(
     @Param("id") id: string,

@@ -1,6 +1,5 @@
 import type { CommunityPost, TrendingTag } from "@peerahat/types";
 import { PageBackground } from "@peerahat/ui";
-import { Users } from "lucide-react";
 
 import { getInitialUser } from "@/lib/auth";
 import { createApiClient } from "@/lib/api-client";
@@ -55,25 +54,11 @@ export default async function CommunityPage() {
       <PageBackground photo={false} sparkles="sparse" />
 
       <div className="mx-auto max-w-[1200px] px-5 md:px-6 py-6 md:py-8">
-        {/* Page header */}
-        <header className="mb-6 space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-grape-soft rounded-full text-[11px] font-bold uppercase tracking-widest text-violet-500">
-            <Users size={12} strokeWidth={2.4} />
-            ชุมชน TCAS
-          </div>
-          <h1
-            className="thai font-bold text-grape-deep leading-[1.15]"
-            style={{
-              fontSize: "clamp(28px, 2.6vw, 40px)",
-              letterSpacing: "-0.02em",
-            }}
-          >
-            พื้นที่ของพี่รหัสและน้อง ๆ
-          </h1>
-          <p className="thai text-[14px] text-ink-soft leading-relaxed max-w-[520px]">
-            ถามรุ่นพี่ แชร์ประสบการณ์ เก็บโพสต์ที่ใช่ไว้กลับมาอ่าน
-          </p>
-        </header>
+        {/* Document-level heading for assistive tech + SEO. The handoff
+            intentionally hides a visible page heading; this sr-only h1
+            keeps screen reader navigation and search indexing intact
+            without affecting the visual design. */}
+        <h1 className="sr-only">ชุมชนพี่รหัส</h1>
 
         {/* 2-col layout: 260px rail + fluid feed. Stacks under md. */}
         <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-5 items-start">

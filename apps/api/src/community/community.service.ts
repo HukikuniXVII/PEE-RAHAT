@@ -3,9 +3,13 @@ import {
   type CommunityPost,
   type CommunityReply,
   type CreatePostDto,
+  type MiniProfile,
   type Page,
+  type ReviewRating,
+  type TutorMiniProfileTopSheet,
   type TrendingTag,
   HASHTAG_RE_GLOBAL_CAPTURE,
+  firstHashtag,
 } from "@peerahat/types";
 
 import { PrismaService } from "../prisma/prisma.service";
@@ -14,6 +18,14 @@ import { PrismaService } from "../prisma/prisma.service";
 // noise from a single viral post" (too short) and "stale forever" (too
 // long). Tune later if signal/noise shifts.
 const TRENDING_WINDOW_DAYS = 7;
+
+// Mirrors the Avatar primitive on the frontend so chip colors match
+// what the user sees elsewhere. Strip Thai honorific then take the first
+// codepoint. Falls back to "?" only when displayName is empty.
+function initialOf(displayName: string): string {
+  const stripped = displayName.replace(/^พี่/, "").replace(/^น้อง/, "");
+  return (stripped.slice(0, 1) || "?").toUpperCase();
+}
 
 @Injectable()
 export class CommunityService {
@@ -219,6 +231,201 @@ export class CommunityService {
         count,
         category: "เทรนด์ในชุมชน",
       }));
+  }
+
+  // V2 community mini-profile overlay. Single endpoint dispatches to
+  // tutor or student variant based on whether the user has a TutorProfile.
+  // All data is either already in the DB or computable from existing
+  // tables — no new schema. Fields that would require new columns
+  // (goal/interests/year/weeklyRank/responseTime/placedUniSummary) are
+  // omitted from the response so the frontend hides those sections.
+  async profile(userId: string): Promise<MiniProfile> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { tutorProfile: true },
+    });
+    if (!user) throw new NotFoundException("User not found");
+
+    const subject = {
+      userId: user.id,
+      name: user.displayName,
+      avatarUrl: user.avatarUrl,
+      verified: !!user.tutorProfile?.isVerified,
+    };
+
+    if (user.tutorProfile) {
+      return this.tutorProfile(user, user.tutorProfile, subject);
+    }
+    return this.studentProfile(user, subject);
+  }
+
+  private async studentProfile(
+    user: { id: string; createdAt: Date },
+    subject: MiniProfile["subject"],
+  ): Promise<MiniProfile> {
+    // Three counts + the latest 2 posts, fanned out in parallel so the
+    // overlay opens in one round-trip.
+    const [posts, comments, bookmarks, recent] = await Promise.all([
+      this.prisma.communityPost.count({
+        where: { authorId: user.id, isHidden: false, removed: false },
+      }),
+      this.prisma.communityReply.count({
+        where: { authorId: user.id, removed: false },
+      }),
+      this.prisma.postBookmark.count({ where: { userId: user.id } }),
+      this.prisma.communityPost.findMany({
+        where: { authorId: user.id, isHidden: false, removed: false },
+        orderBy: { createdAt: "desc" },
+        take: 2,
+        select: { id: true, content: true, createdAt: true },
+      }),
+    ]);
+
+    return {
+      mode: "student",
+      subject,
+      stats: { posts, comments, bookmarks },
+      recentPosts: recent.map((p) => ({
+        id: p.id,
+        tag: firstHashtag(p.content),
+        body: p.content,
+        createdAt: p.createdAt.toISOString(),
+      })),
+      joinedAt: user.createdAt.toISOString(),
+    };
+  }
+
+  private async tutorProfile(
+    user: { id: string; createdAt: Date },
+    tutor: {
+      id: string;
+      bio: string;
+      university: string;
+      faculty: string;
+      hourlyRate: number;
+      rating: number;
+      reviewCount: number;
+      subjects: string[];
+    },
+    subject: MiniProfile["subject"],
+  ): Promise<MiniProfile> {
+    // Top sheet: pick by sold count desc, then rating × reviewCount as
+    // tiebreaker. Sold count is computed from released payments so it
+    // reflects actually-fulfilled sales, not in-flight ones.
+    const [reviews, completedBookings, sheets] = await Promise.all([
+      this.prisma.tutorReview.findMany({
+        where: { tutorId: tutor.id },
+        orderBy: { createdAt: "desc" },
+        take: 3,
+        include: { student: { select: { displayName: true } } },
+      }),
+      this.prisma.booking.findMany({
+        where: { tutorId: tutor.id, status: "completed" },
+        select: {
+          durationMinutes: true,
+          studentId: true,
+          student: { select: { displayName: true } },
+        },
+      }),
+      this.prisma.studySheet.findMany({
+        where: { sellerId: tutor.id, isSuspended: false, removed: false },
+        select: {
+          id: true,
+          title: true,
+          rating: true,
+          reviewCount: true,
+          priceThb: true,
+        },
+      }),
+    ]);
+
+    const totalMinutes = completedBookings.reduce(
+      (sum, b) => sum + b.durationMinutes,
+      0,
+    );
+    // Initials only — full names are PII and don't belong on a public
+    // endpoint just because a student took a class. Strip Thai honorific
+    // (mirrors the Avatar primitive on the frontend) so "พี่กิ๊ฟ" and
+    // "น้องกิ๊ฟ" both reduce to "ก", keeping the chip color stable.
+    const distinctInitials = new Map<string, string>();
+    for (const b of completedBookings) {
+      if (!distinctInitials.has(b.studentId)) {
+        distinctInitials.set(b.studentId, initialOf(b.student.displayName));
+      }
+    }
+    const allInitials = Array.from(distinctInitials.values());
+    const pastStudentInitials = allInitials.slice(0, 5);
+    const otherStudentsCount = Math.max(
+      0,
+      allInitials.length - pastStudentInitials.length,
+    );
+
+    // Top sheet selection. Single groupBy keyed on sheetId so one
+    // round-trip handles any number of sheets — replaces an N+1 of
+    // per-sheet COUNT queries.
+    let topSheet: TutorMiniProfileTopSheet | null = null;
+    if (sheets.length > 0) {
+      const counts = await this.prisma.paymentIntent.groupBy({
+        by: ["sheetId"],
+        where: {
+          sheetId: { in: sheets.map((s) => s.id) },
+          status: "released_for_payout",
+        },
+        _count: { _all: true },
+      });
+      const countBySheet = new Map<string, number>();
+      for (const c of counts) {
+        // groupBy.by emits the field as possibly-null even when filtered
+        // non-null; guard to satisfy the type checker without ?? noise.
+        if (c.sheetId) countBySheet.set(c.sheetId, c._count._all);
+      }
+      const ranked = sheets
+        .map((s) => ({ sheet: s, soldCount: countBySheet.get(s.id) ?? 0 }))
+        .sort((a, b) => {
+          if (b.soldCount !== a.soldCount) return b.soldCount - a.soldCount;
+          return (
+            b.sheet.rating * b.sheet.reviewCount -
+            a.sheet.rating * a.sheet.reviewCount
+          );
+        });
+      const top = ranked[0];
+      if (top) {
+        topSheet = {
+          id: top.sheet.id,
+          title: top.sheet.title,
+          rating: top.sheet.rating,
+          reviewCount: top.sheet.reviewCount,
+          soldCount: top.soldCount,
+          priceThb: top.sheet.priceThb,
+        };
+      }
+    }
+
+    return {
+      mode: "tutor",
+      subject,
+      uniLine: `${tutor.university} ${tutor.faculty}`,
+      stats: {
+        rating: tutor.rating,
+        hoursTaught: Math.round(totalMinutes / 60),
+        studentsTaught: allInitials.length,
+        totalReviews: tutor.reviewCount,
+      },
+      hourlyRate: tutor.hourlyRate,
+      bio: tutor.bio,
+      subjectsTaught: tutor.subjects,
+      reviews: reviews.map((r) => ({
+        id: r.id,
+        studentDisplayName: r.student.displayName,
+        rating: r.rating as ReviewRating,
+        text: r.text,
+        createdAt: r.createdAt.toISOString(),
+      })),
+      pastStudentInitials,
+      otherStudentsCount,
+      topSheet,
+      joinedAt: user.createdAt.toISOString(),
+    };
   }
 
   async replies(

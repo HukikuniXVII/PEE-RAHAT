@@ -30,6 +30,7 @@ import { ReportDialog } from "@/app/_components/report-dialog";
 import { createApiClient } from "@/lib/api-client";
 
 import { Avatar } from "./avatar";
+import { ProfileOverlay } from "./profile-overlay";
 import { ReplyComposer } from "./reply-composer";
 import { UniBadge } from "./uni-badge";
 
@@ -91,6 +92,18 @@ export function PostCard({ post }: Props) {
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
   const [reporting, setReporting] = useState(false);
+  // Mini-profile overlay state. Tracks both userId AND the expected
+  // variant so the overlay opens at the right width + band color without
+  // waiting for the fetch. null = closed.
+  const [profileTarget, setProfileTarget] = useState<{
+    userId: string;
+    expectedMode: "tutor" | "student";
+  } | null>(null);
+  const openProfile = (userId: string, isTutorAuthor: boolean) =>
+    setProfileTarget({
+      userId,
+      expectedMode: isTutorAuthor ? "tutor" : "student",
+    });
 
   const repliesQuery = useInfiniteQuery({
     queryKey: ["community", "replies", post.id],
@@ -212,12 +225,33 @@ export function PostCard({ post }: Props) {
       transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
       className="cozy-card overflow-hidden"
     >
-      {/* Author header */}
+      {/* Author header — avatar and name open the mini-profile overlay.
+          Each is its own button so screen readers announce the action
+          twice; click target stays generous on touch. */}
       <div className="px-4 pt-3 pb-2 flex items-start gap-3">
-        <Avatar name={post.authorDisplayName} size={44} badge={isTutor} />
+        <button
+          type="button"
+          onClick={() => openProfile(post.authorId, isTutor)}
+          aria-haspopup="dialog"
+          aria-label={`ดูโปรไฟล์ของ ${post.authorDisplayName}`}
+          className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
+        >
+          <Avatar name={post.authorDisplayName} size={44} badge={isTutor} />
+        </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <p className="thai text-[14px] font-bold inline-flex items-center gap-1 text-ink">
+            <button
+              type="button"
+              onClick={() => openProfile(post.authorId, isTutor)}
+              aria-haspopup="dialog"
+              // Secondary trigger — the 44×44 avatar button to the left is
+              // the primary WCAG AA target. This name button is an inline
+              // text duplicate (WCAG 2.5.8 inline-text exception); the
+              // small padding bumps the hit area to ~29px which is more
+              // forgiving than the bare text height without disturbing
+              // the meta row below.
+              className="thai text-[14px] font-bold inline-flex items-center gap-1 py-1.5 -my-1.5 text-ink hover:underline underline-offset-2 focus:outline-none focus-visible:underline"
+            >
               {post.authorDisplayName}
               {isTutor && (
                 <CheckCircle2
@@ -226,7 +260,7 @@ export function PostCard({ post }: Props) {
                   strokeWidth={2.4}
                 />
               )}
-            </p>
+            </button>
             {uniLine && <UniBadge uni={uniLine} verified={isTutor} size="sm" />}
           </div>
           <div className="flex items-center gap-1.5 mt-0.5 thai text-[11.5px] text-ink-mute">
@@ -347,14 +381,34 @@ export function PostCard({ post }: Props) {
                 const replyUni = uniLineFor(reply.authorBadge);
                 return (
                   <div key={reply.id} className="flex items-start gap-2">
-                    <Avatar
-                      name={reply.authorDisplayName}
-                      size={32}
-                      badge={replyIsTutor}
-                    />
+                    <button
+                      type="button"
+                      onClick={() => openProfile(reply.authorId, replyIsTutor)}
+                      aria-haspopup="dialog"
+                      aria-label={`ดูโปรไฟล์ของ ${reply.authorDisplayName}`}
+                      // p-1.5 + -m-1.5 expands the hit area to 44x44
+                      // (WCAG AA) while the visible Avatar stays 32px.
+                      className="p-1.5 -m-1.5 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40 shrink-0"
+                    >
+                      <Avatar
+                        name={reply.authorDisplayName}
+                        size={32}
+                        badge={replyIsTutor}
+                      />
+                    </button>
                     <div className="flex-1 min-w-0">
                       <div className="rounded-2xl px-3 py-2 bg-white border border-[rgba(85,65,139,0.08)]">
-                        <p className="thai text-[12.5px] font-bold inline-flex items-center gap-1.5 leading-tight text-ink">
+                        <button
+                          type="button"
+                          onClick={() => openProfile(reply.authorId, replyIsTutor)}
+                          aria-haspopup="dialog"
+                          // Secondary trigger — the 44×44 reply avatar
+                          // button to the left is the primary tap target.
+                          // Inline text duplicate (WCAG 2.5.8 exception);
+                          // small padding for a more forgiving hit area
+                          // without disturbing the comment bubble layout.
+                          className="thai text-[12.5px] font-bold inline-flex items-center gap-1.5 py-1.5 -my-1.5 leading-tight text-ink hover:underline underline-offset-2"
+                        >
                           {reply.authorDisplayName}
                           {replyIsTutor && (
                             <CheckCircle2
@@ -370,7 +424,7 @@ export function PostCard({ post }: Props) {
                               size="sm"
                             />
                           )}
-                        </p>
+                        </button>
                         <p className="thai text-[13px] mt-1 leading-relaxed text-ink">
                           {reply.content}
                         </p>
@@ -410,6 +464,12 @@ export function PostCard({ post }: Props) {
           onClose={() => setReporting(false)}
         />
       )}
+
+      <ProfileOverlay
+        userId={profileTarget?.userId ?? null}
+        expectedMode={profileTarget?.expectedMode}
+        onClose={() => setProfileTarget(null)}
+      />
     </motion.article>
   );
 }

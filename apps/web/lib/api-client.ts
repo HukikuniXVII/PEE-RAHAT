@@ -39,6 +39,7 @@ import {
   type CreatePaymentIntentDto,
   type CreatePostDto,
   type CreateReplyDto,
+  type MiniProfile,
   type TrendingTag,
   type CreateReviewDto,
   type CreateSheetDto,
@@ -836,6 +837,12 @@ export function createApiClient(opts: ApiClientOptions = {}) {
       trending: (limit?: number) =>
         request<TrendingTag[]>(
           `${API_PATHS.communityTrending}${qs({ limit })}`,
+          {},
+          token,
+        ),
+      profile: (userId: string) =>
+        request<MiniProfile>(
+          API_PATHS.communityProfile(userId),
           {},
           token,
         ),

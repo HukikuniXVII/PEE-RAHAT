@@ -100,6 +100,7 @@ export const API_PATHS = {
   postReplies: (id: string) => `/community/posts/${id}/replies`,
   communityBookmarks: "/community/me/bookmarks",
   communityTrending: "/community/trending",
+  communityProfile: (userId: string) => `/community/profile/${userId}`,
   reports: "/reports",
   reportsMine: "/reports/mine",
   reportById: (id: string) => `/reports/${id}`,
