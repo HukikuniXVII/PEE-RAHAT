@@ -41,7 +41,7 @@ async function main() {
   }
   console.log(`    PUT ok (${putRes.status})`);
 
-  console.log(`[3] signDownload(${up.objectKey})`);
+  console.log(`[3] signDownload(${up.objectKey}) — legacy signed-URL path`);
   const dn = await storage.signDownload(up.objectKey);
   console.log(`    url: ${dn.url.split("?")[0]}?...`);
 
@@ -59,6 +59,27 @@ async function main() {
     process.exit(1);
   }
   console.log(`    GET ok — ${got.length} bytes match`);
+
+  console.log(`[5] fetchObject(${up.objectKey}) — proxy path (admin uses this)`);
+  const fetched = await storage.fetchObject(up.objectKey);
+  if (
+    fetched.body.length !== payload.length ||
+    !fetched.body.equals(payload)
+  ) {
+    console.error(
+      `    FAIL: proxy byte mismatch (got ${fetched.body.length}, want ${payload.length})`,
+    );
+    process.exit(1);
+  }
+  if (fetched.contentType !== contentType) {
+    console.error(
+      `    FAIL: content-type mismatch (got "${fetched.contentType}", want "${contentType}")`,
+    );
+    process.exit(1);
+  }
+  console.log(
+    `    fetchObject ok — ${fetched.body.length} bytes, contentType=${fetched.contentType}`,
+  );
   console.log("");
   console.log("SUCCESS — slip upload + admin preview round-trip works.");
 }

@@ -16,7 +16,7 @@ import {
   Loader2,
   XCircle,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { createApiClient } from "@/lib/api-client";
 import { useMutationWithToast } from "@/lib/hooks/use-mutation-with-toast";
@@ -94,16 +94,29 @@ export function PaymentsTable({
     initialData: initialFailed,
   });
 
-  // FR-PM-01: fetches a fresh signed URL each time the modal opens. Keyed
-  // on the payment id so swapping rows refetches instead of showing stale.
+  // FR-PM-01: fetch slip bytes through the API proxy and render via a
+  // blob URL. Earlier rev fetched a signed S3 URL and rendered it directly
+  // in <img>; admins kept seeing broken images because of cross-origin /
+  // signed-URL host quirks against MinIO. Going through the API means
+  // the browser never talks to MinIO.
   const slipUrlQuery = useQuery({
     queryKey: ["admin", "payments", "slip", slipPreviewId],
-    queryFn: () => createApiClient().admin.paymentSlipUrl(slipPreviewId!),
+    queryFn: () => createApiClient().admin.paymentSlipBlob(slipPreviewId!),
     enabled: !!slipPreviewId,
-    // Re-fetch every open; URL is short-lived so caching has no value.
+    // Re-fetch on every open — blob URLs are local handles, no point caching.
     staleTime: 0,
     gcTime: 0,
   });
+
+  // Revoke the blob URL when the modal closes or swaps rows so we don't
+  // pin slip bytes in memory across opens.
+  useEffect(() => {
+    const url = slipUrlQuery.data?.blobUrl;
+    if (!url) return;
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [slipUrlQuery.data?.blobUrl]);
 
   const approve = useMutationWithToast({
     mutationFn: (id: string) => createApiClient().admin.approvePayment(id),
@@ -358,9 +371,9 @@ export function PaymentsTable({
             )}
 
             {slipUrlQuery.data &&
-              (/\.pdf(\?|$)/i.test(slipUrlQuery.data.url) ? (
+              (slipUrlQuery.data.contentType === "application/pdf" ? (
                 <a
-                  href={slipUrlQuery.data.url}
+                  href={slipUrlQuery.data.blobUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 px-4 py-3 rounded-xl bg-violet-50 text-violet-700 text-sm font-bold hover:bg-violet-100 transition-colors"
@@ -372,22 +385,12 @@ export function PaymentsTable({
               ) : (
                 <div className="rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
                   <img
-                    src={slipUrlQuery.data.url}
+                    src={slipUrlQuery.data.blobUrl}
                     alt="Payment slip"
                     className="w-full h-auto max-h-[70vh] object-contain bg-white"
                   />
                 </div>
               ))}
-
-            {slipUrlQuery.data && (
-              <p className="text-[10px] text-slate-400 font-mono text-center">
-                ลิงก์หมดอายุ:{" "}
-                {new Date(slipUrlQuery.data.expiresAt).toLocaleTimeString(
-                  "th-TH",
-                  { hour: "2-digit", minute: "2-digit" },
-                )}
-              </p>
-            )}
           </div>
         </DialogContent>
       </Dialog>

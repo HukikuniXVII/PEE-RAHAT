@@ -67,13 +67,6 @@ export const rejectSlipSchema = z.object({
 });
 export type RejectSlipDto = z.infer<typeof rejectSlipSchema>;
 
-// FR-PM-01: short-lived signed download URL for the admin slip-preview modal.
-// `expiresAt` is ISO-8601; UI must re-request after expiry.
-export interface AdminSlipUrlResponse {
-  url: string;
-  expiresAt: string;
-}
-
 // FR-PM-06 / FR-PM-07: payout batches in /admin/payouts.
 export interface AdminPayoutRow {
   id: string;

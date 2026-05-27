@@ -283,6 +283,44 @@ export class StorageService {
   }
 
   /**
+   * Fetch an object's bytes from S3 along with its content-type. Used by
+   * the admin slip-preview proxy (FR-PM-01) so the browser never has to
+   * talk to MinIO directly — sidesteps every cross-origin / signed-URL-
+   * host / CORS class of failure. Bucket inferred the same way as
+   * signDownload (kyc/ → kyc bucket, else sheets bucket). In dev with no
+   * S3 config, returns a tiny 1×1 PNG so the modal still renders without
+   * a real bucket.
+   */
+  async fetchObject(
+    objectKey: string,
+  ): Promise<{ body: Buffer; contentType: string }> {
+    if (!this.client || !this.config) {
+      const stubPng = Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4//8/AwAI/AL+XJ6JTAAAAABJRU5ErkJggg==",
+        "base64",
+      );
+      return { body: stubPng, contentType: "image/png" };
+    }
+    const bucket = objectKey.startsWith("kyc/")
+      ? this.config.kycBucket
+      : this.config.sheetsBucket;
+    const out = await this.client.send(
+      new GetObjectCommand({ Bucket: bucket, Key: objectKey }),
+    );
+    if (!out.Body) {
+      throw new Error(`S3 GetObject returned empty body for ${objectKey}`);
+    }
+    const chunks: Buffer[] = [];
+    for await (const chunk of out.Body as AsyncIterable<Uint8Array>) {
+      chunks.push(Buffer.from(chunk));
+    }
+    return {
+      body: Buffer.concat(chunks),
+      contentType: out.ContentType ?? "application/octet-stream",
+    };
+  }
+
+  /**
    * Batch-sign a list of evidence object keys into short-lived download
    * URLs. Used by both reports.service and admin-reports.service so the
    * TTL and signing path live in one place.

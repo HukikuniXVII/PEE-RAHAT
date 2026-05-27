@@ -10,7 +10,6 @@ import {
   type SetTutorVisibilityDto,
   type SetTutorVisibilityResult,
   type AdminPaymentRow,
-  type AdminSlipUrlResponse,
   type AdminPayoutDetail,
   type AdminPayoutQueueGroup,
   type AdminPayoutRow,
@@ -223,6 +222,47 @@ async function request<T>(
   return JSON.parse(text) as T;
 }
 
+// Binary fetch — mirrors request()'s auth + 401-refresh dance but returns
+// the raw response Blob + content-type instead of JSON-parsing. Used by
+// the admin slip-preview modal (FR-PM-01): the API proxies the slip
+// bytes back to dodge cross-origin / signed-URL fragility against MinIO.
+async function requestBlob(
+  path: string,
+  accessToken?: string,
+): Promise<{ blob: Blob; contentType: string }> {
+  const headers = new Headers();
+  const explicitToken = accessToken;
+  const tokenToUse = explicitToken ?? (await getBrowserAccessToken());
+  if (tokenToUse) headers.set("Authorization", `Bearer ${tokenToUse}`);
+
+  const url = `${baseUrl}${path}`;
+  let res = await fetch(url, { headers, cache: "no-store" });
+  if (
+    res.status === 401 &&
+    explicitToken === undefined &&
+    typeof window !== "undefined"
+  ) {
+    const refreshed = await refreshBrowserAccessToken();
+    if (refreshed) {
+      headers.set("Authorization", `Bearer ${refreshed}`);
+      res = await fetch(url, { headers, cache: "no-store" });
+    }
+  }
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as Partial<ApiError>;
+    throw Object.assign(
+      new Error(err.message ?? `Request failed: ${res.status}`),
+      { statusCode: res.status, code: err.code, details: err.details },
+    );
+  }
+  const blob = await res.blob();
+  return {
+    blob,
+    contentType:
+      res.headers.get("content-type") ?? blob.type ?? "application/octet-stream",
+  };
+}
+
 // Multipart upload — preserves the same 401-refresh path as request(). Lets
 // the browser set Content-Type with the multipart boundary.
 async function requestMultipart<T>(
@@ -385,14 +425,19 @@ export function createApiClient(opts: ApiClientOptions = {}) {
           {},
           token,
         ),
-      // FR-PM-01: signed URL for the slip-preview modal. TTL is short
-      // (5 min); caller refetches on each open rather than caching.
-      paymentSlipUrl: (id: string) =>
-        request<AdminSlipUrlResponse>(
+      // FR-PM-01: fetch slip bytes via the API proxy and wrap as a blob
+      // URL the modal can render in <img src>. The caller MUST call
+      // URL.revokeObjectURL on close — useEffect cleanup is the easiest
+      // place. Earlier rev returned a signed S3 URL but admin browsers
+      // saw broken images (cross-origin / host mismatch); proxying the
+      // bytes sidesteps every browser↔S3 failure mode.
+      paymentSlipBlob: async (id: string) => {
+        const { blob, contentType } = await requestBlob(
           API_PATHS.adminPaymentSlip(id),
-          {},
           token,
-        ),
+        );
+        return { blobUrl: URL.createObjectURL(blob), contentType };
+      },
       approvePayment: (id: string) =>
         request<AdminPaymentRow>(
           API_PATHS.adminApprovePayment(id),

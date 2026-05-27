@@ -889,15 +889,20 @@ export class AdminService {
   }
 
   /**
-   * FR-PM-01: short-lived signed GET for a payment's uploaded slip so the
-   * admin queue can preview it before approve/reject. Returns 404 when the
-   * payment has no slip (e.g. a pending_transfer row the payer hasn't yet
-   * uploaded for). The URL expires per StorageService.SIGNED_URL_TTL_SECONDS
-   * — the admin UI must re-request rather than cache past that.
+   * FR-PM-01: stream a payment's uploaded slip back to the admin queue
+   * for preview before approve/reject. Returns the raw bytes + content-
+   * type so the controller can pipe straight to the browser. Earlier rev
+   * returned a signed S3 URL but admins kept seeing broken images —
+   * cross-origin to MinIO, host mismatches in signed URLs, etc. Proxying
+   * through the API sidesteps every browser↔S3 failure mode.
+   *
+   * 404 when the intent has no slip yet (pending_transfer row), or when
+   * the object doesn't exist in S3 (pre-FR-PM-01 rows whose objectKey
+   * pointed at nothing).
    */
-  async slipSignedUrl(
+  async slipBytes(
     intentId: string,
-  ): Promise<{ url: string; expiresAt: string }> {
+  ): Promise<{ body: Buffer; contentType: string }> {
     const intent = await this.prisma.paymentIntent.findUnique({
       where: { id: intentId },
       select: { slipObjectKey: true },
@@ -906,7 +911,17 @@ export class AdminService {
     if (!intent.slipObjectKey) {
       throw new NotFoundException("No slip uploaded for this payment");
     }
-    return this.storage.signDownload(intent.slipObjectKey);
+    try {
+      return await this.storage.fetchObject(intent.slipObjectKey);
+    } catch (err) {
+      // S3's NoSuchKey + any other fetch failure surface here. Surface a
+      // 404 so the admin modal can render the "no slip" empty-state
+      // instead of crashing on a 500. Logged so we can spot orphans.
+      this.logger.warn(
+        `slipBytes(${intentId}): fetch failed for ${intent.slipObjectKey}: ${(err as Error).message}`,
+      );
+      throw new NotFoundException("Slip object not found in storage");
+    }
   }
 
   /**

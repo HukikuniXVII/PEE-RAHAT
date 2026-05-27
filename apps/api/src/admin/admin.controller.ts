@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  StreamableFile,
   UseGuards,
 } from "@nestjs/common";
 import {
@@ -84,16 +85,18 @@ export class AdminController {
     return this.admin.paymentsQueue(status);
   }
 
-  // FR-PM-01: signed GET so the admin queue can preview the uploaded slip
-  // before approving / rejecting. URL TTL is short — the UI re-requests on
-  // each open rather than caching.
+  // FR-PM-01: proxy the slip bytes back to the admin browser so it never
+  // talks to MinIO directly. Earlier rev returned a signed URL and the
+  // admin's <img> couldn't load it (CORS / host mismatch). The frontend
+  // fetches with the admin's bearer + renders the response as a blob URL.
   @Get("payments/:id/slip")
   async paymentSlip(
     @CurrentUser() user: SupabaseJwtPayload,
     @Param("id") id: string,
-  ) {
+  ): Promise<StreamableFile> {
     await this.assertAdmin(user.sub);
-    return this.admin.slipSignedUrl(id);
+    const { body, contentType } = await this.admin.slipBytes(id);
+    return new StreamableFile(body, { type: contentType });
   }
 
   // FR-PM-01: manual override on top of SlipOK for slips that need a human
