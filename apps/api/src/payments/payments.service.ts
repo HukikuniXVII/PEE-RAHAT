@@ -18,6 +18,7 @@ import { addHours } from "date-fns";
 
 import { GroupSessionService } from "../bookings/group-session.service";
 import { GoogleCalendarService } from "../integrations/google-calendar/google-calendar.service";
+import { NotificationService } from "../notifications/notification.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { buildPromptPayPayload } from "./promptpay";
 import { ZercleSlipService } from "./zercle-slip/zercle-slip.service";
@@ -30,6 +31,7 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly zercle: ZercleSlipService,
     private readonly googleCalendar: GoogleCalendarService,
+    private readonly notifications: NotificationService,
     // FR-TH-18: forwardRef breaks the BookingsModule ↔ PaymentsModule
     // circular import. Used by uploadSlip to dispatch slip-verify into
     // the group lifecycle for group bookings.
@@ -240,6 +242,31 @@ export class PaymentsService {
             status: "paid",
             reportWindowEndsAt: addHours(new Date(), 24),
           },
+          include: {
+            tutor: { select: { userId: true, user: { select: { displayName: true } } } },
+            student: { select: { displayName: true } },
+          },
+        });
+        // FR-CM-08: payer (student) sees their payment cleared; tutor sees
+        // booking confirmed. Fired before Meet generation so the user gets
+        // the success state even if the Calendar call later fails.
+        await this.notifications.notify({
+          userId: updated.studentId,
+          type: "payment_verified",
+          title: "ตรวจสอบสลิปสำเร็จ",
+          body: `ยืนยันการชำระเงินสำหรับคลาส "${updated.subject}" แล้ว`,
+          actionUrl: "/bookings",
+          sourceType: "payment_intent",
+          sourceId: intent.id,
+        });
+        await this.notifications.notify({
+          userId: updated.tutor.userId,
+          type: "booking_paid",
+          title: "คลาสได้รับการชำระเงินแล้ว",
+          body: `${updated.student.displayName} ชำระเงินสำหรับ "${updated.subject}" แล้ว`,
+          actionUrl: "/bookings",
+          sourceType: "booking",
+          sourceId: booking.id,
         });
         // FR-TH-17: generate the Meet link inline at payment-confirm.
         // Wrapped in try/catch so a Calendar API outage doesn't roll back

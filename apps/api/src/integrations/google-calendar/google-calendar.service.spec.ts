@@ -30,15 +30,19 @@ function makeService() {
       async (_t: string, _b: string, _a: string) => undefined,
     ),
   };
+  const notifications = {
+    notify: jest.fn(async () => undefined),
+  };
   // attachToBooking-level coverage lives in a separate describe; the
   // tests below exercise the lower-level Calendar API methods directly,
-  // so prisma/chat aren't called.
+  // so prisma/chat/notifications aren't called.
   const svc = new GoogleCalendarService(
     oauth as never,
     prisma as never,
     chat as never,
+    notifications as never,
   );
-  return { svc, oauth, prisma, chat };
+  return { svc, oauth, prisma, chat, notifications };
 }
 
 describe("GoogleCalendarService (FR-TH-17 rev3)", () => {

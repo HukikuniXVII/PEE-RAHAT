@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 
 import { AuthModule } from "../../auth/auth.module";
 import { ChatModule } from "../../chat/chat.module";
+import { NotificationsModule } from "../../notifications/notifications.module";
 import { GoogleCalendarController } from "./google-calendar.controller";
 import { GoogleCalendarService } from "./google-calendar.service";
 import { GoogleOAuthService } from "./google-oauth.service";
@@ -17,7 +18,7 @@ import { GoogleOAuthService } from "./google-oauth.service";
  * CryptoService comes from the global CommonModule.
  */
 @Module({
-  imports: [AuthModule, ChatModule],
+  imports: [AuthModule, ChatModule, NotificationsModule],
   controllers: [GoogleCalendarController],
   providers: [GoogleOAuthService, GoogleCalendarService],
   exports: [GoogleOAuthService, GoogleCalendarService],

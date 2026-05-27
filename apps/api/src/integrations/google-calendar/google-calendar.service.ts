@@ -3,6 +3,7 @@ import { google } from "googleapis";
 import { addMinutes, format } from "date-fns";
 
 import { ChatService } from "../../chat/chat.service";
+import { NotificationService } from "../../notifications/notification.service";
 import { PrismaService } from "../../prisma/prisma.service";
 import { GoogleOAuthService } from "./google-oauth.service";
 
@@ -38,6 +39,7 @@ export class GoogleCalendarService {
     private readonly oauth: GoogleOAuthService,
     private readonly prisma: PrismaService,
     private readonly chat: ChatService,
+    private readonly notifications: NotificationService,
   ) {}
 
   /**
@@ -64,7 +66,7 @@ export class GoogleCalendarService {
             id: true,
             googleRefreshToken: true,
             googleEmail: true,
-            user: { select: { displayName: true, email: true } },
+            user: { select: { id: true, displayName: true, email: true } },
           },
         },
         // FR-TH-18: pull every paid participant so group Meet events have
@@ -133,6 +135,29 @@ export class GoogleCalendarService {
         meetingUrl,
         actorUserId: booking.studentId,
       });
+      // FR-CM-08: tell both sides the Meet link is live. Skipped for
+      // group bookings — GroupSessionService.confirmGroup already fires
+      // its own group_confirmed notification covering this end-state.
+      if (!isGroup) {
+        await this.notifications.notify({
+          userId: booking.studentId,
+          type: "booking_meeting_ready",
+          title: "ลิงก์ห้องเรียนพร้อมแล้ว",
+          body: `Google Meet สำหรับ "${booking.subject}" พร้อมใช้งานแล้ว`,
+          actionUrl: "/bookings",
+          sourceType: "booking",
+          sourceId: booking.id,
+        });
+        await this.notifications.notify({
+          userId: booking.tutor.user.id,
+          type: "booking_meeting_ready",
+          title: "ลิงก์ห้องเรียนพร้อมแล้ว",
+          body: `Google Meet สำหรับ "${booking.subject}" พร้อมใช้งานแล้ว`,
+          actionUrl: "/bookings",
+          sourceType: "booking",
+          sourceId: booking.id,
+        });
+      }
     } else {
       this.logger.error(
         `Calendar event ${eventId} created for booking ${booking.id} without a Meet URL — Workspace conferencing may be disabled on the tutor's account`,

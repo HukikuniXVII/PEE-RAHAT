@@ -18,6 +18,7 @@ import { Prisma } from "@prisma/client";
 import { addHours, subHours } from "date-fns";
 
 import { requireUserBySupabaseId } from "../common/user-lookup";
+import { NotificationService } from "../notifications/notification.service";
 import { PrismaService } from "../prisma/prisma.service";
 
 /** Prisma errors raised when a Serializable transaction is aborted because a
@@ -213,7 +214,10 @@ interface RawOverlapRow {
 export class BookingsService {
   private readonly logger = new Logger(BookingsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationService,
+  ) {}
 
   async listForUser(supabaseId: string) {
     const user = await this.prisma.user.findUnique({ where: { supabaseId } });
@@ -412,6 +416,20 @@ export class BookingsService {
         where: { id: created.id },
         include: BOOKING_DTO_INCLUDE,
       });
+      // FR-CM-08: tutor gets a feed entry the moment a request lands.
+      // Group bookings have their own notification path in
+      // GroupSessionService; only fire for 1-on-1 here to avoid doubling.
+      if (!isGroup) {
+        await this.notifications.notify({
+          userId: tutor.userId,
+          type: "booking_requested",
+          title: "มีคำขอจองคลาสใหม่",
+          body: `${hydrated.student.displayName} ขอจอง "${hydrated.subject}"`,
+          actionUrl: "/bookings",
+          sourceType: "booking",
+          sourceId: hydrated.id,
+        });
+      }
       return decorateBooking(hydrated, "student");
     } catch (err) {
       if (
@@ -730,6 +748,16 @@ export class BookingsService {
         scheduledAt: updated.scheduledAt.toISOString(),
       }),
     );
+    // FR-CM-08: tell the student their request was declined.
+    await this.notifications.notify({
+      userId: updated.studentId,
+      type: "booking_rejected",
+      title: "คำขอจองถูกปฏิเสธ",
+      body: `${updated.tutor.user.displayName} ปฏิเสธคำขอจอง "${updated.subject}"`,
+      actionUrl: "/bookings",
+      sourceType: "booking",
+      sourceId: updated.id,
+    });
     return decorateBooking(updated, "tutor");
   }
 
@@ -758,6 +786,17 @@ export class BookingsService {
         tutorUserId: user.id,
       }),
     );
+    // FR-CM-08: tell the student to upload a slip — accept doesn't itself
+    // collect payment.
+    await this.notifications.notify({
+      userId: updated.studentId,
+      type: "booking_accepted",
+      title: "คำขอจองได้รับการอนุมัติ",
+      body: `${updated.tutor.user.displayName} ตอบรับคลาส "${updated.subject}" แล้ว — โอนเงินเพื่อยืนยันการจอง`,
+      actionUrl: "/bookings",
+      sourceType: "booking",
+      sourceId: updated.id,
+    });
     return decorateBooking(updated, "tutor");
   }
 

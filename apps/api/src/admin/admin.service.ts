@@ -25,6 +25,7 @@ import { AuditLogService } from "../common/audit-log.service";
 import { CryptoService } from "../common/crypto.service";
 import { StorageService } from "../common/storage.service";
 import { GoogleCalendarService } from "../integrations/google-calendar/google-calendar.service";
+import { NotificationService } from "../notifications/notification.service";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
@@ -37,6 +38,7 @@ export class AdminService {
     private readonly googleCalendar: GoogleCalendarService,
     private readonly crypto: CryptoService,
     private readonly audit: AuditLogService,
+    private readonly notifications: NotificationService,
   ) {}
 
   /**
@@ -935,6 +937,31 @@ export class AdminService {
       const booking = await this.prisma.booking.update({
         where: { id: intent.bookingId },
         data: { status: "paid", reportWindowEndsAt },
+        include: {
+          tutor: { select: { userId: true } },
+          student: { select: { displayName: true } },
+        },
+      });
+      // FR-CM-08: same pair of notifications as the auto-verified path
+      // (payments.service.uploadSlip's paid branch) so the manual
+      // override produces an identical user-visible outcome.
+      await this.notifications.notify({
+        userId: booking.studentId,
+        type: "payment_verified",
+        title: "ตรวจสอบสลิปสำเร็จ",
+        body: `ยืนยันการชำระเงินสำหรับคลาส "${booking.subject}" แล้ว`,
+        actionUrl: "/bookings",
+        sourceType: "payment_intent",
+        sourceId: intent.id,
+      });
+      await this.notifications.notify({
+        userId: booking.tutor.userId,
+        type: "booking_paid",
+        title: "คลาสได้รับการชำระเงินแล้ว",
+        body: `${booking.student.displayName} ชำระเงินสำหรับ "${booking.subject}" แล้ว`,
+        actionUrl: "/bookings",
+        sourceType: "booking",
+        sourceId: booking.id,
       });
       // FR-TH-17: generate Meet link inline; swallow failures so the
       // payment approval itself never depends on Calendar.

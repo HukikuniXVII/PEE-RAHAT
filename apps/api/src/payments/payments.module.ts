@@ -2,6 +2,7 @@ import { forwardRef, Module } from "@nestjs/common";
 
 import { BookingsModule } from "../bookings/bookings.module";
 import { GoogleCalendarModule } from "../integrations/google-calendar/google-calendar.module";
+import { NotificationsModule } from "../notifications/notifications.module";
 import { PaymentsController } from "./payments.controller";
 import { PaymentsService } from "./payments.service";
 import { PayoutsService } from "./payouts.service";
@@ -18,6 +19,7 @@ import { ZercleSlipModule } from "./zercle-slip/zercle-slip.module";
 @Module({
   imports: [
     GoogleCalendarModule,
+    NotificationsModule,
     ZercleSlipModule,
     forwardRef(() => BookingsModule),
   ],
