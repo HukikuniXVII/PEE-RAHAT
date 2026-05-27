@@ -62,12 +62,18 @@ export function PaymentDialog({
     setBusy(true);
     setError(null);
     try {
-      // Real flow: request signed upload URL (R2/S3) for slip, PUT, then call uploadSlip.
-      // For the scaffold the API exposes a single endpoint that accepts the object key.
-      const slipObjectKey = `slips/${intent.id}/${file.name}`;
-      const result = await createApiClient().payments.uploadSlip({
+      // FR-PM-01: sign + PUT + uploadSlip. The first two land the file in
+      // S3 so admins can preview it via /admin/payments; the third tells
+      // the API to start verification with the real objectKey.
+      const api = createApiClient();
+      const signed = await api.payments.requestSlipUpload({
         paymentIntentId: intent.id,
-        slipObjectKey,
+        contentType: file.type || "application/octet-stream",
+      });
+      await api.uploads.putPresigned(signed, file);
+      const result = await api.payments.uploadSlip({
+        paymentIntentId: intent.id,
+        slipObjectKey: signed.objectKey,
       });
       if (result.status === "held_in_escrow") {
         setFinalStatus("held_in_escrow");

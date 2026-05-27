@@ -10,6 +10,8 @@ import {
 import type {
   CreatePaymentIntentDto,
   PaymentIntent,
+  SlipRequestUploadDto,
+  SlipUploadIntent,
   SlipVerificationResult,
   UploadSlipDto,
 } from "@peerahat/types";
@@ -17,6 +19,7 @@ import { Prisma } from "@prisma/client";
 import { addHours } from "date-fns";
 
 import { GroupSessionService } from "../bookings/group-session.service";
+import { StorageService } from "../common/storage.service";
 import { GoogleCalendarService } from "../integrations/google-calendar/google-calendar.service";
 import { NotificationService } from "../notifications/notification.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -32,12 +35,47 @@ export class PaymentsService {
     private readonly zercle: ZercleSlipService,
     private readonly googleCalendar: GoogleCalendarService,
     private readonly notifications: NotificationService,
+    private readonly storage: StorageService,
     // FR-TH-18: forwardRef breaks the BookingsModule ↔ PaymentsModule
     // circular import. Used by uploadSlip to dispatch slip-verify into
     // the group lifecycle for group bookings.
     @Inject(forwardRef(() => GroupSessionService))
     private readonly groupSessions: GroupSessionService,
   ) {}
+
+  /**
+   * FR-PM-01: sign a PUT URL for the payer's slip image. The frontend
+   * PUTs the file directly to S3 then calls uploadSlip() with the
+   * returned objectKey. Verifies the intent belongs to the caller and
+   * is still in a slip-uploadable state before signing.
+   */
+  async requestSlipUpload(
+    supabaseId: string,
+    dto: SlipRequestUploadDto,
+  ): Promise<SlipUploadIntent> {
+    const user = await this.prisma.user.findUnique({ where: { supabaseId } });
+    if (!user) throw new BadRequestException();
+    const intent = await this.prisma.paymentIntent.findUnique({
+      where: { id: dto.paymentIntentId },
+      select: { id: true, payerId: true, status: true },
+    });
+    if (!intent) throw new NotFoundException();
+    if (intent.payerId !== user.id) throw new ForbiddenException();
+    // Allow retry from any pre-success state so payers can replace a
+    // bad slip without creating a new intent.
+    const uploadable = new Set<string>([
+      "pending_transfer",
+      "slip_uploaded",
+      "verifying",
+      "failed",
+    ]);
+    if (!uploadable.has(intent.status)) {
+      throw new BadRequestException(
+        `Cannot upload slip for intent in status ${intent.status}`,
+      );
+    }
+    return this.storage.signSlipUpload(intent.id, dto.contentType);
+  }
 
   async createIntent(
     supabaseId: string,

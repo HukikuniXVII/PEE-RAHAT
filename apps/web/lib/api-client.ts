@@ -79,6 +79,8 @@ import {
   type SheetReportDto,
   type SheetUploadIntent,
   type SheetUploadKind,
+  type SlipRequestUploadDto,
+  type SlipUploadIntent,
   type SlipVerificationResult,
   type StudySheet,
   type Subject,
@@ -884,6 +886,16 @@ export function createApiClient(opts: ApiClientOptions = {}) {
       createIntent: (dto: CreatePaymentIntentDto) =>
         request<PaymentIntent>(
           API_PATHS.paymentIntents,
+          { method: "POST", body: JSON.stringify(dto) },
+          token,
+        ),
+      // FR-PM-01: signed PUT for the slip. Frontend must call this,
+      // then putPresigned() with the returned uploadUrl, before calling
+      // uploadSlip(). Pre-fix the payment-dialog skipped the PUT step
+      // and uploadSlip got a synthetic key with no object behind it.
+      requestSlipUpload: (dto: SlipRequestUploadDto) =>
+        request<SlipUploadIntent>(
+          API_PATHS.slipUploadIntents,
           { method: "POST", body: JSON.stringify(dto) },
           token,
         ),

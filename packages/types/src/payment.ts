@@ -47,6 +47,23 @@ export const uploadSlipSchema = z.object({
 });
 export type UploadSlipDto = z.infer<typeof uploadSlipSchema>;
 
+// FR-PM-01: signed PUT for the payer's slip image. Flow mirrors KYC —
+// frontend asks for an upload URL, PUTs the file to S3 directly, then
+// posts the returned objectKey via uploadSlip(). Before this the
+// payment-dialog was inventing a fake key and never uploading the file,
+// which left admins seeing a broken image in /admin/payments.
+export const slipRequestUploadSchema = z.object({
+  paymentIntentId: z.string().min(1),
+  contentType: z.string().min(1),
+});
+export type SlipRequestUploadDto = z.infer<typeof slipRequestUploadSchema>;
+
+export interface SlipUploadIntent {
+  uploadUrl: string;
+  objectKey: string;
+  expiresAt: string;
+}
+
 export interface SlipVerificationResult {
   paymentIntentId: string;
   status: PaymentStatus;

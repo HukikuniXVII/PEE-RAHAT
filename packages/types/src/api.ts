@@ -128,6 +128,7 @@ export const API_PATHS = {
   authGoogleStatus: "/auth/google/status",
   paymentIntents: "/payments/intents",
   uploadSlip: "/payments/slips",
+  slipUploadIntents: "/payments/slips/upload-url",
   chatThreads: "/chat/threads",
   chatThreadById: (threadId: string) => `/chat/threads/${threadId}`,
   chatThreadWithTutor: (tutorId: string) => `/chat/threads/with/${tutorId}`,

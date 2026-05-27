@@ -142,6 +142,22 @@ export class StorageService {
   }
 
   /**
+   * FR-PM-01 — payer's slip image. Lives under `slips/` in the sheets
+   * bucket so signDownload's prefix routing (kyc/ → kyc bucket, anything
+   * else → sheets bucket) picks it up for admin preview. The key includes
+   * the payment intent id so a single intent can be re-uploaded without
+   * collision; the timestamp suffix keeps multiple attempts addressable.
+   */
+  signSlipUpload(
+    paymentIntentId: string,
+    contentType: string,
+  ): Promise<SignedUploadUrl> {
+    const ext = contentType.split("/")[1]?.split("+")[0] ?? "bin";
+    const objectKey = `slips/${paymentIntentId}/${Date.now()}.${ext}`;
+    return this.signPut(this.config?.sheetsBucket, objectKey, contentType);
+  }
+
+  /**
    * FR-SM-01 — sheet PDFs land in the sheets bucket (private). Preview
    * images share the bucket but their key prefix lets a future CDN serve
    * them publicly without changing this contract.
