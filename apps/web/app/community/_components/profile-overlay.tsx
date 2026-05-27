@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  type MiniProfile,
   type StudentMiniProfile,
   type TutorMiniProfile,
   type Subject,
