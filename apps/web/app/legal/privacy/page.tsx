@@ -1,4 +1,4 @@
-import { Card, PageBackground } from "@peerahat/ui";
+ import { Card, PageBackground } from "@peerahat/ui";
 import { ShieldCheck } from "lucide-react";
 
 export const metadata = {
@@ -122,25 +122,95 @@ export default function PrivacyPage() {
               สร้างลิงก์ Google Meet อัตโนมัติเมื่อมีคลาสที่ยืนยันการชำระเงินแล้ว
             </li>
             <li>
-              <strong>ขอบเขต OAuth ที่ใช้:</strong> สิทธิ์การสร้าง แก้ไข และลบ
-              เฉพาะอีเวนต์ที่ Pee Rahat สร้างเองในปฏิทินของติวเตอร์ (Google
-              calendar scope) เราไม่อ่านหรือแก้ไขอีเวนต์ส่วนตัวอื่นของผู้ใช้
+              <strong>ขอบเขต OAuth ที่ขอ (3 รายการ):</strong>
+              <ul className="list-disc pl-5 space-y-1 mt-1">
+                <li>
+                  <code className="text-xs">
+                    https://www.googleapis.com/auth/calendar.events
+                  </code>{" "}
+                  — สร้างอีเวนต์เดียวต่อคลาสที่ชำระเงินแล้ว ในปฏิทินหลัก (primary)
+                  ของติวเตอร์ พร้อมแนบลิงก์ Google Meet
+                  ใช้สำหรับการลบอีเวนต์เมื่อมีการเลื่อนหรือยกเลิกคลาส
+                </li>
+                <li>
+                  <code className="text-xs">
+                    https://www.googleapis.com/auth/userinfo.email
+                  </code>{" "}
+                  — อ่านอีเมล Google ของติวเตอร์ <em>ครั้งเดียว</em>
+                  ขณะเชื่อมต่อบัญชี เพื่อแสดง &ldquo;เชื่อมต่อในชื่อ
+                  &lt;email&gt;&rdquo; ในหน้าตั้งค่า ช่วยให้ติวเตอร์ที่มีหลายบัญชี
+                  Google รู้ว่าเชื่อมต่อบัญชีไหน
+                </li>
+                <li>
+                  <code className="text-xs">openid</code>{" "}
+                  — จำเป็นโดย Google เป็น scope คู่ของ <code className="text-xs">userinfo.email</code>
+                </li>
+              </ul>
+            </li>
+            <li>
+              <strong>สิ่งที่เรา&nbsp;ไม่&nbsp;เข้าถึง:</strong>{" "}
+              เราไม่อ่าน ไม่แสดงรายการ ไม่แก้ไข
+              และไม่ลบอีเวนต์อื่นในปฏิทินของผู้ใช้
+              ไม่เข้าถึง Gmail, Drive, Contacts, รูปโปรไฟล์, ชื่อ-นามสกุล
+              จากบัญชี Google หรือข้อมูลอื่นใดนอกเหนือจากอีเมล
             </li>
             <li>
               <strong>การจัดเก็บ:</strong> Refresh Token เข้ารหัสด้วย AES-256-GCM
-              เก็บไว้บนโปรไฟล์ติวเตอร์ เพื่อใช้ต่ออายุการเข้าถึงเท่านั้น
+              เก็บไว้บนโปรไฟล์ติวเตอร์เพื่อใช้ต่ออายุการเข้าถึงเท่านั้น
+              อีเมล Google จัดเก็บเป็นข้อความปกติเพื่อแสดงสถานะการเชื่อมต่อ
             </li>
             <li>
               <strong>การเพิกถอน:</strong> ผู้ใช้สามารถยกเลิกการเชื่อมต่อได้ตลอดเวลา
-              ผ่านหน้าโปรไฟล์ หรือผ่านบัญชี Google ของตน
+              ผ่านหน้าโปรไฟล์ (/tutors/me/edit) หรือผ่าน{" "}
+              <a
+                href="https://myaccount.google.com/permissions"
+                className="text-dusty-grape underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                myaccount.google.com/permissions
+              </a>{" "}
               ระบบจะลบ Refresh Token ทันทีและไม่สามารถสร้างอีเวนต์ใหม่ได้
             </li>
             <li>
               <strong>Google API Services User Data Policy:</strong>{" "}
               การใช้ข้อมูลที่ได้รับจาก Google API ของ Pee Rahat เป็นไปตามนโยบายของ
               Google รวมถึงข้อกำหนด Limited Use Requirements (ไม่นำข้อมูลไป
-              วิเคราะห์เชิงโฆษณา ไม่ถ่ายโอนให้บุคคลที่สาม
-              ไม่ใช้ในการสร้างโมเดลปัญญาประดิษฐ์)
+              วิเคราะห์เชิงโฆษณา ไม่ถ่ายโอนให้บุคคลที่สามเพื่อวัตถุประสงค์อื่น
+              ไม่ใช้ในการฝึกหรือสร้างโมเดลปัญญาประดิษฐ์
+              และไม่อนุญาตให้มนุษย์อ่านข้อมูลของผู้ใช้
+              ยกเว้นเมื่อได้รับความยินยอมจากผู้ใช้โดยตรง
+              เพื่อความปลอดภัย เพื่อปฏิบัติตามกฎหมาย
+              หรือเพื่อการดำเนินงานภายในที่เป็นไปตามมาตรฐาน)
+            </li>
+            <li className="list-none pt-2">
+              <div className="bg-grape-soft/30 rounded-lg p-3 text-xs leading-relaxed font-mono not-italic">
+                <strong className="not-italic font-sans">
+                  Limited Use Disclosure (English, verbatim per Google
+                  requirement):
+                </strong>
+                <p className="mt-2">
+                  Pee Rahat&apos;s use and transfer to any other app of
+                  information received from Google APIs will adhere to{" "}
+                  <a
+                    href="https://developers.google.com/terms/api-services-user-data-policy"
+                    className="text-dusty-grape underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Google API Services User Data Policy
+                  </a>
+                  , including the Limited Use requirements. Specifically, Pee
+                  Rahat does not use Google user data to develop, improve, or
+                  train generalized or non-personalized AI and/or machine
+                  learning models. Google user data is not transferred to third
+                  parties for serving ads, and is not read by humans except (a)
+                  with the user&apos;s explicit consent, (b) for security
+                  purposes, (c) to comply with applicable law, or (d) as part of
+                  Pee Rahat&apos;s internal operations where the data has been
+                  aggregated and anonymized.
+                </p>
+              </div>
             </li>
           </ul>
 
