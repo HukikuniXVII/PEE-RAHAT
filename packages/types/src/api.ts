@@ -36,6 +36,7 @@ export const API_PATHS = {
   adminTutorVisibility: (tutorId: string) =>
     `/admin/tutors/${tutorId}/visibility`,
   adminPaymentsQueue: "/admin/payments/queue",
+  adminPaymentSlip: (id: string) => `/admin/payments/${id}/slip`,
   adminApprovePayment: (id: string) => `/admin/payments/${id}/approve`,
   adminRejectPayment: (id: string) => `/admin/payments/${id}/reject`,
   adminRegenerateMeet: (id: string) =>

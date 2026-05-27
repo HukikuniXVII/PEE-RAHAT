@@ -1,9 +1,21 @@
 "use client";
 
 import type { AdminPaymentRow } from "@peerahat/types";
-import { Button, cn } from "@peerahat/ui";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  cn,
+} from "@peerahat/ui";
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, Loader2, XCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  ExternalLink,
+  FileText,
+  ImageIcon,
+  Loader2,
+  XCircle,
+} from "lucide-react";
 import { useState } from "react";
 
 import { createApiClient } from "@/lib/api-client";
@@ -58,6 +70,10 @@ export function PaymentsTable({
   const [tab, setTab] = useState<Tab>("pending");
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  // FR-PM-01: slip-preview modal. Holds the payment id whose signed URL
+  // we're currently fetching/showing; null = modal closed. We don't cache
+  // URLs across opens because the signed link expires in 5 min.
+  const [slipPreviewId, setSlipPreviewId] = useState<string | null>(null);
 
   const pending = useQuery({
     queryKey: ["admin", "payments", { status: "pending" }],
@@ -76,6 +92,17 @@ export function PaymentsTable({
     queryFn: () =>
       createApiClient().admin.paymentsQueue({ status: "failed" }),
     initialData: initialFailed,
+  });
+
+  // FR-PM-01: fetches a fresh signed URL each time the modal opens. Keyed
+  // on the payment id so swapping rows refetches instead of showing stale.
+  const slipUrlQuery = useQuery({
+    queryKey: ["admin", "payments", "slip", slipPreviewId],
+    queryFn: () => createApiClient().admin.paymentSlipUrl(slipPreviewId!),
+    enabled: !!slipPreviewId,
+    // Re-fetch every open; URL is short-lived so caching has no value.
+    staleTime: 0,
+    gcTime: 0,
   });
 
   const approve = useMutationWithToast({
@@ -165,9 +192,22 @@ export function PaymentsTable({
                     </p>
                   </td>
                   <td className="p-4">
-                    <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-600">
-                      {r.itemType}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-600">
+                        {r.itemType}
+                      </span>
+                      {r.slipObjectKey && (
+                        <button
+                          type="button"
+                          onClick={() => setSlipPreviewId(r.id)}
+                          title="ดูสลิป"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold text-violet-700 bg-violet-50 hover:bg-violet-100 transition-colors"
+                        >
+                          <ImageIcon size={11} />
+                          ดูสลิป
+                        </button>
+                      )}
+                    </div>
                     <p className="text-[10px] text-slate-400 font-mono mt-1 truncate max-w-[200px]">
                       {r.bookingId ?? r.sheetId}
                     </p>
@@ -279,6 +319,78 @@ export function PaymentsTable({
           </table>
         </div>
       )}
+
+      {/* FR-PM-01: slip preview. Image renders inline for png/jpg/heic;
+          PDFs (rare but possible) fall back to a click-to-open link since
+          inline <embed> support varies and a signed URL is good as a tab. */}
+      <Dialog
+        open={!!slipPreviewId}
+        onOpenChange={(open) => {
+          if (!open) setSlipPreviewId(null);
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <div className="p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold text-grape-deep flex items-center gap-2">
+                <ImageIcon size={16} />
+                สลิปการโอนเงิน
+              </h2>
+              <button
+                type="button"
+                onClick={() => setSlipPreviewId(null)}
+                className="text-xs font-bold text-slate-500 hover:text-slate-800"
+              >
+                ปิด
+              </button>
+            </div>
+
+            {slipUrlQuery.isLoading && (
+              <div className="flex items-center justify-center py-16 text-slate-400">
+                <Loader2 size={20} className="animate-spin" />
+              </div>
+            )}
+
+            {slipUrlQuery.isError && (
+              <div className="py-12 text-center text-sm text-rose-600">
+                โหลดสลิปไม่สำเร็จ — อาจถูกลบหรือ session หมดอายุ
+              </div>
+            )}
+
+            {slipUrlQuery.data &&
+              (/\.pdf(\?|$)/i.test(slipUrlQuery.data.url) ? (
+                <a
+                  href={slipUrlQuery.data.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-3 rounded-xl bg-violet-50 text-violet-700 text-sm font-bold hover:bg-violet-100 transition-colors"
+                >
+                  <FileText size={16} />
+                  เปิดสลิป (PDF) ในแท็บใหม่
+                  <ExternalLink size={14} className="ml-auto" />
+                </a>
+              ) : (
+                <div className="rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
+                  <img
+                    src={slipUrlQuery.data.url}
+                    alt="Payment slip"
+                    className="w-full h-auto max-h-[70vh] object-contain bg-white"
+                  />
+                </div>
+              ))}
+
+            {slipUrlQuery.data && (
+              <p className="text-[10px] text-slate-400 font-mono text-center">
+                ลิงก์หมดอายุ:{" "}
+                {new Date(slipUrlQuery.data.expiresAt).toLocaleTimeString(
+                  "th-TH",
+                  { hour: "2-digit", minute: "2-digit" },
+                )}
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
   type SetTutorVisibilityDto,
   type SetTutorVisibilityResult,
   type AdminPaymentRow,
+  type AdminSlipUrlResponse,
   type AdminPayoutDetail,
   type AdminPayoutQueueGroup,
   type AdminPayoutRow,
@@ -376,6 +377,14 @@ export function createApiClient(opts: ApiClientOptions = {}) {
       paymentsQueue: (opts: { status?: "pending" | "success" | "failed" } = {}) =>
         request<AdminPaymentRow[]>(
           `${API_PATHS.adminPaymentsQueue}${qs(opts)}`,
+          {},
+          token,
+        ),
+      // FR-PM-01: signed URL for the slip-preview modal. TTL is short
+      // (5 min); caller refetches on each open rather than caching.
+      paymentSlipUrl: (id: string) =>
+        request<AdminSlipUrlResponse>(
+          API_PATHS.adminPaymentSlip(id),
           {},
           token,
         ),

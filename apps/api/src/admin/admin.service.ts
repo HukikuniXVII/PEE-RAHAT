@@ -887,6 +887,27 @@ export class AdminService {
   }
 
   /**
+   * FR-PM-01: short-lived signed GET for a payment's uploaded slip so the
+   * admin queue can preview it before approve/reject. Returns 404 when the
+   * payment has no slip (e.g. a pending_transfer row the payer hasn't yet
+   * uploaded for). The URL expires per StorageService.SIGNED_URL_TTL_SECONDS
+   * — the admin UI must re-request rather than cache past that.
+   */
+  async slipSignedUrl(
+    intentId: string,
+  ): Promise<{ url: string; expiresAt: string }> {
+    const intent = await this.prisma.paymentIntent.findUnique({
+      where: { id: intentId },
+      select: { slipObjectKey: true },
+    });
+    if (!intent) throw new NotFoundException("Payment not found");
+    if (!intent.slipObjectKey) {
+      throw new NotFoundException("No slip uploaded for this payment");
+    }
+    return this.storage.signDownload(intent.slipObjectKey);
+  }
+
+  /**
    * FR-PM-01: manual override for cases SlipOK can't decide on its own
    * (timeouts, ambiguous slip, foreign-bank transfers). Approving moves
    * funds into escrow and starts the booking's 24h report window

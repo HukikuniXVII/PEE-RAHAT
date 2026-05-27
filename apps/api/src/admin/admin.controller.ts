@@ -84,6 +84,18 @@ export class AdminController {
     return this.admin.paymentsQueue(status);
   }
 
+  // FR-PM-01: signed GET so the admin queue can preview the uploaded slip
+  // before approving / rejecting. URL TTL is short — the UI re-requests on
+  // each open rather than caching.
+  @Get("payments/:id/slip")
+  async paymentSlip(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") id: string,
+  ) {
+    await this.assertAdmin(user.sub);
+    return this.admin.slipSignedUrl(id);
+  }
+
   // FR-PM-01: manual override on top of SlipOK for slips that need a human
   // (timeouts, foreign-bank transfers, ambiguous evidence).
   @Post("payments/:id/approve")
