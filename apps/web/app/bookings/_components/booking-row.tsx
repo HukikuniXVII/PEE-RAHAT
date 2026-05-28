@@ -4,6 +4,7 @@ import type { Booking, BookingParticipant } from "@peerahat/types";
 import { Button, cn } from "@peerahat/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  ArrowRight,
   CalendarClock,
   CalendarX,
   CheckCircle2,
@@ -19,6 +20,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { motion } from "motion/react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -363,6 +365,23 @@ export function BookingRow({ booking }: Props) {
               Accept (Tutor)
             </Button>
           )}
+          {/* Group bookings can't be approved from this row (would call the
+              1-on-1 accept endpoint and corrupt state). Send the tutor to
+              the dedicated group-pending inbox where อนุมัติ fires the
+              real groupApprove → stamps tutorApprovedAt → unblocks host pay. */}
+          {booking.viewerSide === "tutor" &&
+            booking.sessionType === "group" &&
+            booking.groupStatus === "tutor_review" &&
+            !booking.tutorApprovedAt && (
+              <Link
+                href="/bookings/group-pending"
+                className="px-4 py-2.5 bg-violet-500 text-white rounded-xl font-bold text-sm hover:bg-violet-600 transition-all flex items-center gap-2"
+              >
+                <ThumbsUp size={14} />
+                อนุมัติคลาสกลุ่ม
+                <ArrowRight size={14} />
+              </Link>
+            )}
           {tutorRejectable && (
             <button
               type="button"
