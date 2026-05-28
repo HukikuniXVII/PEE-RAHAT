@@ -113,12 +113,26 @@ const BOOKING_DTO_INCLUDE = {
       user: { select: { displayName: true, avatarUrl: true } },
     },
   },
-  // FR-TH-18 rev2: need host participant status to derive `hostPaid` flag.
-  // Only the host's row is required (`role: "host"` keeps the payload tiny
-  // even for capacity=10 groups).
+  // Participants drive two things:
+  //   1) FR-TH-18 rev2: `hostPaid` derivation (find the host's row,
+  //      check status === "paid").
+  //   2) FR-BK-12: the "ผู้เข้าเรียน" strip on group rows — needs the
+  //      full roster with displayName + avatarUrl per invitee.
+  // Includes every participant so both code paths can read from one
+  // include. The decorator drops the array for 1-on-1 bookings so 1-on-1
+  // wire payloads stay tiny.
   participants: {
-    where: { role: "host" as const },
-    select: { status: true },
+    select: {
+      id: true,
+      studentId: true,
+      student: { select: { displayName: true, avatarUrl: true } },
+      role: true,
+      status: true,
+      invitedAt: true,
+      acceptedAt: true,
+      paidAt: true,
+    },
+    orderBy: { invitedAt: "asc" as const },
   },
 } as const satisfies Prisma.BookingInclude;
 
@@ -138,7 +152,24 @@ function decorateBooking(
   const { review, postponeRequest, chatThread, student, tutor, participants, ...b } = row;
   const hostPaid =
     row.sessionType === "group" &&
-    participants.some((p) => p.status === "paid");
+    participants.some((p) => p.role === "host" && p.status === "paid");
+  // FR-BK-12: only group rows carry the participant roster on the wire.
+  // 1-on-1 bookings keep `participants` undefined per the DTO contract.
+  const participantsDto =
+    row.sessionType === "group"
+      ? participants.map((p) => ({
+          id: p.id,
+          bookingId: row.id,
+          studentId: p.studentId,
+          displayName: p.student.displayName,
+          avatarUrl: p.student.avatarUrl ?? undefined,
+          role: p.role,
+          status: p.status,
+          invitedAt: p.invitedAt.toISOString(),
+          acceptedAt: p.acceptedAt?.toISOString(),
+          paidAt: p.paidAt?.toISOString(),
+        }))
+      : undefined;
   return {
     ...b,
     hasReview: !!review,
@@ -149,6 +180,7 @@ function decorateBooking(
     tutorDisplayName: tutor.user.displayName,
     tutorAvatarUrl: tutor.user.avatarUrl ?? undefined,
     hostPaid,
+    participants: participantsDto,
     postponeRequest: postponeRequest
       ? {
           id: postponeRequest.id,

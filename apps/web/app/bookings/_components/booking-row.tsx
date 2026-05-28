@@ -1,6 +1,6 @@
 "use client";
 
-import type { Booking } from "@peerahat/types";
+import type { Booking, BookingParticipant } from "@peerahat/types";
 import { Button, cn } from "@peerahat/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -13,6 +13,8 @@ import {
   ThumbsDown,
   ThumbsUp,
   Trash2,
+  User,
+  Users,
   Video,
   Wallet,
 } from "lucide-react";
@@ -43,6 +45,21 @@ function formatDateTime(iso: string): string {
     minute: "2-digit",
   });
 }
+
+// FR-BK-12: per-status copy + tone for the invitee strip on group rows.
+// "paid" reads as "ตอบรับ + จ่ายแล้ว" so the host can tell who's still
+// open. "expired" only appears after the invite window closes without
+// a response.
+const PARTICIPANT_STATUS_META: Record<
+  BookingParticipant["status"],
+  { label: string; classes: string }
+> = {
+  paid: { label: "จ่ายแล้ว", classes: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  accepted: { label: "ตอบรับแล้ว", classes: "bg-sky-50 text-sky-700 border-sky-200" },
+  invited: { label: "รอตอบ", classes: "bg-amber-50 text-amber-700 border-amber-200" },
+  declined: { label: "ปฏิเสธ", classes: "bg-rose-50 text-rose-700 border-rose-200" },
+  expired: { label: "หมดเวลา", classes: "bg-slate-100 text-slate-500 border-slate-200" },
+};
 
 export function BookingRow({ booking }: Props) {
   const queryClient = useQueryClient();
@@ -201,6 +218,27 @@ export function BookingRow({ booking }: Props) {
                       <Clock size={14} />
                       {booking.durationMinutes} นาที
                     </span>
+                    {/* FR-BK-12: session-type chip. Group rows include the
+                        confirmed seat count (host + accepted/paid) over the
+                        booked capacity so the host can see "3/4" at a glance. */}
+                    {booking.sessionType === "group" ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200 text-[11px] font-bold">
+                        <Users size={12} />
+                        กลุ่ม{" "}
+                        {(booking.participants ?? []).filter(
+                          (p) =>
+                            p.role === "host" ||
+                            p.status === "accepted" ||
+                            p.status === "paid",
+                        ).length}
+                        /{booking.capacity}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 text-[11px] font-bold">
+                        <User size={12} />
+                        ตัวต่อตัว
+                      </span>
+                    )}
                   </div>
                 </div>
               </>
@@ -217,6 +255,57 @@ export function BookingRow({ booking }: Props) {
           </p>
         </div>
       </div>
+
+      {/* FR-BK-12: invited-students strip. Only renders for group rows that
+          have at least one non-host participant. The host is the main
+          avatar at the top of the card, so we skip them here to avoid
+          duplicating their face. Status pill uses PARTICIPANT_STATUS_META
+          for tone parity with the booking status pill below. */}
+      {booking.sessionType === "group" &&
+        (booking.participants ?? []).some((p) => p.role === "invited") && (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-3 space-y-2">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+              ผู้เข้าเรียน
+            </p>
+            <ul className="space-y-1.5">
+              {(booking.participants ?? [])
+                .filter((p) => p.role === "invited")
+                .map((p) => {
+                  const meta = PARTICIPANT_STATUS_META[p.status];
+                  return (
+                    <li
+                      key={p.id}
+                      className="flex items-center gap-2.5 text-sm"
+                    >
+                      {p.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={p.avatarUrl}
+                          alt={p.displayName}
+                          className="w-7 h-7 rounded-full object-cover bg-slate-200 shrink-0"
+                        />
+                      ) : (
+                        <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-500 text-[10px] font-black flex items-center justify-center shrink-0">
+                          {p.displayName.slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                      <span className="text-slate-700 font-medium truncate flex-1 min-w-0">
+                        {p.displayName}
+                      </span>
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider shrink-0",
+                          meta.classes,
+                        )}
+                      >
+                        {meta.label}
+                      </span>
+                    </li>
+                  );
+                })}
+            </ul>
+          </div>
+        )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-100">
         <span
