@@ -112,7 +112,7 @@ function HeaderBand({
       : "linear-gradient(135deg, #55418B 0%, #BBA0A0 130%)";
   return (
     <div
-      className="relative h-[60px] shrink-0"
+      className="relative h-[88px] shrink-0"
       style={{ background: bg }}
     >
       <span
@@ -145,23 +145,30 @@ function IdentityBlock({
   subline: string;
 }) {
   return (
-    <div className="px-6 -mt-[42px] flex items-end gap-3">
-      {/* Avatar overlaps the header band. We don't have a remote-avatar
-          primitive yet; fall back to the colorful initial when avatarUrl
-          is missing, which is the common case today. */}
-      {avatarUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={avatarUrl}
-          alt={name}
-          className="w-[76px] h-[76px] rounded-full border-4 border-white object-cover bg-white shrink-0"
-        />
-      ) : (
-        <div className="ring-4 ring-white rounded-full shrink-0">
-          <Avatar name={name} size={76} />
-        </div>
-      )}
-      <div className="pb-1 min-w-0 flex-1">
+    <div className="px-6 pt-4 flex items-start gap-3 relative">
+      {/* Avatar floats over the 88px header band via absolute positioning
+          — keeps the circle anchored to the banner regardless of how the
+          name/subline beside it wrap. Text sits below the band on the
+          card surface where contrast is good. The spacer reserves the
+          horizontal column the avatar occupies so the text alignment
+          doesn't shift. */}
+      <div className="absolute left-6 -top-[60px] z-10">
+        {avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={avatarUrl}
+            alt={name}
+            className="w-[76px] h-[76px] rounded-full border-4 border-white object-cover bg-white shadow-[0_8px_20px_-10px_rgba(85,65,139,0.45)]"
+          />
+        ) : (
+          <div className="ring-4 ring-white rounded-full shadow-[0_8px_20px_-10px_rgba(85,65,139,0.45)]">
+            <Avatar name={name} size={76} />
+          </div>
+        )}
+      </div>
+      {/* Spacer column for the absolutely-positioned avatar above. */}
+      <div className="w-[76px] shrink-0" aria-hidden="true" />
+      <div className="min-w-0 flex-1 pt-1">
         <h2 className="thai text-[18px] font-bold leading-tight text-grape-deep tracking-tight flex items-center gap-1.5">
           <span className="truncate">{name}</span>
           {verified && (
