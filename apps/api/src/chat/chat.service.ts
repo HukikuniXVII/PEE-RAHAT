@@ -577,9 +577,11 @@ export class ChatService {
   }
 
   /**
-   * FR-TH-18: idempotent. Creates a group ChatThread for a confirmed group
-   * booking, with ChatThreadParticipant rows for the host, every paid
-   * invitee, and the tutor's User. Returns the thread id so the caller
+   * FR-TH-18 rev3: idempotent. Creates a group ChatThread for a confirmed
+   * group booking, with ChatThreadParticipant rows for the host (status
+   * "paid" — they paid for the seats), every accepted invitee (status
+   * "accepted" — they RSVP'd but don't pay; only the host pays under
+   * rev2+), and the tutor's User. Returns the thread id so the caller
    * (GroupSessionService.confirmGroup) can pass it through to attachToBooking
    * → postLinkMessage.
    */
@@ -594,8 +596,12 @@ export class ChatService {
       where: { id: bookingId },
       include: {
         tutor: { select: { userId: true } },
+        // FR-TH-18 rev3: include host + accepted invitees. Filtering to
+        // `status: "paid"` (the rev1 filter) excluded every invitee
+        // because they never pay — only the host's seat shows "paid".
+        // Declined/expired invitees stay out of the thread.
         participants: {
-          where: { status: "paid" },
+          where: { status: { in: ["paid", "accepted"] } },
           select: { studentId: true },
         },
       },
