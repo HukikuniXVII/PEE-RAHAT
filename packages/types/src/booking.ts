@@ -105,6 +105,10 @@ export interface Booking {
   inviteCode?: string;
   /** UTC ISO. Past this point the forming group fails and refunds. */
   inviteExpiresAt?: string;
+  /** FR-TH-18 rev3: set when the tutor presses Approve at tutor_review.
+   *  The host's "Pay Now" button stays disabled until this is non-null,
+   *  enforcing tutor-accept → host-pay ordering. Null for 1-on-1. */
+  tutorApprovedAt?: string;
   /** Optional — only populated when the consumer requested participants. */
   participants?: BookingParticipant[];
   createdAt: string;

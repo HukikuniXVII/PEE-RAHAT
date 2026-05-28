@@ -19,6 +19,7 @@ import { Prisma } from "@prisma/client";
 import { addHours } from "date-fns";
 
 import { GroupSessionService } from "../bookings/group-session.service";
+import { ChatService } from "../chat/chat.service";
 import { StorageService } from "../common/storage.service";
 import { GoogleCalendarService } from "../integrations/google-calendar/google-calendar.service";
 import { NotificationService } from "../notifications/notification.service";
@@ -41,6 +42,10 @@ export class PaymentsService {
     // the group lifecycle for group bookings.
     @Inject(forwardRef(() => GroupSessionService))
     private readonly groupSessions: GroupSessionService,
+    // FR-TH-18 rev3: releaseForPayout closes the group ChatThread at
+    // the same moment the booking flips to "completed". ChatModule has
+    // no dependency on PaymentsModule so no forwardRef is needed here.
+    private readonly chat: ChatService,
   ) {}
 
   /**
@@ -367,7 +372,12 @@ export class PaymentsService {
         reportWindowEndsAt: { lte: now },
         paymentIntent: { status: "held_in_escrow" },
       },
-      include: { paymentIntent: true },
+      include: {
+        paymentIntent: true,
+        // FR-TH-18 rev3: need the thread id so group chats can be closed
+        // at the same moment the booking flips to "completed".
+        chatThread: { select: { id: true } },
+      },
     });
 
     let released = 0;
@@ -384,6 +394,22 @@ export class PaymentsService {
         }),
       ]);
       released += 1;
+
+      // Close the group chat AFTER the tx commits so a chat-side failure
+      // doesn't roll back the payout release. closeThread is idempotent
+      // (just stamps closedAt), so re-runs of this cron are safe.
+      if (
+        booking.sessionType === "group" &&
+        booking.chatThread?.id
+      ) {
+        try {
+          await this.chat.closeThread(booking.chatThread.id);
+        } catch (err) {
+          this.logger.error(
+            `Group chat close failed for booking ${booking.id}: ${(err as Error).message}`,
+          );
+        }
+      }
     }
     return { released };
   }

@@ -296,6 +296,11 @@ model Booking {
   groupStatus     GroupStatus?
   inviteCode      String?      @unique
   inviteExpiresAt DateTime?
+  // FR-TH-18 rev3: tutor approves a group BEFORE the host pays. Set when
+  // tutor presses Approve in /bookings/group-pending; required (along
+  // with host's PaymentIntent reaching held_in_escrow) for the group to
+  // transition tutor_review → confirmed. Null for 1-on-1 bookings.
+  tutorApprovedAt DateTime?
 
   paymentIntent PaymentIntent?
   review        TutorReview?

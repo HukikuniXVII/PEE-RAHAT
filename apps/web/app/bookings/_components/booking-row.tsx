@@ -367,22 +367,37 @@ export function BookingRow({ booking }: Props) {
           )}
           {/* Pay button. Two paths:
                1) 1-on-1: tutor accepted → student pays.
-               2) Group host (FR-TH-18 rev2): host is the sole payer; can pay
-                  anytime during forming or tutor_review until tutor approves.
-                  Hidden once hostPaid flips true. */}
+               2) Group host (FR-TH-18 rev3): host is the sole payer.
+                  Button only appears AFTER the tutor approves the group
+                  (booking.tutorApprovedAt stamped). Hidden once hostPaid
+                  flips true. */}
           {((booking.status === "accepted" &&
             booking.viewerSide === "student" &&
             booking.sessionType !== "group") ||
             (booking.sessionType === "group" &&
               booking.viewerSide === "student" &&
               !booking.hostPaid &&
-              (booking.groupStatus === "forming" ||
-                booking.groupStatus === "tutor_review"))) && (
+              booking.groupStatus === "tutor_review" &&
+              !!booking.tutorApprovedAt)) && (
             <Button onClick={() => setPaying(true)}>
               <Wallet size={16} />
               Pay Now
             </Button>
           )}
+          {/* Waiting-on-tutor hint for groups whose host has invited
+              everyone but the tutor hasn't accepted yet. Shown to the
+              host only — invitees see status pills, not pay UI. */}
+          {booking.sessionType === "group" &&
+            booking.viewerSide === "student" &&
+            !booking.hostPaid &&
+            !booking.tutorApprovedAt &&
+            (booking.groupStatus === "forming" ||
+              booking.groupStatus === "tutor_review") && (
+              <span className="px-4 py-2.5 bg-slate-100 text-slate-500 rounded-xl font-bold text-sm flex items-center gap-2">
+                <Clock size={14} />
+                รอพี่รหัสยืนยันคลาส
+              </span>
+            )}
           {studentCancelable && (
             <button
               type="button"
