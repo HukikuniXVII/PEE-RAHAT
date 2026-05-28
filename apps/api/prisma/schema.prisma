@@ -494,6 +494,11 @@ model CommunityPost {
   author      User     @relation(fields: [authorId], references: [id])
   title       String
   content     String
+  // V2 community: optional image attachment uploaded via signed PUT into
+  // the public avatars bucket under a community/ prefix. Stored as the
+  // resolved public URL so post listings can render <img src> without
+  // an extra signing round-trip.
+  imageUrl    String?
   upvoteCount Int      @default(0)
   isHidden    Boolean  @default(false)
   createdAt   DateTime @default(now())

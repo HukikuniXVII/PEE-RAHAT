@@ -33,6 +33,7 @@ import {
   type ChatBookingProposal,
   type ChatMessage,
   type ChatThread,
+  type CommunityImageUploadIntent,
   type CommunityPost,
   type CommunityReply,
   type CreateBookingDto,
@@ -874,6 +875,18 @@ export function createApiClient(opts: ApiClientOptions = {}) {
         request<CommunityPost>(
           API_PATHS.community,
           { method: "POST", body: JSON.stringify(dto) },
+          token,
+        ),
+      // V2 community: sign a PUT for the photo attached to a post. The
+      // caller PUTs the file via uploads.putPresigned, then sends the
+      // returned publicUrl in CreatePostDto.imageUrl.
+      requestImageUpload: (contentType: string) =>
+        request<CommunityImageUploadIntent>(
+          API_PATHS.communityImageUploadIntents,
+          {
+            method: "POST",
+            body: JSON.stringify({ contentType }),
+          },
           token,
         ),
       upvote: (id: string) =>

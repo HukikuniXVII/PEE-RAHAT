@@ -9,6 +9,8 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import {
+  type CommunityImageUploadDto,
+  communityImageUploadSchema,
   type CreatePostDto,
   createPostSchema,
   createReplySchema,
@@ -18,6 +20,7 @@ import { CurrentUser } from "../auth/current-user.decorator";
 import { SupabaseAuthGuard } from "../auth/auth.guard";
 import { OptionalSupabaseAuthGuard } from "../auth/optional-auth.guard";
 import type { SupabaseJwtPayload } from "../auth/supabase-jwt.strategy";
+import { StorageService } from "../common/storage.service";
 import { CommunityService } from "./community.service";
 
 /** Wire payload for POST /community/posts/:id/replies — postId is the URL
@@ -26,7 +29,10 @@ const createReplyBodySchema = createReplySchema.pick({ content: true });
 
 @Controller()
 export class CommunityController {
-  constructor(private readonly community: CommunityService) {}
+  constructor(
+    private readonly community: CommunityService,
+    private readonly storage: StorageService,
+  ) {}
 
   // Public list. Personalizes hasBookmarked when the viewer is signed in
   // (via OptionalSupabaseAuthGuard); otherwise returns false for everyone.
@@ -44,6 +50,19 @@ export class CommunityController {
   create(@CurrentUser() user: SupabaseJwtPayload, @Body() raw: unknown) {
     const dto: CreatePostDto = createPostSchema.parse(raw);
     return this.community.create(user.sub, dto);
+  }
+
+  // V2 community: sign a PUT for the optional photo attached to a post.
+  // Returns the signed uploadUrl + the resolved publicUrl that the
+  // client passes back as `imageUrl` on POST /community/posts.
+  @Post("community/image-upload-url")
+  @UseGuards(SupabaseAuthGuard)
+  async signImageUpload(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Body() raw: unknown,
+  ) {
+    const dto: CommunityImageUploadDto = communityImageUploadSchema.parse(raw);
+    return this.storage.signCommunityImageUpload(user.sub, dto.contentType);
   }
 
   @Post("community/posts/:id/upvote")

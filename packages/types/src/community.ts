@@ -7,6 +7,9 @@ export interface CommunityPost {
   authorBadge: string;
   title: string;
   content: string;
+  /** V2 community: optional image attachment URL (public, served from
+   *  the avatars bucket under a community/ prefix). */
+  imageUrl?: string;
   upvotes: number;
   hasUpvoted: boolean;
   replyCount: number;
@@ -137,10 +140,25 @@ export interface CommunityReply {
 export const createPostSchema = z.object({
   title: z.string().trim().min(1).max(200),
   content: z.string().trim().min(1).max(10_000),
+  /** Optional public URL returned from POST /community/image-upload-url
+   *  after the client PUT the file to the signed URL. */
+  imageUrl: z.string().url().max(2000).optional(),
   consentPdpaAccepted: z.boolean().refine((v) => v === true, {
     message: "PDPA consent required",
   }),
 });
+
+/** V2 community: payload for POST /community/image-upload-url. */
+export const communityImageUploadSchema = z.object({
+  contentType: z.string().min(1).max(100),
+});
+export type CommunityImageUploadDto = z.infer<typeof communityImageUploadSchema>;
+export interface CommunityImageUploadIntent {
+  uploadUrl: string;
+  publicUrl: string;
+  objectKey: string;
+  expiresAt: string;
+}
 
 export type CreatePostDto = z.infer<typeof createPostSchema>;
 

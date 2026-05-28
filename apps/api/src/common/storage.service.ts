@@ -117,6 +117,25 @@ export class StorageService {
   }
 
   /**
+   * V2 community: optional photo attached to a CommunityPost. Lives under
+   * `community/<userId>/` in the public avatars bucket so feed renders
+   * use the resolved publicUrl directly without re-signing on every
+   * fetch. Falls back to the sheets bucket if no dedicated avatars
+   * bucket is configured — same fallback shape as signAvatarUpload.
+   */
+  async signCommunityImageUpload(
+    userId: string,
+    contentType: string,
+  ): Promise<SignedAvatarUpload> {
+    const ext = contentType.split("/")[1]?.split("+")[0] ?? "bin";
+    const objectKey = `community/${userId}/${Date.now()}.${ext}`;
+    const bucket = this.config?.avatarsBucket ?? this.config?.sheetsBucket;
+    const signed = await this.signPut(bucket, objectKey, contentType);
+    const publicUrl = this.buildAvatarPublicUrl(bucket, objectKey);
+    return { ...signed, publicUrl };
+  }
+
+  /**
    * The public, query-string-free URL for an avatar object.
    *  - Supabase Storage: its S3 API path (`/storage/v1/s3/...`) differs
    *    from its public object path, so an explicit S3_AVATAR_PUBLIC_BASE_URL

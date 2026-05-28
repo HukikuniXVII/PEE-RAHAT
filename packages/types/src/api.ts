@@ -97,6 +97,8 @@ export const API_PATHS = {
   adminTcasImports: "/admin/tcas/imports",
   adminAiUsage: "/admin/ai-usage",
   community: "/community/posts",
+  // V2 community: sign a PUT for an optional photo attached to a post.
+  communityImageUploadIntents: "/community/image-upload-url",
   postById: (id: string) => `/community/posts/${id}`,
   upvotePost: (id: string) => `/community/posts/${id}/upvote`,
   bookmarkPost: (id: string) => `/community/posts/${id}/bookmark`,

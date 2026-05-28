@@ -294,6 +294,19 @@ export function PostCard({ post }: Props) {
         </p>
       </div>
 
+      {/* V2 community: optional photo attached to the post. Renders edge-
+          to-edge below the content with a max-height cap so a tall image
+          doesn't dominate the feed. */}
+      {post.imageUrl && (
+        <div className="px-4 pb-3">
+          <img
+            src={post.imageUrl}
+            alt=""
+            className="w-full max-h-[480px] rounded-xl object-cover border border-violet-100"
+          />
+        </div>
+      )}
+
       {/* Reaction summary */}
       <div className="px-4 py-2 flex items-center justify-between thai text-[12px] text-ink-mute">
         <div className="flex items-center gap-1.5">

@@ -102,6 +102,7 @@ export class CommunityService {
         authorId: user.id,
         title: dto.title,
         content: dto.content,
+        imageUrl: dto.imageUrl,
       },
       include: {
         author: { include: { tutorProfile: true } },
@@ -492,6 +493,7 @@ export class CommunityService {
       authorId: string;
       title: string;
       content: string;
+      imageUrl: string | null;
       upvoteCount: number;
       createdAt: Date;
       author: { displayName: string; tutorProfile: { university: string; faculty: string } | null };
@@ -506,6 +508,7 @@ export class CommunityService {
       authorBadge: this.badgeFor(post.author),
       title: post.title,
       content: post.content,
+      imageUrl: post.imageUrl ?? undefined,
       upvotes: post.upvoteCount,
       hasUpvoted: state.hasUpvoted,
       replyCount: post._count.replies,
