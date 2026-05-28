@@ -87,8 +87,16 @@ export function BookingRow({ booking }: Props) {
     isStudent &&
     (booking.status === "completed" || !!booking.sessionEndedAt) &&
     !booking.hasReview;
+  // Group bookings are approved via /bookings/group-pending (calls
+  // /bookings/:id/group-approve), NOT via this 1-on-1 Accept button.
+  // Without this guard a tutor could press Accept on a group row and
+  // silently corrupt state: accept() would flip status to "accepted"
+  // without stamping booking.tutorApprovedAt, so the host's Pay button
+  // (which gates on tutorApprovedAt under FR-TH-18 rev3) never appears.
   const acceptable =
-    booking.status === "requested" && booking.viewerSide === "tutor";
+    booking.status === "requested" &&
+    booking.viewerSide === "tutor" &&
+    booking.sessionType !== "group";
   // Tutor "ปิดคลาส" button — only after the scheduled session has ended,
   // only on paid bookings, only once (sessionEndedAt is the latch).
   const sessionEnd =
