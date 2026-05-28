@@ -116,8 +116,8 @@ export function InviteLanding({ summary, isAuthed }: Props) {
           />
           <Detail
             icon={<GraduationCap size={16} />}
-            label="ค่าเรียนต่อคน"
-            value={`฿${summary.amountThb.toLocaleString()}`}
+            label="ค่าใช้จ่าย"
+            value="ฟรี — ผู้จัดเป็นคนชำระ"
           />
         </div>
 

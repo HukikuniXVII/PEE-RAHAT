@@ -276,7 +276,19 @@ export function BookingRow({ booking }: Props) {
               ปฏิเสธคำขอ
             </button>
           )}
-          {booking.status === "accepted" && booking.viewerSide === "student" && (
+          {/* Pay button. Two paths:
+               1) 1-on-1: tutor accepted → student pays.
+               2) Group host (FR-TH-18 rev2): host is the sole payer; can pay
+                  anytime during forming or tutor_review until tutor approves.
+                  Hidden once hostPaid flips true. */}
+          {((booking.status === "accepted" &&
+            booking.viewerSide === "student" &&
+            booking.sessionType !== "group") ||
+            (booking.sessionType === "group" &&
+              booking.viewerSide === "student" &&
+              !booking.hostPaid &&
+              (booking.groupStatus === "forming" ||
+                booking.groupStatus === "tutor_review"))) && (
             <Button onClick={() => setPaying(true)}>
               <Wallet size={16} />
               Pay Now

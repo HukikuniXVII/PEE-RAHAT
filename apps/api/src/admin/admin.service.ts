@@ -21,6 +21,7 @@ import type {
   UserRole,
 } from "@peerahat/types";
 
+import { GroupSessionService } from "../bookings/group-session.service";
 import { AuditLogService } from "../common/audit-log.service";
 import { CryptoService } from "../common/crypto.service";
 import { StorageService } from "../common/storage.service";
@@ -39,6 +40,7 @@ export class AdminService {
     private readonly crypto: CryptoService,
     private readonly audit: AuditLogService,
     private readonly notifications: NotificationService,
+    private readonly groupSessions: GroupSessionService,
   ) {}
 
   /**
@@ -948,44 +950,66 @@ export class AdminService {
       data: { status: "held_in_escrow", failureReason: null },
     });
     if (intent.bookingId) {
-      const reportWindowEndsAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-      const booking = await this.prisma.booking.update({
+      const booking = await this.prisma.booking.findUnique({
         where: { id: intent.bookingId },
-        data: { status: "paid", reportWindowEndsAt },
-        include: {
-          tutor: { select: { userId: true } },
-          student: { select: { displayName: true } },
-        },
+        select: { id: true, sessionType: true },
       });
-      // FR-CM-08: same pair of notifications as the auto-verified path
-      // (payments.service.uploadSlip's paid branch) so the manual
-      // override produces an identical user-visible outcome.
-      await this.notifications.notify({
-        userId: booking.studentId,
-        type: "payment_verified",
-        title: "ตรวจสอบสลิปสำเร็จ",
-        body: `ยืนยันการชำระเงินสำหรับคลาส "${booking.subject}" แล้ว`,
-        actionUrl: "/bookings",
-        sourceType: "payment_intent",
-        sourceId: intent.id,
-      });
-      await this.notifications.notify({
-        userId: booking.tutor.userId,
-        type: "booking_paid",
-        title: "คลาสได้รับการชำระเงินแล้ว",
-        body: `${booking.student.displayName} ชำระเงินสำหรับ "${booking.subject}" แล้ว`,
-        actionUrl: "/bookings",
-        sourceType: "booking",
-        sourceId: booking.id,
-      });
-      // FR-TH-17: generate Meet link inline; swallow failures so the
-      // payment approval itself never depends on Calendar.
-      try {
-        await this.googleCalendar.attachToBooking(booking.id);
-      } catch (err) {
-        this.logger.error(
-          `Meet generation failed for booking ${booking.id}: ${(err as Error).message} — admin can retry`,
-        );
+      if (booking?.sessionType === "group") {
+        // FR-TH-18 rev2: groups have a different lifecycle — only the host
+        // pays, and confirmation requires tutor approval (not just slip
+        // verification). Mark the host's BookingParticipant as paid here;
+        // approveGroup is what eventually flips booking.status → paid +
+        // generates the Meet link.
+        await this.groupSessions.onParticipantPaid(intent.id);
+        await this.notifications.notify({
+          userId: intent.payerId,
+          type: "payment_verified",
+          title: "ตรวจสอบสลิปสำเร็จ",
+          body: "ชำระเงินคลาสกลุ่มแล้ว — รอติวเตอร์อนุมัติเพื่อยืนยันคลาส",
+          actionUrl: `/bookings/${intent.bookingId}/group`,
+          sourceType: "payment_intent",
+          sourceId: intent.id,
+        });
+      } else if (booking) {
+        const reportWindowEndsAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        const updatedBooking = await this.prisma.booking.update({
+          where: { id: intent.bookingId },
+          data: { status: "paid", reportWindowEndsAt },
+          include: {
+            tutor: { select: { userId: true } },
+            student: { select: { displayName: true } },
+          },
+        });
+        // FR-CM-08: same pair of notifications as the auto-verified path
+        // (payments.service.uploadSlip's paid branch) so the manual
+        // override produces an identical user-visible outcome.
+        await this.notifications.notify({
+          userId: updatedBooking.studentId,
+          type: "payment_verified",
+          title: "ตรวจสอบสลิปสำเร็จ",
+          body: `ยืนยันการชำระเงินสำหรับคลาส "${updatedBooking.subject}" แล้ว`,
+          actionUrl: "/bookings",
+          sourceType: "payment_intent",
+          sourceId: intent.id,
+        });
+        await this.notifications.notify({
+          userId: updatedBooking.tutor.userId,
+          type: "booking_paid",
+          title: "คลาสได้รับการชำระเงินแล้ว",
+          body: `${updatedBooking.student.displayName} ชำระเงินสำหรับ "${updatedBooking.subject}" แล้ว`,
+          actionUrl: "/bookings",
+          sourceType: "booking",
+          sourceId: updatedBooking.id,
+        });
+        // FR-TH-17: generate Meet link inline; swallow failures so the
+        // payment approval itself never depends on Calendar.
+        try {
+          await this.googleCalendar.attachToBooking(updatedBooking.id);
+        } catch (err) {
+          this.logger.error(
+            `Meet generation failed for booking ${updatedBooking.id}: ${(err as Error).message} — admin can retry`,
+          );
+        }
       }
     }
     return updated;

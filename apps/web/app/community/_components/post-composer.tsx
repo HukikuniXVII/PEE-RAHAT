@@ -1,11 +1,9 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
 import {
   type CommunityPost,
   type CreatePostDto,
   type Page,
-  createPostSchema,
 } from "@peerahat/types";
 import {
   type InfiniteData,
@@ -43,8 +41,10 @@ export function PostComposer({ currentDisplayName }: Props) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
+  // Title is derived from content at submit (see onSubmit), so the form
+  // only tracks the user-visible `content` field. We keep useForm here
+  // for the register/watch ergonomics that the textarea already uses.
   const form = useForm<CreatePostDto>({
-    resolver: zodResolver(createPostSchema),
     defaultValues: {
       title: "",
       content: "",
@@ -82,6 +82,9 @@ export function PostComposer({ currentDisplayName }: Props) {
       );
       form.reset();
       clearImage();
+    },
+    onError: (err) => {
+      toast.error(`โพสต์ไม่สำเร็จ: ${(err as Error).message}`);
     },
   });
 
@@ -147,8 +150,14 @@ export function PostComposer({ currentDisplayName }: Props) {
   // lives on the public terms page and the link below the action row
   // makes that contract visible to the user before they post. The act
   // of clicking โพสต์ with the link in view is the on-record consent.
-  const onSubmit = form.handleSubmit((values) => {
-    const trimmed = values.content.trim();
+  //
+  // We bypass form.handleSubmit's zod gate here because `title` is
+  // derived from `content` at submit time — running the resolver against
+  // the form's empty `title` field would silently block submission.
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = (content ?? "").trim();
+    if (!trimmed) return;
     const title = trimmed.split("\n")[0]?.slice(0, 200) || "โพสต์ใหม่";
     createPost.mutate({
       title,
@@ -156,7 +165,7 @@ export function PostComposer({ currentDisplayName }: Props) {
       consentPdpaAccepted: true,
       imageUrl: imageUrl ?? undefined,
     });
-  });
+  }
 
   return (
     <form onSubmit={onSubmit} className="cozy-card p-4">

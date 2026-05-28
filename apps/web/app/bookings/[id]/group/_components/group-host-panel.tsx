@@ -98,8 +98,8 @@ export function GroupHostPanel({
         <p className="text-sm text-neutral-500 thai">
           {format(new Date(booking.scheduledAt), "d MMM yyyy HH:mm")} •{" "}
           {booking.durationMinutes} นาที • ที่นั่ง {seatsAccepted}/
-          {booking.capacity} คน • คนละ ฿
-          {booking.amountThb.toLocaleString()}
+          {booking.capacity} คน • รวม ฿
+          {booking.amountThb.toLocaleString()} (คุณเป็นคนชำระ)
         </p>
       </header>
 
