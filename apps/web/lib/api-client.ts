@@ -975,12 +975,17 @@ export function createApiClient(opts: ApiClientOptions = {}) {
           { method: "POST", body: JSON.stringify({ body: dto.body }) },
           token,
         ),
-      proposal: (threadId: string) =>
-        request<ChatBookingProposal | null>(
+      // Nest controllers that return `null` send an empty 200 body, which
+      // request() surfaces as `undefined` — React Query v5 rejects that
+      // and prints "data is undefined" on every refetch. Coerce to an
+      // explicit null so the caller's `?? null` fallback stays trivial
+      // and the queryFn satisfies RQ's contract.
+      proposal: async (threadId: string) =>
+        (await request<ChatBookingProposal | null>(
           API_PATHS.chatThreadProposal(threadId),
           {},
           token,
-        ),
+        )) ?? null,
     },
     reports: {
       create: (dto: CreateReportDto) =>
