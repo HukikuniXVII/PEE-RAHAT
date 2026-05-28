@@ -21,7 +21,7 @@ export default async function BookingsPage({ searchParams }: Props) {
   ]);
 
   const view: BookingsView =
-    searchParams.view === "list" ? "list" : "schedule";
+    searchParams.view === "schedule" ? "schedule" : "list";
   const isTutor = me.role === "tutor";
   const heading = isTutor ? "ตารางสอน" : "ตารางเรียน";
   const subtitle = isTutor

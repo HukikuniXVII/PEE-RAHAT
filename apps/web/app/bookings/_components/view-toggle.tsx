@@ -12,9 +12,9 @@ export function ViewToggle({ current }: { current: BookingsView }) {
   const params = useSearchParams();
 
   function hrefFor(view: BookingsView): Route {
-    // schedule is the implicit default (no view param); only list is explicit.
+    // list is the implicit default (no view param); only schedule is explicit.
     const next = new URLSearchParams(params?.toString() ?? "");
-    if (view === "schedule") {
+    if (view === "list") {
       next.delete("view");
     } else {
       next.set("view", view);

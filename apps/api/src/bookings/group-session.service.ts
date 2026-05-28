@@ -19,14 +19,22 @@ import { PrismaService } from "../prisma/prisma.service";
 import { BookingsService } from "./bookings.service";
 
 /**
- * FR-TH-18 rev2 — controller for the group-session lifecycle:
+ * FR-TH-18 rev3 — controller for the group-session lifecycle:
  *
- *   forming      → host invited people; invitees accepting/declining; host
- *                  can pay anytime (no payment required to invite)
+ *   forming      → host invited people; invitees accepting/declining. Host
+ *                  CANNOT pay yet — the Pay button waits for tutor approval.
  *   tutor_review → every seat accepted; tutor decides go / no-go. Tutor
- *                  approval is blocked until the host has paid.
- *   confirmed    → tutor approved AND host paid; Meet generated
+ *                  can approve WITHOUT the host having paid yet; approval
+ *                  sets booking.tutorApprovedAt and unblocks the host's
+ *                  Pay button on the frontend.
+ *   confirmed    → tutor approved AND host's slip cleared; chat + Meet
+ *                  generated post-tx via triggerGroupConfirmedSideEffects.
  *   failed       → any failure mode; 100% refund to the host if they paid
+ *
+ * Sequencing inversion vs rev2: rev2 required host to pay BEFORE the
+ * tutor could approve. rev3 flips that to tutor-accept → host-pay →
+ * admin-slip-check → confirmed, so the host doesn't tie up money on a
+ * group the tutor might reject.
  *
  * Payment model: the HOST pays the full class total (booking.amountThb,
  * which is hourlyRate × hours × capacity for groups). Invitees only RSVP
@@ -325,12 +333,15 @@ export class GroupSessionService {
 
   // ── Tutor: approve ────────────────────────────────────────────────────
   /**
-   * FR-TH-18 rev2: tutor approves the group composition. The host is the
-   * sole payer (invitees just RSVP) so approval is gated on host having
-   * paid — without that, there's nothing to escrow. Once both conditions
-   * hold (host paid + tutor approved), the group flips straight to
-   * confirmed in this transaction; no more "waiting for invitees to pay"
-   * intermediate state.
+   * FR-TH-18 rev3: tutor approves the group composition BEFORE the host
+   * pays. Approval stamps `tutorApprovedAt` and leaves the group in
+   * tutor_review; the host's frontend uses that timestamp to unblock the
+   * Pay button. The actual transition tutor_review → confirmed happens
+   * later, inside onParticipantPaid(), once the host's slip clears.
+   *
+   * Idempotent: re-approving while still in tutor_review is a no-op
+   * (returns the existing participants). Once confirmed, the next call
+   * errors because groupStatus is no longer "tutor_review".
    */
   async approveGroup(supabaseId: string, bookingId: string) {
     const tutorUser = await this.prisma.user.findUnique({
@@ -341,7 +352,6 @@ export class GroupSessionService {
       where: { id: bookingId },
       include: {
         tutor: { select: { userId: true } },
-        participants: true,
       },
     });
     if (!booking) throw new NotFoundException();
@@ -357,19 +367,23 @@ export class GroupSessionService {
       );
     }
 
-    const hostParticipant = booking.participants.find((p) => p.role === "host");
-    if (!hostParticipant || hostParticipant.status !== "paid") {
-      throw new BadRequestException(
-        "ผู้จัดกลุ่มยังไม่ได้ชำระเงิน — กรุณารอให้ชำระเสร็จก่อนกดอนุมัติ",
-      );
+    // Idempotent set — only write if not already stamped, so re-approve
+    // calls don't churn the row or refire the host notification.
+    if (!booking.tutorApprovedAt) {
+      await this.prisma.booking.update({
+        where: { id: bookingId },
+        data: { tutorApprovedAt: new Date() },
+      });
+      await this.notifications.notify({
+        userId: booking.studentId,
+        type: "group_decision",
+        title: "พี่รหัสตอบรับคลาสกลุ่มแล้ว",
+        body: "ชำระเงินภายในเวลาเพื่อยืนยันคลาส แล้วระบบจะสร้างห้องแชทและลิงก์ Meet ให้อัตโนมัติ",
+        actionUrl: `/bookings/${bookingId}/group`,
+        sourceType: "booking",
+        sourceId: bookingId,
+      });
     }
-
-    await this.prisma.$transaction(
-      async (tx) => {
-        await this.confirmGroup(tx, bookingId);
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-    );
 
     this.logger.log(
       JSON.stringify({
@@ -424,12 +438,21 @@ export class GroupSessionService {
 
   // ── Slip-verify worker callback ───────────────────────────────────────
   /**
-   * FR-TH-18 rev2: called when a host's group PaymentIntent flips to
+   * FR-TH-18 rev3: called when a host's group PaymentIntent flips to
    * held_in_escrow (auto via ZercleSlip or manual via admin.approveSlip).
-   * Marks the host's BookingParticipant as paid + links the intent.
-   * Does NOT advance groupStatus — that's the tutor's job via
-   * approveGroup. Idempotent; safe to call multiple times for the same
-   * intent.
+   * Marks the host's BookingParticipant as paid + links the intent, then
+   * — if the tutor has ALREADY approved (`booking.tutorApprovedAt`
+   * stamped) — runs confirmGroup() in the same call so the chat thread
+   * and Meet link spin up immediately.
+   *
+   * Both orderings are tolerated for back-end safety:
+   *   - tutor approves → host pays → this method confirms (happy path)
+   *   - host pays → tutor approves → approveGroup is the no-op stamper;
+   *     a future "did the tutor approve while we waited?" sweep would be
+   *     needed if we ever let the host pay before approval, but the
+   *     frontend gate prevents this in practice.
+   *
+   * Idempotent; safe to call multiple times for the same intent.
    */
   async onParticipantPaid(paymentIntentId: string) {
     const intent = await this.prisma.paymentIntent.findUnique({
@@ -447,24 +470,51 @@ export class GroupSessionService {
       (p) => p.role === "host" && p.studentId === intent.payerId,
     );
     if (!hostParticipant) return;
-    if (hostParticipant.status === "paid") return; // idempotent
+    const alreadyPaid = hostParticipant.status === "paid";
 
-    await this.prisma.bookingParticipant.update({
-      where: { id: hostParticipant.id },
-      data: {
-        status: "paid",
-        paidAt: new Date(),
-        paymentIntentId: intent.id,
-      },
-    });
+    if (!alreadyPaid) {
+      await this.prisma.bookingParticipant.update({
+        where: { id: hostParticipant.id },
+        data: {
+          status: "paid",
+          paidAt: new Date(),
+          paymentIntentId: intent.id,
+        },
+      });
 
-    this.logger.log(
-      JSON.stringify({
-        event: "group_host_paid",
-        bookingId: booking.id,
-        participantId: hostParticipant.id,
-      }),
-    );
+      this.logger.log(
+        JSON.stringify({
+          event: "group_host_paid",
+          bookingId: booking.id,
+          participantId: hostParticipant.id,
+        }),
+      );
+    }
+
+    // Tutor pre-approved this group? Flip to confirmed now. Otherwise
+    // we leave it in tutor_review for the tutor's approveGroup() call.
+    if (
+      booking.groupStatus === "tutor_review" &&
+      booking.tutorApprovedAt
+    ) {
+      await this.prisma.$transaction(
+        async (tx) => {
+          // Re-check inside the tx so two concurrent slip-verifies don't
+          // both flip groupStatus → confirmed and refire the side effects.
+          const fresh = await tx.booking.findUnique({
+            where: { id: booking.id },
+            select: { groupStatus: true, tutorApprovedAt: true },
+          });
+          if (
+            fresh?.groupStatus === "tutor_review" &&
+            fresh.tutorApprovedAt
+          ) {
+            await this.confirmGroup(tx, booking.id);
+          }
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    }
   }
 
   // ── Internal: tutor_review → confirmed ────────────────────────────────

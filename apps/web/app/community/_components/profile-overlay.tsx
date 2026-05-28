@@ -146,12 +146,13 @@ function IdentityBlock({
 }) {
   return (
     <div className="px-6 pt-4 flex items-start gap-3 relative">
-      {/* Avatar sits ON the 88px header band — centered vertically within
-          the band with a small bottom overhang so the white ring reads
-          against both the violet gradient AND the card surface. Text
-          sits below the band where contrast is good; the spacer reserves
-          the horizontal column the avatar occupies. */}
-      <div className="absolute left-6 -top-[70px] z-10">
+      {/* Avatar straddles the banner/card seam — its 84px outer box
+          (76px avatar + 4px white ring) is centered on the bottom edge
+          of the 88px header band, so ~half sits on the gradient and
+          ~half hangs onto the white card surface. The spacer below
+          reserves the horizontal column the absolute avatar occupies
+          so the name/subline don't run under it. */}
+      <div className="absolute left-6 -top-[42px] z-10">
         {avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
