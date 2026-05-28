@@ -801,6 +801,71 @@ export class BookingsService {
   }
 
   /**
+   * Tutor presses "ปิดคลาส" after the scheduled session ends. Sets
+   * `Booking.sessionEndedAt = now()` so the student review form unlocks
+   * immediately (TutorsService.createReview now accepts either
+   * status=completed OR sessionEndedAt!=null). Idempotent — calling
+   * twice keeps the first timestamp. Escrow timing (FR-PM-05) is
+   * untouched; the daily release-for-payout cron still owns money.
+   */
+  async endSession(supabaseId: string, bookingId: string) {
+    const user = await requireUserBySupabaseId(this.prisma, supabaseId);
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { tutor: { select: { userId: true } } },
+    });
+    if (!booking) throw new NotFoundException();
+    if (booking.tutor.userId !== user.id) {
+      throw new ForbiddenException("Only the tutor can end a session");
+    }
+    if (booking.status !== "paid" && booking.status !== "completed") {
+      throw new BadRequestException(
+        "Session can only be ended on a paid or completed booking",
+      );
+    }
+    const sessionEnd =
+      booking.scheduledAt.getTime() + booking.durationMinutes * 60_000;
+    if (sessionEnd > Date.now()) {
+      throw new BadRequestException(
+        "ยังไม่สามารถปิดคลาสได้ — รอจนคลาสจบก่อน",
+      );
+    }
+    // Idempotent: if already closed, just return the current row.
+    if (booking.sessionEndedAt) {
+      const current = await this.prisma.booking.findUniqueOrThrow({
+        where: { id: bookingId },
+        include: BOOKING_DTO_INCLUDE,
+      });
+      return decorateBooking(current, "tutor");
+    }
+    const updated = await this.prisma.booking.update({
+      where: { id: bookingId },
+      data: { sessionEndedAt: new Date() },
+      include: BOOKING_DTO_INCLUDE,
+    });
+    this.logger.log(
+      JSON.stringify({
+        event: "booking_session_ended",
+        bookingId: updated.id,
+        tutorId: updated.tutorId,
+        studentId: updated.studentId,
+        sessionEndedAt: updated.sessionEndedAt?.toISOString(),
+      }),
+    );
+    // FR-CM-08: nudge the student to leave a review now that it's unlocked.
+    await this.notifications.notify({
+      userId: updated.studentId,
+      type: "booking_meeting_ready", // closest existing type until we add one
+      title: "ติวเตอร์ปิดคลาสแล้ว",
+      body: `รีวิวคลาส "${updated.subject}" ของพี่ ${updated.tutor.user.displayName} ได้เลย`,
+      actionUrl: "/bookings",
+      sourceType: "booking",
+      sourceId: updated.id,
+    });
+    return decorateBooking(updated, "tutor");
+  }
+
+  /**
    * FR-PM-05: student report inside the 24h window. Creates the Report
    * row and immediately freezes the linked escrow so admin has time to
    * review before the release timer fires. Mirrors AdminService.freezeBooking

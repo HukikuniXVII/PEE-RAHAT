@@ -96,6 +96,18 @@ export class BookingsController {
     return this.bookings.accept(user.sub, id);
   }
 
+  // Tutor marks the class as finished after its scheduled end so the
+  // student review form unlocks immediately (instead of waiting for the
+  // daily release-for-payout cron to flip status → completed). Escrow
+  // timing is unchanged — the dispute window still owns payout release.
+  @Post(":id/end-session")
+  endSession(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Param("id") id: string,
+  ) {
+    return this.bookings.endSession(user.sub, id);
+  }
+
   // FR-TH-06: student cancels their own 1-on-1 booking before payment.
   // Validation lives in BookingsService — the controller is a thin pass-
   // through. Group bookings are explicitly refused at the service layer

@@ -341,7 +341,12 @@ export class TutorsService {
     if (booking.tutorId !== tutorId) {
       throw new BadRequestException("Tutor mismatch");
     }
-    if (booking.status !== "completed") {
+    // Two ways a booking unlocks reviews:
+    //  1. The daily release-for-payout cron flipped status → completed.
+    //  2. The tutor pressed "ปิดคลาส" after the session ended, setting
+    //     sessionEndedAt. This unlocks reviews immediately so students
+    //     don't have to wait ~24h for the cron after a finished class.
+    if (booking.status !== "completed" && !booking.sessionEndedAt) {
       throw new BadRequestException("Booking not completed");
     }
 

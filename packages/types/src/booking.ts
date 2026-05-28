@@ -73,6 +73,10 @@ export interface Booking {
   amountThb: number;
   acceptDeadlineAt: string;
   reportWindowEndsAt?: string;
+  /** Set by the tutor's "ปิดคลาส" action after the scheduled session
+   *  ends. Unlocks the student review form immediately (without waiting
+   *  for the daily release-for-payout cron to flip status → completed). */
+  sessionEndedAt?: string;
   hasReview: boolean;
   /** Which side of the booking the calling user is on. */
   viewerSide: "student" | "tutor";

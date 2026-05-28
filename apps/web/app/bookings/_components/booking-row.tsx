@@ -62,10 +62,25 @@ export function BookingRow({ booking }: Props) {
     !!booking.reportWindowEndsAt &&
     new Date(booking.reportWindowEndsAt).getTime() > Date.now();
 
+  // Reviews unlock when the booking is fully completed (cron-driven, ~24h
+   // after payment cleared) OR when the tutor explicitly pressed "ปิดคลาส"
+   // after the session ended. The second path lets students review right
+   // after class instead of waiting for the daily release-for-payout cron.
   const reviewable =
-    isStudent && booking.status === "completed" && !booking.hasReview;
+    isStudent &&
+    (booking.status === "completed" || !!booking.sessionEndedAt) &&
+    !booking.hasReview;
   const acceptable =
     booking.status === "requested" && booking.viewerSide === "tutor";
+  // Tutor "ปิดคลาส" button — only after the scheduled session has ended,
+  // only on paid bookings, only once (sessionEndedAt is the latch).
+  const sessionEnd =
+    new Date(booking.scheduledAt).getTime() + booking.durationMinutes * 60_000;
+  const canEndSession =
+    booking.viewerSide === "tutor" &&
+    booking.status === "paid" &&
+    !booking.sessionEndedAt &&
+    sessionEnd <= Date.now();
   // FR-TH-10: both sides can request postpone while the class is still upcoming.
   const postponable =
     booking.status === "paid" &&
@@ -93,6 +108,13 @@ export function BookingRow({ booking }: Props) {
     mutationFn: () => createApiClient().bookings.accept(booking.id),
     successMessage: "รับงานเรียบร้อย รอนักเรียนชำระเงิน",
     errorMessage: "กดรับงานไม่สำเร็จ",
+    invalidateKeys: [["bookings", "mine"]],
+  });
+
+  const endSession = useMutationWithToast({
+    mutationFn: () => createApiClient().bookings.endSession(booking.id),
+    successMessage: "ปิดคลาสแล้ว — นักเรียนสามารถรีวิวได้",
+    errorMessage: true,
     invalidateKeys: [["bookings", "mine"]],
   });
 
@@ -270,6 +292,21 @@ export function BookingRow({ booking }: Props) {
               ยกเลิกการจอง
             </button>
           )}
+          {canEndSession && (
+            <button
+              type="button"
+              onClick={() => endSession.mutate()}
+              disabled={endSession.isPending}
+              className="px-4 py-2.5 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 transition-all flex items-center gap-2 disabled:opacity-60"
+            >
+              {endSession.isPending ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <CheckCircle2 size={14} />
+              )}
+              ปิดคลาส
+            </button>
+          )}
           {reviewable && (
             <button
               type="button"
@@ -280,7 +317,8 @@ export function BookingRow({ booking }: Props) {
               Leave Review
             </button>
           )}
-          {booking.status === "completed" && booking.hasReview && (
+          {(booking.status === "completed" || booking.sessionEndedAt) &&
+            booking.hasReview && (
             <span className="text-[11px] font-bold text-amber-600 inline-flex items-center gap-1.5">
               <Star size={14} fill="currentColor" />
               รีวิวแล้ว

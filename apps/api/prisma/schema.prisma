@@ -269,6 +269,12 @@ model Booking {
   amountThb          Int
   acceptDeadlineAt   DateTime
   reportWindowEndsAt DateTime?
+  // FR-TH (review-unlock): tutor presses "ปิดคลาส" after the scheduled
+  // session ends. Sets this timestamp so the student review form unlocks
+  // immediately, without waiting for the daily release-for-payout cron to
+  // flip status → completed. Escrow timing (FR-PM-05) is unchanged — the
+  // 24h dispute window still owns payout release.
+  sessionEndedAt     DateTime?
   postponeRequestId  String?          @unique
   postponeRequest    PostponeRequest? @relation(fields: [postponeRequestId], references: [id])
 

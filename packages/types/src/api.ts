@@ -71,6 +71,9 @@ export const API_PATHS = {
   bookingsMineBusy: "/bookings/mine/busy",
   bookingById: (id: string) => `/bookings/${id}`,
   acceptBooking: (id: string) => `/bookings/${id}/accept`,
+  // Tutor "ปิดคลาส" after the scheduled session ends — sets
+  // sessionEndedAt so the student review form unlocks immediately.
+  endBookingSession: (id: string) => `/bookings/${id}/end-session`,
   // FR-TH-06: student cancels their own 1-on-1 booking before payment.
   cancelBooking: (id: string) => `/bookings/${id}/cancel`,
   // FR-TH-06: tutor rejects a still-requested booking.

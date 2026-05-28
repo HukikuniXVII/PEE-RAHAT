@@ -696,6 +696,14 @@ export function createApiClient(opts: ApiClientOptions = {}) {
           { method: "POST" },
           token,
         ),
+      // Tutor ends a session after class time has passed. Unlocks the
+      // student review form via Booking.sessionEndedAt.
+      endSession: (id: string) =>
+        request<Booking>(
+          API_PATHS.endBookingSession(id),
+          { method: "POST" },
+          token,
+        ),
       // FR-TH-06: student cancels before payment.
       cancel: (id: string) =>
         request<Booking>(
