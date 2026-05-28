@@ -817,6 +817,14 @@ export class BookingsService {
     if (booking.status !== "requested") {
       throw new BadRequestException("Booking is not in requested state");
     }
+    // FR-TH-18 rev3: groups go through approveGroup() — accepting one here
+    // would flip status to "accepted" without stamping tutorApprovedAt,
+    // leaving the host's Pay button permanently hidden.
+    if (booking.sessionType === "group") {
+      throw new BadRequestException(
+        "ใช้ /bookings/group-pending เพื่ออนุมัติคลาสกลุ่ม",
+      );
+    }
     const updated = await this.prisma.booking.update({
       where: { id: bookingId },
       data: { status: "accepted" },
