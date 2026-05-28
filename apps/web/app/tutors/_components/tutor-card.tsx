@@ -74,7 +74,8 @@ export function TutorCard({ tutor }: Props) {
               {tutor.displayName}
             </h3>
             <p className="text-xs text-slate-500 font-medium truncate">
-              {tutor.faculty}
+              {tutor.faculty} ·{" "}
+              {tutor.university.replace(/^มหาวิทยาลัย/, "ม.")}
             </p>
             <div className="flex items-center gap-1 text-xs font-bold text-amber-600">
               <Star size={12} fill="currentColor" />
