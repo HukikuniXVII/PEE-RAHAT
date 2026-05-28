@@ -24,8 +24,8 @@ export function ViewToggle({ current }: { current: BookingsView }) {
   }
 
   const options: { value: BookingsView; label: string; Icon: typeof List }[] = [
-    { value: "schedule", label: "ตาราง", Icon: CalendarDays },
     { value: "list", label: "รายการ", Icon: List },
+    { value: "schedule", label: "ตาราง", Icon: CalendarDays },
   ];
 
   return (
