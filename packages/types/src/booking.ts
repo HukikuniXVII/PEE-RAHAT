@@ -69,8 +69,15 @@ export interface Booking {
   status: BookingStatus;
   scheduledAt: string;
   durationMinutes: number;
-  /** Per-seat price. For group bookings each participant pays this amount. */
+  /** Total class cost in THB. 1-on-1: hourlyRate × hours. Group: hourlyRate
+   *  × hours × capacity. For group bookings the host pays the full amount;
+   *  invitees only RSVP and never see a payment screen. */
   amountThb: number;
+  /** Group bookings only — true once the host's PaymentIntent flips to
+   *  held_in_escrow. Drives the frontend pay-button gate (hide if true) and
+   *  the tutor-review inbox (block approve action if false). Always false
+   *  for 1-on-1 since those use booking.status === "paid" as the signal. */
+  hostPaid?: boolean;
   acceptDeadlineAt: string;
   reportWindowEndsAt?: string;
   /** Set by the tutor's "ปิดคลาส" action after the scheduled session

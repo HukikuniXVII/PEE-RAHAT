@@ -113,6 +113,13 @@ const BOOKING_DTO_INCLUDE = {
       user: { select: { displayName: true, avatarUrl: true } },
     },
   },
+  // FR-TH-18 rev2: need host participant status to derive `hostPaid` flag.
+  // Only the host's row is required (`role: "host"` keeps the payload tiny
+  // even for capacity=10 groups).
+  participants: {
+    where: { role: "host" as const },
+    select: { status: true },
+  },
 } as const satisfies Prisma.BookingInclude;
 
 type BookingWithDtoInclude = Prisma.BookingGetPayload<{
@@ -128,7 +135,10 @@ function decorateBooking(
   row: BookingWithDtoInclude,
   viewerSide: "student" | "tutor",
 ) {
-  const { review, postponeRequest, chatThread, student, tutor, ...b } = row;
+  const { review, postponeRequest, chatThread, student, tutor, participants, ...b } = row;
+  const hostPaid =
+    row.sessionType === "group" &&
+    participants.some((p) => p.status === "paid");
   return {
     ...b,
     hasReview: !!review,
@@ -138,6 +148,7 @@ function decorateBooking(
     studentAvatarUrl: student.avatarUrl ?? undefined,
     tutorDisplayName: tutor.user.displayName,
     tutorAvatarUrl: tutor.user.avatarUrl ?? undefined,
+    hostPaid,
     postponeRequest: postponeRequest
       ? {
           id: postponeRequest.id,
@@ -287,13 +298,6 @@ export class BookingsService {
       );
     }
 
-    // FR-TH-18: amountThb is per-seat. A group booking with capacity=4 and
-    // duration 60min charges `tutor.hourlyRate` to each of the 4 participants
-    // individually — never the sum.
-    const amountThb = Math.round(
-      tutor.hourlyRate * (input.durationMinutes / 60),
-    );
-
     // FR-TH-18: branch on sessionType. Default (undefined or "one_on_one")
     // keeps every existing 1-on-1 caller behaviourally unchanged. For
     // "group" we additionally set capacity / groupStatus / inviteCode /
@@ -307,6 +311,15 @@ export class BookingsService {
     const capacity = isGroup
       ? (input.capacity ?? GROUP_MIN_CAPACITY)
       : 1;
+
+    // FR-TH-18 rev2: amountThb is the TOTAL class cost. 1-on-1 keeps
+    // `hourlyRate × hours` (capacity=1). Group bookings multiply by
+    // capacity — the host fronts the full class cost for everyone and
+    // invitees only RSVP (they never see a payment dialog). This matches
+    // the user-visible total the host is committing to when they book.
+    const amountThb = Math.round(
+      tutor.hourlyRate * (input.durationMinutes / 60) * capacity,
+    );
     if (isGroup) {
       // Defensive — the zod schema's superRefine already enforces this.
       if (capacity < GROUP_MIN_CAPACITY || capacity > GROUP_MAX_CAPACITY) {

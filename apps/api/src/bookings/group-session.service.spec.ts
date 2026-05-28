@@ -2,7 +2,6 @@ import { BadRequestException } from "@nestjs/common";
 
 import {
   normalizeInviteEmails,
-  shouldConfirmGroup,
   shouldMoveToTutorReview,
 } from "./group-session.service";
 
@@ -80,23 +79,4 @@ describe("GroupSessionService pure helpers (FR-TH-18)", () => {
     });
   });
 
-  describe("shouldConfirmGroup", () => {
-    it("false if anyone hasn't paid", () => {
-      const participants = [{ status: "paid" }, { status: "accepted" }];
-      expect(shouldConfirmGroup(participants, 2)).toBe(false);
-    });
-
-    it("false if fewer rows than capacity (some never invited)", () => {
-      expect(shouldConfirmGroup([{ status: "paid" }], 2)).toBe(false);
-    });
-
-    it("true only when every seat is paid", () => {
-      const participants = [
-        { status: "paid" },
-        { status: "paid" },
-        { status: "paid" },
-      ];
-      expect(shouldConfirmGroup(participants, 3)).toBe(true);
-    });
-  });
 });

@@ -94,16 +94,19 @@ export class PaymentsService {
       });
       if (!booking) throw new NotFoundException();
       if (booking.studentId !== user.id) throw new ForbiddenException();
-      // FR-TH-18: group bookings let the host pay before the tutor's
-      // formal approval — the tutor's go/no-go is the approveGroup call,
-      // which fires after every seat is accepted. booking.status stays
-      // 'requested' through forming → tutor_review and only flips to
-      // 'paid' when confirmGroup completes. For 1-on-1 the prior gate
-      // still applies: tutor must @Post('/:id/accept') first.
+      // FR-TH-18 rev2: only the host pays for groups; invitees just RSVP.
+      // Host can pay anytime up until tutor approves — both forming AND
+      // tutor_review are open windows. booking.status stays 'requested'
+      // through both phases and only flips to 'paid' when approveGroup
+      // confirms (which itself requires host paid). For 1-on-1 the prior
+      // gate still applies: tutor must @Post('/:id/accept') first.
       if (booking.sessionType === "group") {
-        if (booking.groupStatus !== "forming") {
+        if (
+          booking.groupStatus !== "forming" &&
+          booking.groupStatus !== "tutor_review"
+        ) {
           throw new BadRequestException(
-            "Host can only pay while the group is forming",
+            "ชำระเงินได้เฉพาะระหว่างที่กลุ่มยังเปิดรับ",
           );
         }
       } else if (booking.status !== "accepted") {

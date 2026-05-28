@@ -15,21 +15,23 @@ import { ChatService } from "../chat/chat.service";
 import { requireUserBySupabaseId } from "../common/user-lookup";
 import { GoogleCalendarService } from "../integrations/google-calendar/google-calendar.service";
 import { NotificationService } from "../notifications/notification.service";
-import { buildPromptPayPayload } from "../payments/promptpay";
 import { PrismaService } from "../prisma/prisma.service";
 import { BookingsService } from "./bookings.service";
 
 /**
- * FR-TH-18 — controller for the group-session lifecycle:
+ * FR-TH-18 rev2 — controller for the group-session lifecycle:
  *
- *   forming      → host paid + invitees still accepting/declining
- *   tutor_review → every seat accepted; tutor decides go / no-go
- *   confirmed    → tutor approved AND every invitee paid; Meet generated
- *                  (Meet + group thread land in step 8)
- *   failed       → any failure mode; 100% refund to every paid participant
+ *   forming      → host invited people; invitees accepting/declining; host
+ *                  can pay anytime (no payment required to invite)
+ *   tutor_review → every seat accepted; tutor decides go / no-go. Tutor
+ *                  approval is blocked until the host has paid.
+ *   confirmed    → tutor approved AND host paid; Meet generated
+ *   failed       → any failure mode; 100% refund to the host if they paid
  *
- * Everything that mutates groupStatus or participant.status routes through
- * this service so the state machine stays auditable in one place.
+ * Payment model: the HOST pays the full class total (booking.amountThb,
+ * which is hourlyRate × hours × capacity for groups). Invitees only RSVP
+ * — they never see a payment dialog. Tutor receives the full class total
+ * (minus commission) on a single payout, same as 1-on-1.
  */
 @Injectable()
 export class GroupSessionService {
@@ -323,10 +325,12 @@ export class GroupSessionService {
 
   // ── Tutor: approve ────────────────────────────────────────────────────
   /**
-   * Tutor approves the group composition. Creates a PaymentIntent per
-   * invitee (host already has theirs from when they paid at create-time).
-   * groupStatus stays 'tutor_review' until the last invitee pays; that
-   * triggers confirmGroup.
+   * FR-TH-18 rev2: tutor approves the group composition. The host is the
+   * sole payer (invitees just RSVP) so approval is gated on host having
+   * paid — without that, there's nothing to escrow. Once both conditions
+   * hold (host paid + tutor approved), the group flips straight to
+   * confirmed in this transaction; no more "waiting for invitees to pay"
+   * intermediate state.
    */
   async approveGroup(supabaseId: string, bookingId: string) {
     const tutorUser = await this.prisma.user.findUnique({
@@ -353,63 +357,26 @@ export class GroupSessionService {
       );
     }
 
-    // Invitees who accepted but have no PaymentIntent yet.
-    const invitees = booking.participants.filter(
-      (p) => p.role === "invited" && p.status === "accepted" && !p.paymentIntentId,
-    );
+    const hostParticipant = booking.participants.find((p) => p.role === "host");
+    if (!hostParticipant || hostParticipant.status !== "paid") {
+      throw new BadRequestException(
+        "ผู้จัดกลุ่มยังไม่ได้ชำระเงิน — กรุณารอให้ชำระเสร็จก่อนกดอนุมัติ",
+      );
+    }
 
-    await this.prisma.$transaction(async (tx) => {
-      for (const p of invitees) {
-        const intent = await tx.paymentIntent.create({
-          data: {
-            payerId: p.studentId,
-            itemType: "booking",
-            // bookingId stays NULL for invitee intents — the host's intent
-            // is the canonical one linked via @unique. Invitees join the
-            // booking through BookingParticipant.paymentIntentId.
-            bookingId: null,
-            amountThb: booking.amountThb,
-            promptPayQrPayload: buildPromptPayPayload(booking.amountThb),
-            expiresAt: addHours(new Date(), 24),
-          },
-        });
-        await tx.bookingParticipant.update({
-          where: { id: p.id },
-          data: { paymentIntentId: intent.id },
-        });
-      }
-    });
+    await this.prisma.$transaction(
+      async (tx) => {
+        await this.confirmGroup(tx, bookingId);
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
 
     this.logger.log(
       JSON.stringify({
         event: "group_tutor_approved",
         bookingId,
-        intentsCreated: invitees.length,
       }),
     );
-
-    // Notify host that the tutor approved. Each invitee is also notified
-    // so they know to pay; reusing group_decision keeps the surface small.
-    await this.notifications.notify({
-      userId: booking.studentId,
-      type: "group_decision",
-      title: "ติวเตอร์อนุมัติคลาสกลุ่มแล้ว",
-      body: "เพื่อนของคุณกำลังชำระเงิน — คลาสจะยืนยันเมื่อทุกคนชำระครบ",
-      actionUrl: `/bookings/${bookingId}/group`,
-      sourceType: "booking",
-      sourceId: bookingId,
-    });
-    for (const p of invitees) {
-      await this.notifications.notify({
-        userId: p.studentId,
-        type: "group_decision",
-        title: "ติวเตอร์อนุมัติคลาสกลุ่มแล้ว",
-        body: "ชำระเงินภายใน 24 ชั่วโมงเพื่อยืนยันที่นั่งของคุณ",
-        actionUrl: `/bookings/${bookingId}/group`,
-        sourceType: "booking",
-        sourceId: bookingId,
-      });
-    }
 
     return this.listParticipants(booking.id);
   }
@@ -455,47 +422,47 @@ export class GroupSessionService {
     });
   }
 
-  // ── Slip-verify worker callback (wired in step 7) ─────────────────────
+  // ── Slip-verify worker callback ───────────────────────────────────────
   /**
-   * Called when an invitee (or the host) successfully verifies a slip and
-   * their PaymentIntent flips to held_in_escrow. Idempotent — re-calls on
-   * the same intent are no-ops.
-   *
-   * NOTE: not yet wired. PaymentsService.uploadSlip will dispatch here in
-   * step 7. For 1-on-1 bookings (sessionType=one_on_one) this returns
-   * early; the existing PaymentsService path still flips booking.status.
+   * FR-TH-18 rev2: called when a host's group PaymentIntent flips to
+   * held_in_escrow (auto via ZercleSlip or manual via admin.approveSlip).
+   * Marks the host's BookingParticipant as paid + links the intent.
+   * Does NOT advance groupStatus — that's the tutor's job via
+   * approveGroup. Idempotent; safe to call multiple times for the same
+   * intent.
    */
   async onParticipantPaid(paymentIntentId: string) {
-    const participant = await this.prisma.bookingParticipant.findUnique({
-      where: { paymentIntentId },
-      include: { booking: true },
+    const intent = await this.prisma.paymentIntent.findUnique({
+      where: { id: paymentIntentId },
     });
-    if (!participant) return; // 1-on-1 host intent — no participant link
-    if (participant.booking.sessionType !== "group") return;
-    if (participant.status === "paid") return; // idempotent
+    if (!intent || !intent.bookingId) return;
 
-    await this.prisma.$transaction(
-      async (tx) => {
-        const updated = await tx.bookingParticipant.update({
-          where: { id: participant.id },
-          data: { status: "paid", paidAt: new Date() },
-        });
-        const all = await tx.bookingParticipant.findMany({
-          where: { bookingId: participant.bookingId },
-        });
-        if (shouldConfirmGroup(all, participant.booking.capacity)) {
-          await this.confirmGroup(tx, participant.bookingId);
-        }
-        return updated;
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: intent.bookingId },
+      include: { participants: { where: { role: "host" } } },
+    });
+    if (!booking || booking.sessionType !== "group") return;
+
+    const hostParticipant = booking.participants.find(
+      (p) => p.role === "host" && p.studentId === intent.payerId,
     );
+    if (!hostParticipant) return;
+    if (hostParticipant.status === "paid") return; // idempotent
+
+    await this.prisma.bookingParticipant.update({
+      where: { id: hostParticipant.id },
+      data: {
+        status: "paid",
+        paidAt: new Date(),
+        paymentIntentId: intent.id,
+      },
+    });
 
     this.logger.log(
       JSON.stringify({
-        event: "group_participant_paid",
-        bookingId: participant.bookingId,
-        participantId: participant.id,
+        event: "group_host_paid",
+        bookingId: booking.id,
+        participantId: hostParticipant.id,
       }),
     );
   }
@@ -573,56 +540,49 @@ export class GroupSessionService {
 
   // ── Public: any → failed ──────────────────────────────────────────────
   /**
-   * Writes 100% RefundLedger rows for every PAID participant, marks every
-   * other pending intent failed, sets groupStatus=failed +
-   * booking.status=cancelled. No tutor defectCount increment (group
-   * failures are operational, not tutor misconduct).
+   * FR-TH-18 rev2: writes a 100% RefundLedger row for the HOST if they
+   * paid (host is the only payer in the new model), cancels any pending
+   * host intent, and flips groupStatus=failed + booking.status=cancelled.
+   * No tutor defectCount increment — group failures are operational, not
+   * tutor misconduct.
    */
   async failGroup(bookingId: string, reason: RefundReason) {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
-      include: {
-        participants: {
-          include: { paymentIntent: true },
-        },
-      },
+      include: { paymentIntent: true },
     });
     if (!booking) throw new NotFoundException();
     if (booking.groupStatus === "failed") return; // idempotent
 
+    const hostIntent = booking.paymentIntent;
+    const wasPaid = hostIntent?.status === "held_in_escrow";
+
     await this.prisma.$transaction(async (tx) => {
-      for (const p of booking.participants) {
-        if (!p.paymentIntent) continue;
-        if (p.status === "paid") {
-          // 100% refund — no tutor cut, no platform cut. RefundLedger.bookingId
-          // is required so we set it from the participant even though the
-          // invitee's PaymentIntent.bookingId may be null (invariant: host
-          // intent links to booking, invitee intent does not — see schema
-          // comment in step 1).
+      if (hostIntent) {
+        if (wasPaid) {
           await tx.refundLedger.create({
             data: {
-              paymentIntentId: p.paymentIntent.id,
+              paymentIntentId: hostIntent.id,
               bookingId: booking.id,
               originalAmountThb:
-                p.paymentIntent.originalAmountThb ?? p.paymentIntent.amountThb,
-              studentRefundThb: p.paymentIntent.amountThb,
+                hostIntent.originalAmountThb ?? hostIntent.amountThb,
+              studentRefundThb: hostIntent.amountThb,
               tutorThb: 0,
               platformThb: 0,
               reasonCode: reason,
             },
           });
           await tx.paymentIntent.update({
-            where: { id: p.paymentIntent.id },
+            where: { id: hostIntent.id },
             data: { status: "refunded", amountThb: 0 },
           });
         } else if (
           ["pending_transfer", "slip_uploaded", "verifying"].includes(
-            p.paymentIntent.status,
+            hostIntent.status,
           )
         ) {
-          // Pending intent gets cancelled — never paid, no refund needed.
           await tx.paymentIntent.update({
-            where: { id: p.paymentIntent.id },
+            where: { id: hostIntent.id },
             data: { status: "failed" },
           });
         }
@@ -641,8 +601,7 @@ export class GroupSessionService {
         event: "group_failed",
         bookingId,
         reason,
-        refunded: booking.participants.filter((p) => p.status === "paid")
-          .length,
+        refundedHost: wasPaid,
       }),
     );
   }
@@ -776,11 +735,11 @@ export class GroupSessionService {
   }
 
   /**
-   * FR-TH-18 cron — fail every `tutor_review` group where the tutor's
-   * approval was >24h ago and not every seat is paid. The approval moment
-   * is read from BookingParticipant.paymentIntentId presence: approveGroup
-   * creates the invitee PaymentIntents in one shot, so the earliest
-   * invitee intent's createdAt is the approval timestamp.
+   * FR-TH-18 rev2 cron — fail every `tutor_review` group that the tutor
+   * hasn't acted on within 24h of the last invitee accept. Triggers a
+   * full refund to the host (if they paid). "Last invitee accept" is the
+   * proxy for "group landed in tutor_review", since the latest invitee
+   * acceptance is what flipped the state.
    */
   async runPaymentDeadlineSweep(now: Date = new Date()) {
     const cutoff = subHours(now, 24);
@@ -789,20 +748,20 @@ export class GroupSessionService {
         sessionType: "group",
         groupStatus: "tutor_review",
         participants: {
-          some: {
-            role: "invited",
-            paymentIntentId: { not: null },
-            paymentIntent: { createdAt: { lt: cutoff } },
+          every: {
+            OR: [
+              { role: "host" },
+              { acceptedAt: { lt: cutoff, not: null } },
+              { status: "declined" },
+              { status: "expired" },
+            ],
           },
         },
       },
-      include: {
-        participants: { select: { status: true } },
-      },
+      select: { id: true },
     });
     let failed = 0;
     for (const b of candidates) {
-      if (b.participants.every((p) => p.status === "paid")) continue; // race
       try {
         await this.failGroup(b.id, "group_payment_incomplete");
         failed++;
@@ -988,15 +947,4 @@ export function shouldMoveToTutorReview(
   );
 }
 
-/**
- * True when every seat in the group has paid. Used to advance
- * tutor_review → confirmed once the last invitee's slip verifies.
- */
-export function shouldConfirmGroup(
-  participants: ReadonlyArray<{ status: string }>,
-  capacity: number,
-): boolean {
-  if (participants.length < capacity) return false;
-  return participants.every((p) => p.status === "paid");
-}
 
