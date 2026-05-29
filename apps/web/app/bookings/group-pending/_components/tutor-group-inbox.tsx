@@ -15,11 +15,13 @@ interface Props {
 
 export function TutorGroupInbox({ initial }: Props) {
   const queryClient = useQueryClient();
+  // FR-CM-08 rev2: SSE pushes ["bookings"] on any group lifecycle
+  // mutation (invitee accepted, host paid, tutor approved/rejected),
+  // so the 30s timer is gone — refetch fires on the push.
   const pendingQuery = useQuery({
     queryKey: ["bookings", "group-pending"],
     queryFn: () => createApiClient().bookings.groupPending(),
     initialData: initial,
-    refetchInterval: 30_000,
   });
 
   return (

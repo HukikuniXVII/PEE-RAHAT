@@ -58,6 +58,7 @@ function build(): { svc: AdminReportsService } & Mocks {
       ),
   };
   const notifications = { notify: jest.fn().mockResolvedValue(undefined) };
+  const sse = { publishInvalidate: jest.fn() };
   const svc = new AdminReportsService(
     prisma as unknown as PrismaService,
     targetResolver as unknown as TargetResolverService,
@@ -65,6 +66,7 @@ function build(): { svc: AdminReportsService } & Mocks {
     audit as unknown as AuditLogService,
     storage as unknown as StorageService,
     notifications as unknown as NotificationService,
+    sse as unknown as import("../notifications/sse.gateway").SseGateway,
   );
   return { svc, prisma, resolution, audit, notifications };
 }

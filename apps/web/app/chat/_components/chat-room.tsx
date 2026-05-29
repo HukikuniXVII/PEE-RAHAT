@@ -116,24 +116,22 @@ export function ChatRoom({ thread, initialMessages, onBack }: Props) {
   );
   const [showProposeDialog, setShowProposeDialog] = useState(false);
 
+  // FR-CM-08 rev2: SSE invalidations from ChatService.send /
+  // postSystemMessage / closeThread + booking-status fanouts cover the
+  // real-time update path now. The 5s polls these used to do are
+  // dropped — refetch happens when the server pushes ["chat", ...] or
+  // ["bookings", "byId", id], not on a timer.
   const messagesQuery = useQuery({
     queryKey: ["chat", "messages", thread.id],
     queryFn: () => createApiClient().chat.messages(thread.id),
     initialData: initialMessages,
-    refetchInterval: 5000,
   });
   const messages = messagesQuery.data ?? initialMessages;
 
-  // V2 chat redesign: inline booking-proposal card data, synthesized
-  // from the thread's active PostponeRequest. Null when no active
-  // proposal → card suppressed. Gate on bookingId so threads without
-  // an attached booking (open-with-tutor before any booking exists) don't
-  // poll the endpoint every 5s for guaranteed-null responses.
   const proposalQuery = useQuery({
     queryKey: ["chat", "proposal", thread.id],
     queryFn: () => createApiClient().chat.proposal(thread.id),
     enabled: !!thread.bookingId,
-    refetchInterval: 5000,
   });
   const proposal = proposalQuery.data ?? null;
 
@@ -143,7 +141,6 @@ export function ChatRoom({ thread, initialMessages, onBack }: Props) {
     queryKey: ["bookings", "byId", thread.bookingId],
     queryFn: () => createApiClient().bookings.byId(thread.bookingId!),
     enabled: !!thread.bookingId,
-    refetchInterval: 5000,
   });
   const booking = bookingQuery.data;
   const closed = !!thread.closedAt;

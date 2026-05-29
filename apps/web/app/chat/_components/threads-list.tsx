@@ -85,11 +85,12 @@ function BookingBadge({ summary }: { summary: ChatThreadBookingSummary }) {
 
 export function ThreadsList({ initialThreads, initialSelectedId = null }: Props) {
   const router = useRouter();
+  // FR-CM-08 rev2: SSE pushes ["chat", "threads"] on any thread mutation,
+  // so the 30s timer is gone — refetch fires on demand.
   const { data } = useQuery({
     queryKey: ["chat", "threads"],
     queryFn: () => createApiClient().chat.threads(),
     initialData: initialThreads,
-    refetchInterval: 30_000,
   });
   const allThreads = data ?? initialThreads;
   const [search, setSearch] = useState("");

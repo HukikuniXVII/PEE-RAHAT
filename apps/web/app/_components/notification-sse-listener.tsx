@@ -59,6 +59,27 @@ export function NotificationSseListener() {
           // patching state — cheap (≤20 rows) and avoids merge bugs.
           queryClient.invalidateQueries({ queryKey: ["notifications"] });
         });
+        // Generic cache-invalidation channel. Backend services call
+        // SseGateway.publishInvalidate(userIds, queryKey) after any
+        // mutation that affects data the user might be looking at;
+        // we forward the key straight to React Query so the
+        // corresponding useQuery refetches without a manual reload.
+        next.addEventListener("cache.invalidate", (e) => {
+          try {
+            const payload = JSON.parse((e as MessageEvent).data) as {
+              queryKey?: unknown;
+            };
+            if (Array.isArray(payload.queryKey)) {
+              queryClient.invalidateQueries({
+                queryKey: payload.queryKey as readonly unknown[],
+              });
+            }
+          } catch {
+            // Malformed payload — ignore; the backend contract is
+            // {queryKey: unknown[]} and we'd rather drop one event
+            // than throw out of the EventSource handler.
+          }
+        });
         next.addEventListener("error", () => {
           // EventSource auto-reconnects on transient errors; this
           // listener only fires when the browser gives up (token expired,

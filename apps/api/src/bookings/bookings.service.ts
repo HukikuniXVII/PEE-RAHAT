@@ -19,6 +19,7 @@ import { addHours, subHours } from "date-fns";
 
 import { requireUserBySupabaseId } from "../common/user-lookup";
 import { NotificationService } from "../notifications/notification.service";
+import { SseGateway } from "../notifications/sse.gateway";
 import { PrismaService } from "../prisma/prisma.service";
 
 /** Prisma errors raised when a Serializable transaction is aborted because a
@@ -260,7 +261,65 @@ export class BookingsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationService,
+    private readonly sse: SseGateway,
   ) {}
+
+  /**
+   * FR-CM-08 rev2: fan an SSE cache-invalidation event at every userId
+   * touched by a booking mutation so their /bookings list, /bookings/[id]
+   * detail, and (for groups) participant roster auto-refresh without a
+   * manual reload. Always safe to call — empty audiences are a no-op
+   * inside SseGateway.publishInvalidate.
+   *
+   * Pass the row right out of decorateBooking's BOOKING_DTO_INCLUDE
+   * shape (tutor.userId + participants[].studentId already populated).
+   */
+  private fanoutBookingChange(row: BookingWithDtoInclude): void {
+    const audience = Array.from(
+      new Set<string>([
+        row.studentId,
+        row.tutor.userId,
+        ...row.participants.map((p) => p.studentId),
+      ]),
+    );
+    if (audience.length === 0) return;
+    // Prefix-invalidate the whole bookings domain so /bookings/mine,
+    // /bookings/group-pending, /bookings/byId/:id, and the participant
+    // roster all refresh in one SSE write. React Query's
+    // invalidateQueries({queryKey: ["bookings"]}) matches every key
+    // that starts with that prefix.
+    this.sse.publishInvalidate(audience, ["bookings"]);
+  }
+
+  /**
+   * Public id-based variant for callers (GroupSessionService, PostponeService)
+   * that hold a booking id but not the BOOKING_DTO_INCLUDE row. Uses a
+   * compact select that only pulls the user-id columns needed for the
+   * fanout — does NOT load chat-thread, postpone, review relations the
+   * decorateBooking shape needs.
+   */
+  async fanoutBookingChangeById(bookingId: string): Promise<void> {
+    const row = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        studentId: true,
+        tutor: { select: { userId: true } },
+        participants: { select: { studentId: true } },
+      },
+    });
+    if (!row) return;
+    const audience = Array.from(
+      new Set<string>([
+        row.studentId,
+        row.tutor.userId,
+        ...row.participants.map((p) => p.studentId),
+      ]),
+    );
+    if (audience.length === 0) return;
+    // See fanoutBookingChange — single umbrella ["bookings"] key.
+    this.sse.publishInvalidate(audience, ["bookings"]);
+  }
 
   async listForUser(supabaseId: string) {
     const user = await this.prisma.user.findUnique({ where: { supabaseId } });
@@ -475,6 +534,7 @@ export class BookingsService {
           sourceId: hydrated.id,
         });
       }
+      this.fanoutBookingChange(hydrated);
       return decorateBooking(hydrated, "student");
     } catch (err) {
       if (
@@ -751,6 +811,7 @@ export class BookingsService {
         scheduledAt: updated.scheduledAt.toISOString(),
       }),
     );
+    this.fanoutBookingChange(updated);
     return decorateBooking(updated, "student");
   }
 
@@ -803,6 +864,7 @@ export class BookingsService {
       sourceType: "booking",
       sourceId: updated.id,
     });
+    this.fanoutBookingChange(updated);
     return decorateBooking(updated, "tutor");
   }
 
@@ -850,6 +912,7 @@ export class BookingsService {
       sourceType: "booking",
       sourceId: updated.id,
     });
+    this.fanoutBookingChange(updated);
     return decorateBooking(updated, "tutor");
   }
 
@@ -915,6 +978,7 @@ export class BookingsService {
       sourceType: "booking",
       sourceId: updated.id,
     });
+    this.fanoutBookingChange(updated);
     return decorateBooking(updated, "tutor");
   }
 

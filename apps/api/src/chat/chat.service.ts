@@ -12,6 +12,7 @@ import type {
 } from "@peerahat/types";
 
 import { BypassFilterService } from "../common/bypass-filter.service";
+import { SseGateway } from "../notifications/sse.gateway";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
@@ -19,7 +20,42 @@ export class ChatService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly filter: BypassFilterService,
+    private readonly sse: SseGateway,
   ) {}
+
+  /**
+   * FR-CM-08 rev2: fan SSE cache-invalidation events at every member
+   * of a chat thread so a new message lands on every open tab without
+   * the 5s/30s polls the chat-room/threads-list used to do. Computes
+   * the audience from ChatThreadParticipant (group threads) with a
+   * fallback to the legacy 1-on-1 columns so threads created before
+   * the junction-table backfill still notify both parties.
+   */
+  private async fanoutThreadChange(threadId: string): Promise<void> {
+    const thread = await this.prisma.chatThread.findUnique({
+      where: { id: threadId },
+      select: {
+        studentId: true,
+        tutor: { select: { userId: true } },
+        participants: { select: { userId: true } },
+      },
+    });
+    if (!thread) return;
+    const audience = Array.from(
+      new Set<string>(
+        [
+          thread.studentId ?? undefined,
+          thread.tutor.userId,
+          ...thread.participants.map((p) => p.userId),
+        ].filter((x): x is string => !!x),
+      ),
+    );
+    if (audience.length === 0) return;
+    // Umbrella key — prefix-invalidates messages, threads, and proposal
+    // queries together. Frontend's notification-sse-listener does the
+    // actual queryClient.invalidateQueries({queryKey: ["chat"]}) call.
+    this.sse.publishInvalidate(audience, ["chat"]);
+  }
 
   async threadsForUser(supabaseId: string): Promise<ChatThread[]> {
     const user = await this.prisma.user.findUnique({ where: { supabaseId } });
@@ -384,6 +420,8 @@ export class ChatService {
         },
       },
     });
+    // Tell both sides their threads list has a new entry.
+    this.sse.publishInvalidate([user.id, tutor.userId], ["chat"]);
     return {
       id: created.id,
       studentId: created.studentId!,
@@ -450,6 +488,7 @@ export class ChatService {
         redacted: filtered.redacted,
       },
     });
+    await this.fanoutThreadChange(threadId);
     return {
       id: created.id,
       threadId: created.threadId,
@@ -512,6 +551,10 @@ export class ChatService {
       },
       select: { id: true },
     });
+    this.sse.publishInvalidate(
+      [booking.studentId, booking.tutor.userId],
+      ["chat"],
+    );
     return created;
   }
 
@@ -528,6 +571,7 @@ export class ChatService {
         kind: "system",
       },
     });
+    await this.fanoutThreadChange(threadId);
   }
 
   async closeThread(threadId: string): Promise<void> {
@@ -535,6 +579,7 @@ export class ChatService {
       where: { id: threadId },
       data: { closedAt: new Date() },
     });
+    await this.fanoutThreadChange(threadId);
   }
 
   async counterpartyHasMessagedSince(
@@ -636,6 +681,8 @@ export class ChatService {
       },
       select: { id: true },
     });
+    // New thread → every member's /chat list gains a row immediately.
+    this.sse.publishInvalidate(userIds, ["chat"]);
     return created;
   }
 }

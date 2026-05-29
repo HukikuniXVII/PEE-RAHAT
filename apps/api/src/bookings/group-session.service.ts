@@ -154,6 +154,7 @@ export class GroupSessionService {
       }),
     );
 
+    await this.bookings.fanoutBookingChangeById(booking.id);
     return this.listParticipants(booking.id);
   }
 
@@ -256,6 +257,7 @@ export class GroupSessionService {
       }
     }
 
+    await this.bookings.fanoutBookingChangeById(booking.id);
     return this.toParticipantRow(updated, user);
   }
 
@@ -313,6 +315,7 @@ export class GroupSessionService {
       sourceId: booking.id,
     });
 
+    await this.bookings.fanoutBookingChangeById(booking.id);
     return this.toParticipantRow(updated, user);
   }
 
@@ -392,6 +395,7 @@ export class GroupSessionService {
       }),
     );
 
+    await this.bookings.fanoutBookingChangeById(bookingId);
     return this.listParticipants(booking.id);
   }
 
@@ -515,6 +519,13 @@ export class GroupSessionService {
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
     }
+
+    // Fan out unconditionally so the host's "paid" pill + everyone's
+    // confirmed/awaiting-tutor state refreshes on screen. Safe re-run
+    // for the idempotent already-paid branch (one SSE write per audience
+    // member). confirmGroup doesn't fanout itself because it's also
+    // called from approveGroup's no-longer-applicable rev2 path.
+    await this.bookings.fanoutBookingChangeById(booking.id);
   }
 
   // ── Internal: tutor_review → confirmed ────────────────────────────────
@@ -654,6 +665,7 @@ export class GroupSessionService {
         refundedHost: wasPaid,
       }),
     );
+    await this.bookings.fanoutBookingChangeById(bookingId);
   }
 
   // ── Public landing: GET /invites/:code ────────────────────────────────
@@ -753,6 +765,7 @@ export class GroupSessionService {
       where: { id: booking.id },
       data: { inviteExpiresAt: next },
     });
+    await this.bookings.fanoutBookingChangeById(booking.id);
     return { inviteExpiresAt: next.toISOString() };
   }
 

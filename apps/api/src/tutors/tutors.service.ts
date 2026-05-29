@@ -23,6 +23,7 @@ import type { Prisma } from "@prisma/client";
 
 import { BookingsService, type BusySlot } from "../bookings/bookings.service";
 import { CryptoService } from "../common/crypto.service";
+import { SseGateway } from "../notifications/sse.gateway";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
@@ -31,6 +32,7 @@ export class TutorsService {
     private readonly prisma: PrismaService,
     private readonly bookings: BookingsService,
     private readonly crypto: CryptoService,
+    private readonly sse: SseGateway,
   ) {}
 
   /**
@@ -372,10 +374,18 @@ export class TutorsService {
     });
     const avg =
       allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length;
-    await this.prisma.tutorProfile.update({
+    const tutorProfile = await this.prisma.tutorProfile.update({
       where: { id: tutorId },
       data: { rating: avg, reviewCount: allReviews.length },
+      select: { userId: true },
     });
+
+    // FR-CM-08 rev2: reviewer's booking row swaps "Leave Review" → "Reviewed";
+    // tutor's reviews-section + byId rating tick up. Umbrella keys
+    // prefix-invalidate every descendant query in those domains.
+    const audience = [user.id, tutorProfile.userId];
+    this.sse.publishInvalidate(audience, ["bookings"]);
+    this.sse.publishInvalidate(audience, ["tutors"]);
 
     return {
       id: created.id,

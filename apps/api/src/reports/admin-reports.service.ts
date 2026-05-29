@@ -20,6 +20,7 @@ import type { Prisma, Report } from "@prisma/client";
 import { AuditLogService } from "../common/audit-log.service";
 import { StorageService } from "../common/storage.service";
 import { NotificationService } from "../notifications/notification.service";
+import { SseGateway } from "../notifications/sse.gateway";
 import { PrismaService } from "../prisma/prisma.service";
 import { ReportResolutionService } from "./report-resolution.service";
 import { TargetResolverService } from "./target-resolver.service";
@@ -51,6 +52,7 @@ export class AdminReportsService {
     private readonly audit: AuditLogService,
     private readonly storage: StorageService,
     private readonly notifications: NotificationService,
+    private readonly sse: SseGateway,
   ) {}
 
   /** Moderation queue — priority desc, then closest-to-overdue first. */
@@ -292,6 +294,7 @@ export class AdminReportsService {
         status: true,
         targetType: true,
         targetUserId: true,
+        reporterId: true,
       },
     });
     if (!report) throw new NotFoundException("ไม่พบรายงาน");
@@ -340,6 +343,11 @@ export class AdminReportsService {
         sourceId: reportId,
       });
     }
+
+    // Reporter's open detail page + their list both pick up the status
+    // change without a manual refresh. Umbrella ["reports"] prefix-
+    // invalidates both ["reports", "mine"] and ["reports", "detail", id].
+    this.sse.publishInvalidate([report.reporterId], ["reports"]);
   }
 
   /** Resolve a report — delegates the downstream effect to the resolution
@@ -372,6 +380,11 @@ export class AdminReportsService {
     });
     if (resolved) {
       await this.sendResolutionNotifications(reportId, resolved, dto);
+      const audience = [
+        resolved.reporterId,
+        ...(resolved.targetUserId ? [resolved.targetUserId] : []),
+      ];
+      this.sse.publishInvalidate(audience, ["reports"]);
     }
   }
 

@@ -114,6 +114,7 @@ export class PostponeService implements OnModuleInit {
 
     await this.queue.enqueueTimeout(request.id, chatExpiresAt);
 
+    await this.bookings.fanoutBookingChangeById(bookingId);
     return {
       threadId,
       chatExpiresAt: chatExpiresAt.toISOString(),
@@ -180,6 +181,7 @@ export class PostponeService implements OnModuleInit {
       user.id,
     );
 
+    await this.bookings.fanoutBookingChangeById(booking.id);
     return { ok: true };
   }
 
@@ -298,6 +300,10 @@ export class PostponeService implements OnModuleInit {
       );
     }
 
+    // Both the original (cancelled) booking and the new (clone) shift on
+    // screen; refresh both audiences.
+    await this.bookings.fanoutBookingChangeById(booking.id);
+    await this.bookings.fanoutBookingChangeById(newBooking.id);
     return { newBookingId: newBooking.id };
   }
 
@@ -313,6 +319,7 @@ export class PostponeService implements OnModuleInit {
         : "no_agreement";
 
     await this.applyResolution(booking, request, outcome, user.id);
+    await this.bookings.fanoutBookingChangeById(booking.id);
     return { ok: true };
   }
 
@@ -367,6 +374,7 @@ export class PostponeService implements OnModuleInit {
     // Use the initiator as the system-message actor since the worker has no
     // human caller.
     await this.applyResolution(booking, request, outcome, request.initiatorId);
+    await this.bookings.fanoutBookingChangeById(booking.id);
   }
 
   // ── applyResolution (shared cancel + timeout path) ─────────────────────

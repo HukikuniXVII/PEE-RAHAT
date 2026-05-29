@@ -95,6 +95,30 @@ export class SseGateway {
     }
   }
 
+  /**
+   * Fire a `cache.invalidate` event at each `userId` so their open
+   * EventSource clients call `queryClient.invalidateQueries({ queryKey })`.
+   * Generic alternative to one event-type-per-domain — backend services
+   * pass the React Query key they want refetched and the audience.
+   *
+   * Audience computation is the caller's job (e.g., booking mutations
+   * pass [studentUserId, tutorUserId], group mutations pass everyone in
+   * the roster). Empty arrays are a no-op so callers don't need to
+   * conditionally skip the call when nobody's online.
+   *
+   * Duplicates inside `userIds` are silently coalesced — handy when the
+   * same user is on both sides of a booking-with-self test scenario.
+   */
+  publishInvalidate(userIds: readonly string[], queryKey: readonly unknown[]): void {
+    if (userIds.length === 0) return;
+    const seen = new Set<string>();
+    for (const userId of userIds) {
+      if (seen.has(userId)) continue;
+      seen.add(userId);
+      this.emit(userId, "cache.invalidate", { queryKey });
+    }
+  }
+
   /** Total open connections — used by the /health check and tests. */
   totalConnections(): number {
     let n = 0;

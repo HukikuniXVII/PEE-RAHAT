@@ -23,6 +23,7 @@ import { ChatService } from "../chat/chat.service";
 import { StorageService } from "../common/storage.service";
 import { GoogleCalendarService } from "../integrations/google-calendar/google-calendar.service";
 import { NotificationService } from "../notifications/notification.service";
+import { SseGateway } from "../notifications/sse.gateway";
 import { PrismaService } from "../prisma/prisma.service";
 import { buildPromptPayPayload } from "./promptpay";
 import { ZercleSlipService } from "./zercle-slip/zercle-slip.service";
@@ -46,6 +47,10 @@ export class PaymentsService {
     // the same moment the booking flips to "completed". ChatModule has
     // no dependency on PaymentsModule so no forwardRef is needed here.
     private readonly chat: ChatService,
+    // FR-CM-08 rev2: 1-on-1 booking status flips (paid / completed) need
+    // to push cache invalidations directly. Group bookings already fan
+    // out via GroupSessionService.
+    private readonly sse: SseGateway,
   ) {}
 
   /**
@@ -318,6 +323,12 @@ export class PaymentsService {
         // Wrapped in try/catch so a Calendar API outage doesn't roll back
         // the payment — admin can retry via /admin/bookings/:id/regenerate-meet.
         await this.tryGenerateMeet(updated.id);
+        // FR-CM-08 rev2: push the status flip (accepted → paid) to both
+        // sides. ["bookings"] umbrella covers mine + byId + roster.
+        this.sse.publishInvalidate(
+          [updated.studentId, updated.tutor.userId],
+          ["bookings"],
+        );
       }
     } else {
       // Invitee intent: GroupSessionService finds the participant via the
@@ -377,6 +388,11 @@ export class PaymentsService {
         // FR-TH-18 rev3: need the thread id so group chats can be closed
         // at the same moment the booking flips to "completed".
         chatThread: { select: { id: true } },
+        // FR-CM-08 rev2: audience for the SSE invalidation after status
+        // → "completed" so review buttons + escrow chips swap without a
+        // refresh.
+        tutor: { select: { userId: true } },
+        participants: { select: { studentId: true } },
       },
     });
 
@@ -410,6 +426,17 @@ export class PaymentsService {
           );
         }
       }
+
+      // FR-CM-08 rev2: push the status flip to every participant — host,
+      // tutor, and (for groups) every invitee — via the umbrella key.
+      const audience = Array.from(
+        new Set<string>([
+          booking.studentId,
+          booking.tutor.userId,
+          ...booking.participants.map((p) => p.studentId),
+        ]),
+      );
+      this.sse.publishInvalidate(audience, ["bookings"]);
     }
     return { released };
   }

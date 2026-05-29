@@ -114,6 +114,7 @@ function makeService(over: Overrides = {}) {
     assertCanFile: over.rateLimit ?? jest.fn().mockResolvedValue(undefined),
   };
   const notifications = { notify: jest.fn().mockResolvedValue(undefined) };
+  const sse = { publishInvalidate: jest.fn() };
   const svc = new ReportsService(
     prisma as unknown as PrismaService,
     storage as unknown as StorageService,
@@ -121,6 +122,7 @@ function makeService(over: Overrides = {}) {
     priority as unknown as ReportPriorityService,
     rateLimit as unknown as ReportRateLimitService,
     notifications as unknown as NotificationService,
+    sse as unknown as import("../notifications/sse.gateway").SseGateway,
   );
   return {
     svc,

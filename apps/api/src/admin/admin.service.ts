@@ -21,6 +21,7 @@ import type {
   UserRole,
 } from "@peerahat/types";
 
+import { BookingsService } from "../bookings/bookings.service";
 import { GroupSessionService } from "../bookings/group-session.service";
 import { AuditLogService } from "../common/audit-log.service";
 import { CryptoService } from "../common/crypto.service";
@@ -41,6 +42,11 @@ export class AdminService {
     private readonly audit: AuditLogService,
     private readonly notifications: NotificationService,
     private readonly groupSessions: GroupSessionService,
+    // FR-CM-08 rev2: admin actions that flip booking state (approveSlip,
+    // freezeBooking, regenerateMeet, …) push cache invalidations to the
+    // affected booking participants so their /bookings list refreshes
+    // without a manual reload.
+    private readonly bookings: BookingsService,
   ) {}
 
   /**
@@ -1010,8 +1016,14 @@ export class AdminService {
             `Meet generation failed for booking ${updatedBooking.id}: ${(err as Error).message} — admin can retry`,
           );
         }
+        // FR-CM-08 rev2: push booking + admin payments queue refreshes.
+        await this.bookings.fanoutBookingChangeById(updatedBooking.id);
       }
     }
+    // Admin-queue invalidation isn't fanned here: SseGateway is per-user
+    // and we don't track an "admin broadcast" channel yet. Admin tabs
+    // still rely on manual refresh; the per-booking fanout above is the
+    // user-impact path that matters.
     return updated;
   }
 

@@ -49,11 +49,13 @@ export function GroupHostPanel({
   const [emailsRaw, setEmailsRaw] = useState("");
   const [copied, setCopied] = useState(false);
 
+  // FR-CM-08 rev2: backend fans out ["bookings"] on every roster change
+  // (invite added, invitee accepted/declined, tutor approved). No 15s
+  // poll needed — refetch fires on the SSE push.
   const participantsQuery = useQuery({
     queryKey: ["bookings", booking.id, "participants"],
     queryFn: () => createApiClient().bookings.participants(booking.id),
     initialData: initialParticipants,
-    refetchInterval: 15_000,
   });
 
   const invite = useMutation({

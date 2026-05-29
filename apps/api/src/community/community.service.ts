@@ -12,6 +12,7 @@ import {
   firstHashtag,
 } from "@peerahat/types";
 
+import { SseGateway } from "../notifications/sse.gateway";
 import { PrismaService } from "../prisma/prisma.service";
 
 // Trending lookback window. 7 days strikes a balance between "showing
@@ -29,7 +30,23 @@ function initialOf(displayName: string): string {
 
 @Injectable()
 export class CommunityService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sse: SseGateway,
+  ) {}
+
+  /**
+   * FR-CM-08 rev2: push community-feed cache invalidations. We don't
+   * have a "broadcast to every reader" channel yet (SseGateway is
+   * per-user), so we push to the explicitly named userIds — typically
+   * the actor + the post's author. Other readers' feeds stay stale until
+   * they navigate / refocus the tab; that's acceptable for a feed where
+   * the unread count + bell already nudge them.
+   */
+  private fanoutCommunity(userIds: readonly string[], queryKey: readonly unknown[]): void {
+    if (userIds.length === 0) return;
+    this.sse.publishInvalidate(userIds, queryKey);
+  }
 
   async list(supabaseId: string | null, page = 1): Promise<Page<CommunityPost>> {
     const pageSize = 20;
@@ -109,6 +126,8 @@ export class CommunityService {
         _count: { select: { replies: true, bookmarks: true } },
       },
     });
+    // Author's own feed gets the new post immediately on screen.
+    this.fanoutCommunity([user.id], ["community"]);
     return this.toDto(post, { hasUpvoted: false, hasBookmarked: false });
   }
 
@@ -121,6 +140,13 @@ export class CommunityService {
     const existing = await this.prisma.postUpvote.findUnique({
       where: { postId_userId: { postId, userId: user.id } },
     });
+    const post = await this.prisma.communityPost.findUnique({
+      where: { id: postId },
+      select: { authorId: true },
+    });
+    const audience = Array.from(
+      new Set<string>([user.id, ...(post ? [post.authorId] : [])]),
+    );
     if (existing) {
       await this.prisma.postUpvote.delete({
         where: { postId_userId: { postId, userId: user.id } },
@@ -129,6 +155,7 @@ export class CommunityService {
         where: { id: postId },
         data: { upvoteCount: { decrement: 1 } },
       });
+      this.fanoutCommunity(audience, ["community"]);
       return { upvotes: updated.upvoteCount, hasUpvoted: false };
     }
     await this.prisma.postUpvote.create({
@@ -138,6 +165,7 @@ export class CommunityService {
       where: { id: postId },
       data: { upvoteCount: { increment: 1 } },
     });
+    this.fanoutCommunity(audience, ["community"]);
     return { upvotes: updated.upvoteCount, hasUpvoted: true };
   }
 
@@ -164,6 +192,8 @@ export class CommunityService {
     }
 
     const bookmarkCount = await this.prisma.postBookmark.count({ where: { postId } });
+    // Single umbrella key covers bookmarks + posts in one SSE write.
+    this.fanoutCommunity([user.id], ["community"]);
     return { hasBookmarked: !existing, bookmarkCount };
   }
 
@@ -476,6 +506,10 @@ export class CommunityService {
       data: { postId, authorId: user.id, content },
       include: { author: { include: { tutorProfile: true } } },
     });
+    // Post author sees their reply count tick + the new reply on screen;
+    // replier sees their own reply land immediately.
+    const audience = Array.from(new Set<string>([user.id, post.authorId]));
+    this.fanoutCommunity(audience, ["community"]);
     return {
       id: reply.id,
       postId: reply.postId,

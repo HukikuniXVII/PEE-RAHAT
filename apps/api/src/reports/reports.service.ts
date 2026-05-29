@@ -20,6 +20,7 @@ import type { ReportEvent } from "@prisma/client";
 import { readPositiveInt } from "../common/env";
 import { StorageService } from "../common/storage.service";
 import { NotificationService } from "../notifications/notification.service";
+import { SseGateway } from "../notifications/sse.gateway";
 import { PrismaService } from "../prisma/prisma.service";
 import { ReportPriorityService } from "./report-priority.service";
 import { ReportRateLimitService } from "./report-rate-limit.service";
@@ -57,6 +58,7 @@ export class ReportsService {
     private readonly priority: ReportPriorityService,
     private readonly rateLimit: ReportRateLimitService,
     private readonly notifications: NotificationService,
+    private readonly sse: SseGateway,
   ) {
     this.maxEvidenceMb = readPositiveInt("REPORT_MAX_EVIDENCE_MB", 10);
   }
@@ -171,6 +173,9 @@ export class ReportsService {
       sourceType: "report",
       sourceId: report.id,
     });
+
+    // Reporter's "my reports" list gains the new row immediately.
+    this.sse.publishInvalidate([reporter.id], ["reports"]);
 
     return {
       id: report.id,
@@ -298,6 +303,9 @@ export class ReportsService {
         evidenceKeys: dto.evidenceKeys,
       },
     });
+    // Reporter's detail view picks up the new comment without a refresh.
+    // Admin-side queue would need a broadcast channel — out of scope here.
+    this.sse.publishInvalidate([reporter.id], ["reports"]);
     return this.toEventView(event);
   }
 
