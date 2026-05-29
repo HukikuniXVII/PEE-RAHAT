@@ -369,15 +369,10 @@ export class BookingsService {
     ) {
       throw new ForbiddenException("ติวเตอร์รายนี้ถูกพักการใช้งานชั่วคราว");
     }
-    // FR-TH-04: tutors who skipped the intro-video step at onboarding
-    // stay booking-disabled until they upload one. tutors.search also
-    // excludes them, so this guard is mostly defence in depth — a
-    // deep-link or stale id could still reach here.
-    if (!tutor.introVideoUrl) {
-      throw new ForbiddenException(
-        "ติวเตอร์รายนี้ยังไม่ได้เปิดรับการจอง (รอคลิปแนะนำตัว)",
-      );
-    }
+    // FR-TH-04 rev2: intro-video gate sunset — bookings are open to
+    // any applied tutor regardless of intro-video upload state. KYC
+    // verification is purely a cosmetic badge (see tutors.search and
+    // FR-TH-02 / TutorCard).
 
     // Past-only guard for 1-on-1 (group has the stricter next-day-BKK
     // check below). MIN_BOOKING_LEAD_MINUTES=0 means scheduledAt just

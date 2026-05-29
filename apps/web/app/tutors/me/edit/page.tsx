@@ -7,7 +7,6 @@ import { BankStatusBanner } from "./_components/bank-status-banner";
 import { GoogleCalendarCard } from "./_components/google-calendar-card";
 import { ProfileCompletionPanel } from "./_components/profile-completion-panel";
 import { ProfileEditForm } from "./_components/profile-edit-form";
-import { VideoPendingBanner } from "./_components/video-pending-banner";
 
 export default async function TutorProfileEditPage() {
   const token = await requireAuth("/tutors/me/edit");
@@ -28,7 +27,6 @@ export default async function TutorProfileEditPage() {
         </p>
       </header>
       <ProfileCompletionPanel tutor={tutor} />
-      {!tutor.introVideoUrl && <VideoPendingBanner />}
       <div id="google-calendar-section">
         <GoogleCalendarCard tutor={tutor} />
       </div>

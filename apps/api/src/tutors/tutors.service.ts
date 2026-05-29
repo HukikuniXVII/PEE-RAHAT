@@ -136,9 +136,11 @@ export class TutorsService {
     // drops rows where suspendedUntil IS NULL — i.e. every never-
     // suspended tutor.
     //
-    // FR-TH-04 (intro video): tutors without an intro video stay
-    // hidden. Same field powers the booking-create guard in
-    // BookingsService.create as defence in depth.
+    // FR-TH-04 rev2 (intro video sunset): the intro video is no longer
+    // a discovery gate — every applied tutor is searchable from day 1
+    // regardless of upload state. KYC verification is now purely a
+    // cosmetic badge (see FR-TH-02 / TutorCard). The booking-create
+    // guard in BookingsService.create was dropped alongside this.
     //
     // FR-TH-02 (admin hide): admin can toggle hiddenFromSearchAt to
     // remove a tutor from the search list without suspending the
@@ -146,7 +148,6 @@ export class TutorsService {
     // work for hidden tutors; only discovery is gated.
     const now = new Date();
     const where: Prisma.TutorProfileWhereInput = {
-      introVideoUrl: { not: null },
       hiddenFromSearchAt: null,
       user: {
         OR: [{ suspendedUntil: null }, { suspendedUntil: { lte: now } }],

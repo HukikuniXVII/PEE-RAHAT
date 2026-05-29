@@ -36,19 +36,19 @@ interface Milestone {
 }
 
 /**
- * FR-TH-04 gamified onboarding-completion checklist on /tutors/me/edit.
- * Surfaces the five gates a tutor must clear to be searchable + bookable:
+ * FR-TH-04 rev2 gamified profile checklist on /tutors/me/edit.
+ * Lists the five milestones that make a tutor look complete + trusted:
  *
- *   1. Profile bio          — implicit (this page only renders when the
+ *   1. Profile bio          — implicit (page only renders when the
  *                             tutor profile exists)
  *   2. KYC verification     — admin-approved Verified Badge
- *   3. Bank account         — required for payout, hides tutor in search
+ *   3. Bank account         — required for payout
  *   4. Google Calendar      — required for FR-TH-17 Meet generation
- *   5. Intro video          — required for FR-TH-04 visibility
+ *   5. Intro video          — recommended for conversion
  *
- * Mirrors the visibility logic on the server (tutors.service.search WHERE
- * clause). When all five are done the panel collapses to a single
- * success chip so the dashboard isn't cluttered for verified tutors.
+ * Since the intro-video gate was sunset, none of these block discovery
+ * or bookings — the panel is purely about completeness + trust signals.
+ * When all five are done the panel collapses to a single success chip.
  */
 export function ProfileCompletionPanel({ tutor }: Props) {
   // Bank status lives behind a separate endpoint; the existing
@@ -80,7 +80,7 @@ export function ProfileCompletionPanel({ tutor }: Props) {
       label: "บัญชีรับเงิน",
       description: hasBank
         ? "พร้อมรับค่าตอบแทน"
-        : "ต้องมีเพื่อรับโอนค่าตอบแทนและเปิดการมองเห็น",
+        : "ต้องมีเพื่อรับโอนค่าตอบแทนหลังคลาสจบ",
       state: hasBank ? "done" : "action_needed",
       href: "/tutors/me/bank" as Route,
       actionLabel: "เพิ่มบัญชี",
@@ -104,11 +104,11 @@ export function ProfileCompletionPanel({ tutor }: Props) {
       label: "คลิปแนะนำตัว",
       description: tutor.introVideoUrl
         ? "อัปโหลดแล้ว — แสดงบนหน้าโปรไฟล์"
-        : "ต้องมีคลิป 1–3 นาที เพื่อเปิดการมองเห็นและการจอง",
+        : "แนะนำให้อัปคลิป 1–3 นาที เพื่อช่วยให้น้องตัดสินใจเลือกคุณ",
       state: tutor.introVideoUrl ? "done" : "action_needed",
       onAction: () => {
-        // Same affordance as VideoPendingBanner — drop a `?focus=video`
-        // and let the form's effect handle the scroll/focus/flash.
+        // Drop a `?focus=video` and let the form's effect handle the
+        // scroll/focus/flash of the intro-video input.
         const url = new URL(window.location.href);
         url.searchParams.set("focus", "video");
         window.history.replaceState(null, "", url.toString());
@@ -150,7 +150,7 @@ export function ProfileCompletionPanel({ tutor }: Props) {
               Profile Completion
             </p>
             <h2 className="thai text-xl font-black text-grape-deep">
-              เปิดการมองเห็นโปรไฟล์ของคุณ
+              ทำให้โปรไฟล์ของคุณน่าเชื่อถือยิ่งขึ้น
             </h2>
           </div>
           <span className="tabular-nums text-[12px] font-bold px-3 py-1.5 rounded-full bg-grape-soft text-grape-deep whitespace-nowrap">

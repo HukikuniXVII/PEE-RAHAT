@@ -15,11 +15,11 @@ import { createApiClient } from "@/lib/api-client";
 
 
 
-// Final step of tutor onboarding (FR-TH-04). Surfaces a soft nudge to
-// upload an intro video before landing on the dashboard. The skip path
-// is intentional — the user lands on /tutors/me/edit with the profile
-// hidden from search (gate enforced server-side in tutors.search and
-// bookings.create) so they can come back and finish from the dashboard.
+// Final step of tutor onboarding (FR-TH-04 rev2). Soft nudge to upload
+// an intro video before landing on the dashboard. The intro-video
+// discovery/booking gate was sunset, so skipping is no longer
+// penalised — the tutor is searchable + bookable either way. Video
+// still helps conversion, so we keep the prompt prominent.
 
 type SubmitAction = "saved" | "skipped";
 
@@ -215,7 +215,7 @@ export function IntroVideoModal({ open, onClose }: Props) {
             disabled={save.isPending}
             className="thai text-[12.5px] text-ink-mute hover:text-ink-soft font-semibold py-1 transition-colors disabled:opacity-40"
           >
-            ข้ามไปก่อน (อัปโหลดทีหลังเพื่อเปิดการมองเห็นโปรไฟล์)
+            ข้ามไปก่อน (อัปโหลดทีหลังได้)
           </button>
         </div>
       </DialogContent>
