@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" width="640" height="400" role="img" aria-label="ตัวอย่างบัตรประชาชน">
+  <defs>
+    <linearGradient id="cardBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F5F5F4"/>
+      <stop offset="100%" stop-color="#EDEAE5"/>
+    </linearGradient>
+    <pattern id="wm" x="0" y="0" width="320" height="180" patternUnits="userSpaceOnUse" patternTransform="rotate(-20)">
+      <text x="0" y="20" font-family="system-ui, -apple-system, 'Sarabun', sans-serif" font-size="14" font-weight="700" fill="#55418B" fill-opacity="0.18">ใช้เพื่อสมัครติวเตอร์ peerahat.com</text>
+      <text x="0" y="40" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#55418B" fill-opacity="0.15">for tutor application only</text>
+    </pattern>
+  </defs>
+
+  <rect width="640" height="400" fill="#F5F5F4"/>
+
+  <!-- Card -->
+  <g transform="translate(40,40)">
+    <rect width="560" height="320" rx="20" fill="url(#cardBg)" stroke="#DFD9D8" stroke-width="2"/>
+
+    <!-- Header strip -->
+    <rect width="560" height="56" rx="20" fill="#55418B"/>
+    <rect y="36" width="560" height="20" fill="#55418B"/>
+    <text x="24" y="36" font-family="system-ui, 'Sarabun', sans-serif" font-size="16" font-weight="800" fill="#F5F5F4">บัตรประจำตัวประชาชน</text>
+    <text x="24" y="50" font-family="system-ui, sans-serif" font-size="10" font-weight="600" fill="#F0CB67" letter-spacing="0.12em">THAI NATIONAL ID CARD · SAMPLE</text>
+
+    <!-- Photo placeholder -->
+    <g transform="translate(28,84)">
+      <rect width="140" height="170" rx="8" fill="#C6BFD9" stroke="#8E7BC1" stroke-width="2" stroke-dasharray="6 4"/>
+      <circle cx="70" cy="68" r="28" fill="#8E7BC1"/>
+      <path d="M30 152 C 40 118, 100 118, 110 152 Z" fill="#8E7BC1"/>
+      <text x="70" y="166" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" font-weight="700" fill="#55418B">PHOTO</text>
+    </g>
+
+    <!-- Field lines -->
+    <g transform="translate(196,90)" font-family="system-ui, 'Sarabun', sans-serif" fill="#2E2A3D">
+      <text font-size="10" font-weight="700" fill="#6B656E">เลขประจำตัวประชาชน / Identification Number</text>
+      <text y="20" font-size="20" font-weight="800" letter-spacing="0.18em">1 2345 67890 12 3</text>
+
+      <text y="52" font-size="10" font-weight="700" fill="#6B656E">ชื่อตัวและชื่อสกุล / Name</text>
+      <text y="70" font-size="15" font-weight="700">นาย ตัวอย่าง ภาพถ่าย</text>
+      <text y="86" font-size="12" font-weight="600" fill="#4D4750">Mr. Sample Photo</text>
+
+      <text y="116" font-size="10" font-weight="700" fill="#6B656E">เกิดวันที่ / Date of Birth</text>
+      <text y="134" font-size="13" font-weight="700">1 ม.ค. 2545 · 1 Jan 2002</text>
+
+      <text y="166" font-size="10" font-weight="700" fill="#6B656E">วันออกบัตร / Issue · วันบัตรหมดอายุ / Expiry</text>
+      <text y="184" font-size="13" font-weight="700">01-01-2566 · 01-01-2576</text>
+
+      <text y="216" font-size="10" font-weight="700" fill="#6B656E">ที่อยู่ / Address</text>
+      <text y="232" font-size="11" font-weight="600">123 ถ.พหลโยธิน แขวงจตุจักร เขตจตุจักร กทม. 10900</text>
+    </g>
+
+    <!-- Watermark overlay -->
+    <rect width="560" height="320" rx="20" fill="url(#wm)"/>
+    <text x="280" y="180" text-anchor="middle" font-family="system-ui, 'Sarabun', sans-serif" font-size="28" font-weight="900" fill="#55418B" fill-opacity="0.22" transform="rotate(-12 280 180)">ตัวอย่าง · SAMPLE</text>
+  </g>
+</svg>

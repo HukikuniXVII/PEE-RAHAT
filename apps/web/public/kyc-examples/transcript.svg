@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 620" width="480" height="620" role="img" aria-label="ตัวอย่างใบแสดงผลการเรียน">
+  <defs>
+    <pattern id="wm3" x="0" y="0" width="300" height="170" patternUnits="userSpaceOnUse" patternTransform="rotate(-20)">
+      <text x="0" y="20" font-family="system-ui, -apple-system, 'Sarabun', sans-serif" font-size="14" font-weight="700" fill="#55418B" fill-opacity="0.16">ใช้เพื่อสมัครติวเตอร์ peerahat.com</text>
+      <text x="0" y="40" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="#55418B" fill-opacity="0.13">for tutor application only</text>
+    </pattern>
+  </defs>
+
+  <rect width="480" height="620" fill="#EDEAE5"/>
+
+  <!-- Paper -->
+  <g transform="translate(40,30)">
+    <rect width="400" height="560" rx="12" fill="#F5F5F4" stroke="#DFD9D8" stroke-width="2"/>
+
+    <!-- Header -->
+    <circle cx="60" cy="60" r="32" fill="#55418B"/>
+    <circle cx="60" cy="60" r="24" fill="none" stroke="#F0CB67" stroke-width="2"/>
+    <text x="60" y="64" text-anchor="middle" font-family="system-ui, 'Sarabun', sans-serif" font-size="10" font-weight="900" fill="#F0CB67">UNI</text>
+
+    <text x="108" y="48" font-family="system-ui, 'Sarabun', sans-serif" font-size="15" font-weight="900" fill="#2E2A3D">มหาวิทยาลัยตัวอย่าง</text>
+    <text x="108" y="64" font-family="system-ui, sans-serif" font-size="11" font-weight="700" fill="#4D4750">Sample University · Faculty of Science</text>
+    <text x="108" y="80" font-family="system-ui, 'Sarabun', sans-serif" font-size="11" font-weight="800" fill="#55418B">ใบแสดงผลการเรียน · Academic Transcript</text>
+
+    <line x1="20" y1="108" x2="380" y2="108" stroke="#DFD9D8" stroke-width="1.5"/>
+
+    <!-- Student info -->
+    <g transform="translate(24,128)" font-family="system-ui, 'Sarabun', sans-serif" fill="#2E2A3D">
+      <text font-size="9" font-weight="700" fill="#6B656E">ชื่อ-สกุล / Name</text>
+      <text y="14" font-size="12" font-weight="700">นาย ตัวอย่าง ภาพถ่าย · Mr. Sample Photo</text>
+
+      <text y="36" font-size="9" font-weight="700" fill="#6B656E">รหัสนักศึกษา / Student ID</text>
+      <text y="50" font-size="12" font-weight="700" letter-spacing="0.1em">65010001</text>
+
+      <text x="180" y="36" font-size="9" font-weight="700" fill="#6B656E">คณะ / Faculty</text>
+      <text x="180" y="50" font-size="12" font-weight="700">วิทยาศาสตร์</text>
+    </g>
+
+    <!-- Table header -->
+    <g transform="translate(24,200)">
+      <rect width="352" height="26" rx="6" fill="#55418B"/>
+      <text x="14" y="17" font-family="system-ui, 'Sarabun', sans-serif" font-size="10" font-weight="800" fill="#F5F5F4">รหัสวิชา</text>
+      <text x="78" y="17" font-family="system-ui, 'Sarabun', sans-serif" font-size="10" font-weight="800" fill="#F5F5F4">ชื่อวิชา / Course</text>
+      <text x="248" y="17" font-family="system-ui, sans-serif" font-size="10" font-weight="800" fill="#F5F5F4">หน่วยกิต</text>
+      <text x="316" y="17" font-family="system-ui, sans-serif" font-size="10" font-weight="800" fill="#F5F5F4">เกรด</text>
+    </g>
+
+    <!-- Rows -->
+    <g transform="translate(24,234)" font-family="system-ui, 'Sarabun', sans-serif" fill="#2E2A3D">
+      <g>
+        <text x="14" y="14" font-size="10" font-weight="700">01-101</text>
+        <text x="78" y="14" font-size="10" font-weight="600">Calculus I</text>
+        <text x="262" y="14" font-size="10" font-weight="700">3</text>
+        <text x="322" y="14" font-size="10" font-weight="800" fill="#0F766E">A</text>
+      </g>
+      <g transform="translate(0,24)">
+        <text x="14" y="14" font-size="10" font-weight="700">01-102</text>
+        <text x="78" y="14" font-size="10" font-weight="600">General Physics</text>
+        <text x="262" y="14" font-size="10" font-weight="700">3</text>
+        <text x="322" y="14" font-size="10" font-weight="800" fill="#0F766E">A</text>
+      </g>
+      <g transform="translate(0,48)">
+        <text x="14" y="14" font-size="10" font-weight="700">01-110</text>
+        <text x="78" y="14" font-size="10" font-weight="600">General Chemistry</text>
+        <text x="262" y="14" font-size="10" font-weight="700">3</text>
+        <text x="322" y="14" font-size="10" font-weight="800" fill="#15803D">B+</text>
+      </g>
+      <g transform="translate(0,72)">
+        <text x="14" y="14" font-size="10" font-weight="700">02-201</text>
+        <text x="78" y="14" font-size="10" font-weight="600">English Composition</text>
+        <text x="262" y="14" font-size="10" font-weight="700">3</text>
+        <text x="322" y="14" font-size="10" font-weight="800" fill="#15803D">B+</text>
+      </g>
+      <g transform="translate(0,96)">
+        <text x="14" y="14" font-size="10" font-weight="700">03-110</text>
+        <text x="78" y="14" font-size="10" font-weight="600">Thai Civilization</text>
+        <text x="262" y="14" font-size="10" font-weight="700">3</text>
+        <text x="322" y="14" font-size="10" font-weight="800" fill="#0F766E">A</text>
+      </g>
+      <line x1="0" y1="124" x2="352" y2="124" stroke="#DFD9D8" stroke-width="1"/>
+
+      <g transform="translate(0,140)">
+        <text x="14" y="14" font-size="10" font-weight="800" fill="#4D4750">GPAX</text>
+        <text x="262" y="14" font-size="10" font-weight="800">15</text>
+        <text x="316" y="14" font-size="11" font-weight="900" fill="#55418B">3.78</text>
+      </g>
+    </g>
+
+    <!-- Signature -->
+    <g transform="translate(24,432)">
+      <text font-family="system-ui, 'Sarabun', sans-serif" font-size="9" font-weight="700" fill="#6B656E">นายทะเบียน / Registrar</text>
+      <path d="M0 28 q 30 -20 60 0 t 60 0" stroke="#2E2A3D" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <text y="56" font-size="10" font-weight="700" fill="#2E2A3D">_____________________________</text>
+      <text y="72" font-size="9" font-weight="600" fill="#4D4750">วันที่ออก · 30 พฤษภาคม 2569</text>
+    </g>
+
+    <!-- Watermark overlay -->
+    <rect width="400" height="560" rx="12" fill="url(#wm3)"/>
+    <text x="200" y="300" text-anchor="middle" font-family="system-ui, 'Sarabun', sans-serif" font-size="30" font-weight="900" fill="#55418B" fill-opacity="0.20" transform="rotate(-14 200 300)">ตัวอย่าง · SAMPLE</text>
+  </g>
+</svg>

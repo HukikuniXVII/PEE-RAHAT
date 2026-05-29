@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 540" width="480" height="540" role="img" aria-label="ตัวอย่างเซลฟี่คู่กับบัตร">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#C6BFD9"/>
+      <stop offset="100%" stop-color="#ADA1CE"/>
+    </linearGradient>
+    <linearGradient id="skin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F2EAD5"/>
+      <stop offset="100%" stop-color="#F0E0B3"/>
+    </linearGradient>
+    <pattern id="wm2" x="0" y="0" width="300" height="170" patternUnits="userSpaceOnUse" patternTransform="rotate(-20)">
+      <text x="0" y="20" font-family="system-ui, -apple-system, 'Sarabun', sans-serif" font-size="14" font-weight="700" fill="#2F244C" fill-opacity="0.22">ใช้เพื่อสมัครติวเตอร์ peerahat.com</text>
+      <text x="0" y="40" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="#2F244C" fill-opacity="0.18">for tutor application only</text>
+    </pattern>
+  </defs>
+
+  <rect width="480" height="540" fill="url(#bg)"/>
+
+  <!-- Frame -->
+  <rect x="20" y="20" width="440" height="500" rx="28" fill="none" stroke="#F5F5F4" stroke-width="3" stroke-opacity="0.5" stroke-dasharray="8 6"/>
+
+  <!-- Head -->
+  <circle cx="240" cy="180" r="78" fill="url(#skin)"/>
+  <!-- Hair -->
+  <path d="M170 160 Q 240 90 310 160 Q 295 130 240 122 Q 185 130 170 160 Z" fill="#3B2D61"/>
+  <!-- Eyes -->
+  <ellipse cx="218" cy="180" rx="5" ry="7" fill="#2E2A3D"/>
+  <ellipse cx="262" cy="180" rx="5" ry="7" fill="#2E2A3D"/>
+  <!-- Smile -->
+  <path d="M218 210 Q 240 226 262 210" stroke="#2E2A3D" stroke-width="3" fill="none" stroke-linecap="round"/>
+
+  <!-- Neck + shoulders -->
+  <rect x="220" y="252" width="40" height="36" fill="url(#skin)"/>
+  <path d="M120 360 Q 240 280 360 360 L 360 460 L 120 460 Z" fill="#55418B"/>
+  <path d="M120 360 Q 240 280 360 360 L 360 380 L 120 380 Z" fill="#664EA7"/>
+
+  <!-- Arm holding ID -->
+  <path d="M340 360 Q 360 320 330 300 L 305 320 Q 320 340 310 360 Z" fill="url(#skin)"/>
+
+  <!-- ID card in hand -->
+  <g transform="translate(150,320) rotate(-6)">
+    <rect width="220" height="140" rx="12" fill="#F5F5F4" stroke="#55418B" stroke-width="3"/>
+    <rect width="220" height="28" rx="12" fill="#55418B"/>
+    <rect y="16" width="220" height="12" fill="#55418B"/>
+    <text x="12" y="20" font-family="system-ui, 'Sarabun', sans-serif" font-size="10" font-weight="800" fill="#F5F5F4">บัตรประจำตัวประชาชน · SAMPLE</text>
+    <rect x="14" y="42" width="62" height="78" rx="4" fill="#C6BFD9" stroke="#8E7BC1" stroke-width="1.5"/>
+    <circle cx="45" cy="68" r="11" fill="#8E7BC1"/>
+    <path d="M30 110 C 36 92, 54 92, 60 110 Z" fill="#8E7BC1"/>
+    <g transform="translate(86,46)" fill="#2E2A3D" font-family="system-ui, 'Sarabun', sans-serif">
+      <text font-size="8" font-weight="700" fill="#6B656E">ID</text>
+      <text y="13" font-size="11" font-weight="800" letter-spacing="0.12em">1 2345 67890 12 3</text>
+      <text y="34" font-size="8" font-weight="700" fill="#6B656E">ชื่อ / Name</text>
+      <text y="47" font-size="10" font-weight="700">นาย ตัวอย่าง ภาพถ่าย</text>
+      <text y="62" font-size="8" font-weight="600" fill="#4D4750">Mr. Sample Photo</text>
+      <text y="82" font-size="8" font-weight="700" fill="#6B656E">เกิด · DOB</text>
+      <text y="94" font-size="9" font-weight="700">1 ม.ค. 2545</text>
+    </g>
+  </g>
+
+  <!-- Watermark overlay -->
+  <rect width="480" height="540" fill="url(#wm2)"/>
+  <text x="240" y="280" text-anchor="middle" font-family="system-ui, 'Sarabun', sans-serif" font-size="30" font-weight="900" fill="#F5F5F4" fill-opacity="0.32" transform="rotate(-14 240 280)">ตัวอย่าง · SAMPLE</text>
+
+  <!-- Caption -->
+  <text x="240" y="500" text-anchor="middle" font-family="system-ui, 'Sarabun', sans-serif" font-size="13" font-weight="800" fill="#F5F5F4">ถือบัตรชิดใบหน้า · เห็นทั้งหน้าและตัวบัตรชัดเจน</text>
+</svg>

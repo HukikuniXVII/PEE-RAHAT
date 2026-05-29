@@ -1,11 +1,19 @@
 "use client";
 
 import type { KycField } from "@peerahat/types";
-import { cn } from "@peerahat/ui";
+import {
+  cn,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@peerahat/ui";
 import { useMutation } from "@tanstack/react-query";
 import {
   Camera,
   CheckCircle2,
+  Eye,
   FileText,
   Loader2,
   ShieldCheck,
@@ -23,6 +31,7 @@ const FIELDS: ReadonlyArray<{
   title: string;
   description: string;
   Icon: typeof FileText;
+  exampleSrc: string;
 }> = [
   {
     field: "idPhoto",
@@ -31,6 +40,7 @@ const FIELDS: ReadonlyArray<{
     description:
       "ภาพถ่ายบัตรประชาชนที่เป็นปัจจุบัน เห็นหน้าและตัวอักษรชัดเจน",
     Icon: FileText,
+    exampleSrc: "/kyc-examples/id-card.svg",
   },
   {
     field: "selfie",
@@ -39,6 +49,7 @@ const FIELDS: ReadonlyArray<{
     description:
       "เพื่อความปลอดภัย ถ่ายเซลฟี่คู่กับบัตรประชาชนให้เห็นใบหน้าและตัวบัตรชัดเจน",
     Icon: Camera,
+    exampleSrc: "/kyc-examples/selfie.svg",
   },
   {
     field: "transcript",
@@ -47,6 +58,7 @@ const FIELDS: ReadonlyArray<{
     description:
       "ใบแสดงผลการเรียน หรือหน้าโปรไฟล์นิสิตที่ระบุชื่อและคณะที่กำลังศึกษาอยู่",
     Icon: Upload,
+    exampleSrc: "/kyc-examples/transcript.svg",
   },
 ];
 
@@ -105,6 +117,7 @@ export function IdentitySection({ keys, onUploaded }: Props) {
             title={f.title}
             description={f.description}
             Icon={f.Icon}
+            exampleSrc={f.exampleSrc}
             objectKey={keys[f.key]}
             onUploaded={onUploaded}
           />
@@ -120,6 +133,7 @@ function PhotoRow({
   title,
   description,
   Icon,
+  exampleSrc,
   objectKey,
   onUploaded,
 }: {
@@ -128,11 +142,13 @@ function PhotoRow({
   title: string;
   description: string;
   Icon: typeof FileText;
+  exampleSrc: string;
   objectKey: string | undefined;
   onUploaded: Props["onUploaded"];
 }) {
   const [fileName, setFileName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [exampleOpen, setExampleOpen] = useState(false);
 
   const upload = useMutation({
     mutationFn: async (file: File) => {
@@ -192,6 +208,20 @@ function PhotoRow({
           <p className="thai text-[11.5px] text-ink-mute leading-snug">
             {description}
           </p>
+          <button
+            type="button"
+            onClick={(e) => {
+              // Stop the click from bubbling to the wrapping <label>,
+              // which would otherwise trigger the hidden file input.
+              e.preventDefault();
+              e.stopPropagation();
+              setExampleOpen(true);
+            }}
+            className="thai inline-flex items-center gap-1 mt-1.5 text-[11px] font-bold text-dusty-grape hover:text-violet-700 underline-offset-2 hover:underline transition-colors"
+          >
+            <Eye size={11} strokeWidth={2.4} />
+            ดูตัวอย่าง
+          </button>
           {fileName && (
             <p className="thai text-[10.5px] text-emerald-700 truncate mt-1">
               ไฟล์: {fileName}
@@ -226,6 +256,26 @@ function PhotoRow({
           )}
         </span>
       </label>
+
+      <Dialog open={exampleOpen} onOpenChange={setExampleOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="thai text-grape-deep">
+              ตัวอย่าง: {title}
+            </DialogTitle>
+            <DialogDescription className="thai text-[12px]">
+              ภาพประกอบเพื่ออ้างอิงเท่านั้น — กรุณาใช้เอกสารจริงของคุณในการอัปโหลด
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-6 pb-6 pt-1">
+            <img
+              src={exampleSrc}
+              alt={`ตัวอย่าง${title}`}
+              className="w-full h-auto rounded-2xl border border-violet-100 bg-grape-soft/30"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </li>
   );
 }
