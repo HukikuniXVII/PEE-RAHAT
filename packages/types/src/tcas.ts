@@ -144,6 +144,23 @@ export interface FailedPerSubjectMin {
   have: number;
 }
 
+/** Per ALGORITHM.md Phase-2 extension — subjects the student hasn't
+ *  entered yet (distinct from "scored 0"). Surfaced separately so the
+ *  UI can prompt the user to fill them in. */
+export interface MissingSubject {
+  system: ExamSystem;
+  code: string;
+  name: string;
+}
+
+/** Non-fatal data-quality warning from the canonical score algorithm.
+ *  See packages/types/src/score-algorithm.ts:ScoreWarning. */
+export interface TcasWhatIfWarning {
+  code: string;
+  message: string;
+  details?: Record<string, unknown>;
+}
+
 export interface TcasWhatIfResult {
   programId: string;
   weightedAverage: number;
@@ -154,4 +171,12 @@ export interface TcasWhatIfResult {
   failedPerSubjectMins: FailedPerSubjectMin[];
   subjectGaps: SubjectGap[];
   planB: Array<Pick<TcasProgram, "id" | "university" | "faculty" | "major">>;
+  // ── ALGORITHM.md Phase-2 additive fields ──────────────────────────────
+  /** Subjects required by the program that the student hasn't entered. */
+  missingSubjects: MissingSubject[];
+  /** Data-quality warnings (weights don't sum to 100, etc.) — non-fatal. */
+  warnings: TcasWhatIfWarning[];
+  /** Weighted score even when ineligible. Same numeric as `weightedAverage`
+   *  for eligible results; null when any required subject is missing. */
+  partialScore: number | null;
 }

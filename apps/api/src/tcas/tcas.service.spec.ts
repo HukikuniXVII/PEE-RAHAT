@@ -216,3 +216,193 @@ describe("TcasService.whatIf — discriminated component union", () => {
     await expect(svc.whatIf("missing", {})).rejects.toThrow(NotFoundException);
   });
 });
+
+// ─── Phase-2 additive fields ───────────────────────────────────────────────
+
+describe("TcasService.whatIf — Phase-2 additive fields", () => {
+  const twoSubjectProgram = (): ProgramComponents => ({
+    gpaxMin: null,
+    exams: [
+      {
+        type: "single",
+        system: "tgat",
+        code: "",
+        name: "TGAT",
+        weight: 50,
+        min: null,
+      },
+      {
+        type: "single",
+        system: "aLevel",
+        code: "61",
+        name: "Math1",
+        weight: 50,
+        min: null,
+      },
+    ],
+  });
+
+  it("missing subject → missingSubjects populated, partialScore null", async () => {
+    const prisma = makePrisma({
+      id: "missing-test",
+      university: "U",
+      tags: [],
+      totalMinScore: null,
+      components: twoSubjectProgram(),
+    });
+    const svc = new TcasService(prisma as never);
+
+    // Only TGAT entered; Math1 is required but missing.
+    const result = await svc.whatIf("missing-test", { tgat: 80 });
+
+    expect(result.missingSubjects).toEqual([
+      { system: "aLevel", code: "61", name: "Math1" },
+    ]);
+    expect(result.partialScore).toBeNull();
+    // Legacy field preserves OLD "missing = 0" behavior so the UI's
+    // "your current score" indicator still shows a meaningful partial.
+    // TGAT contributes 40 (80 × 0.50); Math1 contributes 0.
+    expect(result.weightedAverage).toBeCloseTo(40);
+    expect(result.isOnTrack).toBe(false);
+  });
+
+  it("GPAX-as-weight → partialScore normalizes 0-4 → 0-100 (spec Example 3)", async () => {
+    const components: ProgramComponents = {
+      gpaxMin: null,
+      exams: [
+        {
+          type: "single",
+          system: "gpax",
+          code: "",
+          name: "GPAX",
+          weight: 20,
+          min: null,
+        },
+        {
+          type: "single",
+          system: "tgat",
+          code: "1",
+          name: "TGAT1",
+          weight: 40,
+          min: null,
+        },
+        {
+          type: "single",
+          system: "tgat",
+          code: "2",
+          name: "TGAT2",
+          weight: 40,
+          min: null,
+        },
+      ],
+    };
+    const prisma = makePrisma({
+      id: "gpax-weight",
+      university: "U",
+      tags: [],
+      totalMinScore: null,
+      components,
+    });
+    const svc = new TcasService(prisma as never);
+
+    // GPAX 3.50/4×100 = 87.5 × .20 = 17.5
+    // TGAT1 80 × .40 = 32
+    // TGAT2 75 × .40 = 30
+    // Total = 79.5
+    const result = await svc.whatIf("gpax-weight", {
+      gpax: 3.5,
+      "tgat:1": 80,
+      "tgat:2": 75,
+    });
+    expect(result.weightedAverage).toBeCloseTo(79.5, 2);
+    expect(result.partialScore).toBeCloseTo(79.5, 2);
+    expect(result.isOnTrack).toBe(true);
+  });
+
+  it("weights summing to 90 → warnings includes weight_sum_off_100", async () => {
+    const components: ProgramComponents = {
+      gpaxMin: null,
+      exams: [
+        {
+          type: "single",
+          system: "tgat",
+          code: "",
+          name: "TGAT",
+          weight: 40,
+          min: null,
+        },
+        {
+          type: "single",
+          system: "aLevel",
+          code: "61",
+          name: "Math1",
+          weight: 50,
+          min: null,
+        },
+      ],
+    };
+    const prisma = makePrisma({
+      id: "bad-weights",
+      university: "U",
+      tags: [],
+      totalMinScore: null,
+      components,
+    });
+    const svc = new TcasService(prisma as never);
+
+    const result = await svc.whatIf("bad-weights", {
+      tgat: 100,
+      "aLevel:61": 100,
+    });
+    expect(result.warnings.map((w) => w.code)).toContain("weight_sum_off_100");
+    expect(result.warnings[0]?.details).toMatchObject({ total: 90 });
+  });
+
+  it("chooseHighest groups resolving to the same exam dedupe in display arrays", async () => {
+    // Two chooseHighest groups, both will pick Physics (aLevel:64) as
+    // the winning option because the student aced it. The legacy
+    // failedPerSubjectMins / missingSubjects arrays must NOT show
+    // duplicate rows for the same subject.
+    const components: ProgramComponents = {
+      gpaxMin: null,
+      exams: [
+        {
+          type: "chooseHighest",
+          weight: 50,
+          min: 70, // Physics must clear 70
+          options: [
+            { system: "aLevel", code: "64", name: "Physics" },
+            { system: "aLevel", code: "65", name: "Chemistry" },
+          ],
+        },
+        {
+          type: "chooseHighest",
+          weight: 50,
+          min: 70, // also requires 70 — same root cause if Physics fails
+          options: [
+            { system: "aLevel", code: "64", name: "Physics" },
+            { system: "aLevel", code: "66", name: "Biology" },
+          ],
+        },
+      ],
+    };
+    const prisma = makePrisma({
+      id: "dedup-test",
+      university: "U",
+      tags: [],
+      totalMinScore: null,
+      components,
+    });
+    const svc = new TcasService(prisma as never);
+
+    // Physics is best in both groups but only scored 60 — under 70.
+    const result = await svc.whatIf("dedup-test", {
+      "aLevel:64": 60,
+      "aLevel:65": 30,
+      "aLevel:66": 40,
+    });
+    // Both groups flag the same min failure — dedup keeps just one.
+    expect(result.failedPerSubjectMins).toHaveLength(1);
+    expect(result.failedPerSubjectMins[0]?.name).toBe("Physics");
+  });
+});

@@ -17,6 +17,7 @@
 // Data: real UnifiedProgram[] + CalendarFile produced server-side in
 // apps/web/app/tcas/page.tsx (NETSAT KKU + TCAS R3 mytcas).
 
+import { maxScoreFor } from "@peerahat/types";
 import { cn } from "@peerahat/ui";
 import {
   ArrowRight,
@@ -1407,11 +1408,10 @@ function ProgramCard({
       {/* Score band */}
       {p.history && (
         <div className="rounded-2xl p-3 mt-3 bg-grape-soft">
-          <div className="flex items-center justify-between mb-2">
+          <div className="mb-2">
             <span className="thai text-[10.5px] font-bold uppercase tracking-[0.04em] text-ink-mute">
               สถิติคะแนน ปี {p.history.year}
             </span>
-            <Sparkline values={[p.history.min, p.history.mean, p.history.max]} />
           </div>
           <div className="grid grid-cols-3">
             <ScoreStat label="min" value={p.history.min} color={Z.risky} />
@@ -1525,48 +1525,6 @@ function ScoreStat({
         {label}
       </p>
     </div>
-  );
-}
-
-function Sparkline({ values }: { values: (number | null)[] }) {
-  // The handoff says: hide if < 3 data points. We currently only have
-  // 1 year of history (3 data points per card if you count min/mean/max),
-  // so render those as a tiny shape so the card never has a blank slot.
-  const clean = values.filter((v): v is number => v != null);
-  if (clean.length < 2) return null;
-
-  const w = 50;
-  const h = 16;
-  const min = Math.min(...clean);
-  const max = Math.max(...clean);
-  const span = Math.max(1, max - min);
-
-  const points = values
-    .map((v, i) => {
-      if (v == null) return null;
-      const x = (i / (values.length - 1)) * w;
-      const y = h - ((v - min) / span) * (h - 4) - 2;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .filter(Boolean)
-    .join(" ");
-
-  return (
-    <svg
-      width={w}
-      height={h}
-      className="block text-violet-500"
-      aria-hidden
-    >
-      <polyline
-        points={points}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
   );
 }
 
@@ -1810,17 +1768,36 @@ function DetailPage({
   const advice: Advice[] = program.weights
     .filter((w) => w.examCode !== "PRIORITY_SCORE")
     .map((w) => {
+      // Per-subject max: GPAX is 0-4, everything else 0-100. Without
+      // this the advice panel would tell GPAX users they have ~96.5
+      // points of headroom on a 4-point scale.
+      const max = maxScoreFor({
+        examCode: w.examCode,
+        weightPercent: w.weightPercent,
+        // Honor any per-program maxScore set at the mapper layer.
+        maxScore: w.maxScore,
+      });
       const cur = scores[w.examCode] ?? 0;
-      const headroom = 100 - cur;
-      const subjectDelta =
-        w.weightPercent > 0 ? (need * 100) / w.weightPercent : 0;
-      const efficiencyRank = (w.weightPercent * headroom) / 100;
+      const headroomRaw = max - cur;
+      const normHeadroom = max > 0 ? (headroomRaw / max) * 100 : 0;
+      // `need` is in normalized (0-100) points of total score; convert
+      // to additional RAW points required on this subject:
+      //   delta_norm  = need × 100 / weightPercent
+      //   delta_raw   = delta_norm × (max / 100)
+      const subjectDeltaRaw =
+        w.weightPercent > 0
+          ? ((need * 100) / w.weightPercent) * (max / 100)
+          : 0;
+      // Efficiency ranking uses NORMALIZED headroom so subjects with
+      // different scales compare fairly (a GPAX 0→4 gain is comparable
+      // to a TGAT 0→100 gain in their normalized contribution).
+      const efficiencyRank = (w.weightPercent * normHeadroom) / 100;
       return {
         weight: w,
         cur,
-        subjectDelta: Math.min(headroom, subjectDelta),
+        subjectDelta: Math.min(headroomRaw, subjectDeltaRaw),
         efficiencyRank,
-        feasible: subjectDelta <= headroom,
+        feasible: subjectDeltaRaw <= headroomRaw,
       };
     })
     .sort((a, b) => b.efficiencyRank - a.efficiencyRank);
@@ -1965,6 +1942,16 @@ function ScoreInputRow({
           .filter((w) => w.examCode !== "PRIORITY_SCORE")
           .map((w) => {
             const val = scores[w.examCode];
+            // GPAX is on a 0-4 scale; every other exam score is 0-100.
+            // Case-insensitive: schema docs use lowercase "gpax" but
+            // real-world data from the TCAS R3 import uses uppercase
+            // "GPAX" (same convention as TGAT, A_LV_61, NETSAT, etc.).
+            // The placeholder doubles as the user guide ("here's the
+            // valid range") since the chip has no room for a separate
+            // hint line.
+            const isGpax = w.examCode.toLowerCase() === "gpax";
+            const max = isGpax ? 4 : 100;
+            const hint = isGpax ? "0-4.00" : "0-100";
             return (
               <label
                 key={w.examCode}
@@ -1977,10 +1964,8 @@ function ScoreInputRow({
                   {w.weightPercent.toFixed(0)}%
                 </span>
                 <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={0.01}
+                  type="text"
+                  inputMode="decimal"
                   value={val ?? ""}
                   onChange={(e) => {
                     const raw = e.target.value;
@@ -1989,10 +1974,23 @@ function ScoreInputRow({
                       return;
                     }
                     const n = Number(raw);
-                    if (!Number.isNaN(n)) setScore(w.examCode, n);
+                    if (!Number.isNaN(n)) {
+                      const clamped = Math.min(max, Math.max(0, n));
+                      // Skip the setScore call when the parsed value
+                      // already matches state. Without this, typing "."
+                      // after "3" goes: Number("3.")=3 → setScore(3) →
+                      // new state object → re-render → controlled input
+                      // snaps DOM back to "3" → the dot vanishes →
+                      // decimal entry impossible. Skipping the no-op
+                      // setState lets the DOM keep "3." until the next
+                      // digit makes the parse diverge.
+                      if (val !== clamped) {
+                        setScore(w.examCode, clamped);
+                      }
+                    }
                   }}
-                  placeholder="—"
-                  className="font-bold text-[13px] text-grape-deep tabular-nums w-12 text-right bg-transparent outline-none placeholder:text-ink-mute placeholder:font-normal"
+                  placeholder={hint}
+                  className="font-bold text-[16px] text-grape-deep tabular-nums w-10 text-right bg-transparent outline-none placeholder:text-ink-mute placeholder:font-normal placeholder:text-[12px]"
                 />
               </label>
             );

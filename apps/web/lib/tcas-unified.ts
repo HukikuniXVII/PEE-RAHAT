@@ -3,6 +3,8 @@
 // these types via mapKkuProgram / mapTcasProgram (called server-side
 // in page.tsx so the client receives a single homogeneous list).
 
+import { calculateScore, isGpaxCode } from "@peerahat/types";
+
 import type {
   KkuProgram,
   KkuStatRecord,
@@ -27,6 +29,16 @@ export interface UnifiedProgramWeight {
   weightPercent: number;
   rawSubjectName: string;
   minSubjectScore: number | null;
+  /**
+   * Raw-score upper bound for this exam (used by `normalize` in the
+   * canonical algorithm). GPAX defaults to 4; everything else defaults
+   * to 100. Mappers populate this so consumers don't need to know the
+   * convention; non-mapped entries fall back to `maxScoreFor`'s inference
+   * (GPAX → 4 else 100). Future systems with non-standard scales (e.g.
+   * NETSAT subjects with 0-500 raw range) should populate this
+   * explicitly at the mapper layer so the score projection is correct.
+   */
+  maxScore?: number;
 }
 
 export interface UnifiedProgram {
@@ -66,6 +78,11 @@ export function mapKkuProgram(
       weightPercent: w.weight_percent,
       rawSubjectName: w.raw_subject_name,
       minSubjectScore: w.min_subject_score,
+      // Mapper sets the canonical maxScore so downstream consumers
+      // don't have to special-case GPAX. Upstream (KKU/TCAS R3) scrapers
+      // don't carry maxScore today, so we infer: GPAX → 4 (forced),
+      // everything else → undefined (falls back to 100 via maxScoreFor).
+      maxScore: isGpaxCode(w.exam_code) ? 4 : undefined,
     })),
     sourceUrl: p.source_url,
     history: stat
@@ -107,6 +124,11 @@ export function mapTcasProgram(
       weightPercent: w.weight_percent,
       rawSubjectName: w.raw_subject_name,
       minSubjectScore: w.min_subject_score,
+      // Mapper sets the canonical maxScore so downstream consumers
+      // don't have to special-case GPAX. Upstream (KKU/TCAS R3) scrapers
+      // don't carry maxScore today, so we infer: GPAX → 4 (forced),
+      // everything else → undefined (falls back to 100 via maxScoreFor).
+      maxScore: isGpaxCode(w.exam_code) ? 4 : undefined,
     })),
     sourceUrl: p.source_url,
     history: stat
@@ -174,6 +196,18 @@ export function pointsVsMin(
   return userScore - history.min;
 }
 
+/**
+ * Live in-page projection: convert the user's typed scores into a
+ * weighted 0–100 total, delegated to the canonical algorithm so the
+ * GPAX-as-weight (0–4 → 0–100) normalization rule is enforced exactly
+ * once in the codebase.
+ *
+ * Behavior preserved vs the pre-canonical implementation:
+ * - Returns `{ total, breakdown }` shape unchanged.
+ * - Missing subjects contribute 0 (live UX while the user is still
+ *   typing). For spec-true null semantics, callers should hit the
+ *   backend whatIf endpoint instead.
+ */
 export function calculateWeightedScore(
   weights: UnifiedProgramWeight[],
   scores: Record<string, number>,
@@ -186,20 +220,48 @@ export function calculateWeightedScore(
     contribution: number;
   }>;
 } {
-  let total = 0;
-  const breakdown = weights.map((w) => {
-    const raw = scores[w.examCode];
-    const clamped = Math.max(0, Math.min(100, raw ?? 0));
-    const contribution = (clamped / 100) * w.weightPercent;
-    total += contribution;
-    return {
-      examCode: w.examCode,
-      weightPercent: w.weightPercent,
-      rawScore: raw ?? 0,
-      contribution,
-    };
-  });
-  return { total, breakdown };
+  // Extract GPAX under any case variant; the algorithm reads
+  // `input.gpax` for any weight where isGpaxCode(examCode) is true.
+  let gpax: number | null = null;
+  for (const key of Object.keys(scores)) {
+    if (isGpaxCode(key)) {
+      gpax = scores[key]!;
+      break;
+    }
+  }
+  // Fill missing non-GPAX scores with 0 so the projection produces a
+  // meaningful partial as the user fills the form one subject at a
+  // time. Otherwise calculateScore returns null on first missing.
+  const scoresWithZeros: Record<string, number> = { ...scores };
+  for (const w of weights) {
+    if (!isGpaxCode(w.examCode) && scoresWithZeros[w.examCode] == null) {
+      scoresWithZeros[w.examCode] = 0;
+    }
+  }
+  const result = calculateScore(
+    {
+      minGpax: null,
+      minTotalPercent: null,
+      weights: weights.map((w) => ({
+        examCode: w.examCode,
+        weightPercent: w.weightPercent,
+        // Honor any explicit maxScore set at the mapper layer (Phase 4);
+        // falls back to maxScoreFor's GPAX → 4 / else → 100 inference
+        // when undefined.
+        maxScore: w.maxScore,
+      })),
+    },
+    { scores: scoresWithZeros, gpax: gpax ?? 0 },
+  );
+  return {
+    total: result.weightedScore ?? 0,
+    breakdown: result.breakdown.map((b) => ({
+      examCode: b.examCode,
+      weightPercent: b.weightPercent,
+      rawScore: b.rawScore,
+      contribution: b.contribution,
+    })),
+  };
 }
 
 // ─── Subject categorisation ──────────────────────────────────────────

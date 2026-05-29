@@ -3,15 +3,19 @@ import type {
   ExamOption,
   ExamSystem,
   FailedPerSubjectMin,
+  MissingSubject,
   ProgramComponent,
   ProgramComponents,
+  ScoreProgram,
+  ScoreWeight,
   SubjectGap,
   TcasDeadline,
   TcasProgram,
   TcasScores,
   TcasWhatIfResult,
+  TcasWhatIfWarning,
 } from "@peerahat/types";
-import { componentKey } from "@peerahat/types";
+import { calculateScore, componentKey, isGpaxCode } from "@peerahat/types";
 
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -41,9 +45,18 @@ export class TcasService {
 
   /**
    * FR-TC-03: three independent gates (GPAX, total-min, per-subject-min) +
-   * per-subject deficit distribution. Supports both single components and
-   * chooseHighest groups (the group contributes the max score among its
-   * options × group weight).
+   * per-subject deficit distribution.
+   *
+   * The actual scoring math is delegated to `calculateScore` (canonical
+   * implementation in @peerahat/types/score-algorithm.ts). This service
+   * only handles:
+   *   1. The adapter: ProgramComponents (with chooseHighest groups) →
+   *      flat ScoreProgram. chooseHighest groups are resolved to the
+   *      single highest-scoring option before the algorithm sees them.
+   *   2. The mapping: ScoreResult → TcasWhatIfResult shape (preserves
+   *      all legacy fields; adds the Phase-2 additive ones).
+   *   3. Backend-only extensions: planB program suggestions and
+   *      subject-gap deficit distribution.
    */
   async whatIf(
     programId: string,
@@ -55,62 +68,124 @@ export class TcasService {
     if (!program) throw new NotFoundException();
     const components = program.components as unknown as ProgramComponents;
 
-    // Gate 1: GPAX threshold.
-    const gpax = scores["gpax"] ?? 0;
-    const meetsGpax =
-      components.gpaxMin === null || gpax >= components.gpaxMin;
+    // Resolve chooseHighest groups so the algorithm sees a flat weight
+    // list. Each resolution remembers which option won, so the gap loop
+    // below can attribute the deficit back to the correct option for UI.
+    const resolved = components.exams.map((comp) =>
+      resolveComponentToFlat(comp, scores),
+    );
+    const flatWeights: ScoreWeight[] = resolved.map((r) => r.weight);
 
-    // Gate 2 + weighted average.
-    let weighted = 0;
-    const failedPerSubjectMins: FailedPerSubjectMin[] = [];
-    // Cache of (component → effective score) so the deficit loop can reuse it.
-    const effective = new Map<ProgramComponent, EffectiveScore>();
+    const algorithmInput: ScoreProgram = {
+      minGpax: components.gpaxMin,
+      minTotalPercent: program.totalMinScore,
+      weights: flatWeights,
+    };
+    const result = calculateScore(algorithmInput, {
+      scores,
+      gpax: scores["gpax"] ?? null,
+    });
 
-    for (const comp of components.exams) {
-      const eff = effectiveScoreFor(comp, scores);
-      effective.set(comp, eff);
-      if (comp.min !== null && eff.score < comp.min) {
-        failedPerSubjectMins.push({
-          system: eff.system,
-          code: eff.code,
-          name: eff.name,
-          need: comp.min,
-          have: eff.score,
-        });
+    // Map algorithm output → existing TcasWhatIfResult fields. Resolved
+    // bookkeeping carries the system/code/name for each entry so we
+    // can label backend-specific arrays correctly. dedupBy keeps the
+    // first occurrence per examCode so chooseHighest groups that resolve
+    // to the same winning option (rare but possible — e.g. two science
+    // groups both picking A-Level 61) don't show as duplicate rows.
+    const failedPerSubjectMins: FailedPerSubjectMin[] = dedupBy(
+      result.failedSubjectMins
+        .map((f) => {
+          const r = resolved.find((x) => x.weight.examCode === f.examCode);
+          if (!r) return null;
+          return {
+            system: r.identity.system,
+            code: r.identity.code,
+            name: r.identity.name,
+            need: f.required ?? 0,
+            have: f.actual ?? 0,
+          } as FailedPerSubjectMin;
+        })
+        .filter((x): x is FailedPerSubjectMin => x !== null),
+      (x) => componentKey(x.system, x.code),
+    );
+
+    const missingSubjects: MissingSubject[] = dedupBy(
+      result.missingSubjects
+        .map((m) => {
+          const r = resolved.find((x) => x.weight.examCode === m.examCode);
+          if (!r) return null;
+          return {
+            system: r.identity.system,
+            code: r.identity.code,
+            name: r.identity.name,
+          } as MissingSubject;
+        })
+        .filter((x): x is MissingSubject => x !== null),
+      (x) => componentKey(x.system, x.code),
+    );
+
+    const warnings: TcasWhatIfWarning[] = result.warnings.map((w) => ({
+      code: w.code,
+      message: w.message,
+      details: w.details,
+    }));
+
+    // Legacy `weightedAverage` preserves the OLD UX: missing subjects
+    // contribute 0, so the user sees a meaningful partial as they
+    // populate the form one subject at a time. The new `partialScore`
+    // field carries the spec-true null when subjects are missing —
+    // consumers that need the strict semantic read that instead.
+    //
+    // We compute the legacy value by re-running the algorithm with
+    // missing scores filled in as 0. Pure CPU on ≤10 subjects, no I/O.
+    const scoresWithZeros: TcasScores = { ...scores };
+    for (const r of resolved) {
+      if (
+        !isGpaxCode(r.weight.examCode) &&
+        scoresWithZeros[r.weight.examCode] == null
+      ) {
+        scoresWithZeros[r.weight.examCode] = 0;
       }
-      weighted += eff.score * (comp.weight / 100);
     }
-    const weightedAverage = Number(weighted.toFixed(2));
-
-    // Gate 3: overall threshold.
-    const meetsTotalMin =
-      program.totalMinScore === null || weighted >= program.totalMinScore;
-
-    const isOnTrack =
-      meetsGpax && meetsTotalMin && failedPerSubjectMins.length === 0;
-
+    const legacyResult = calculateScore(algorithmInput, {
+      scores: scoresWithZeros,
+      gpax: scores["gpax"] ?? 0,
+    });
+    const weightedAverage = Number(
+      (legacyResult.weightedScore ?? 0).toFixed(2),
+    );
     const target = program.totalMinScore ?? 0;
-    const gap = Number((weighted - target).toFixed(2));
+    const gap = Number((weightedAverage - target).toFixed(2));
 
+    // Subject-gap distribution — backend-only UI helper. Only meaningful
+    // when there's a real partial score (no missing subjects) and the
+    // student fell short of the threshold.
     const subjectGaps: SubjectGap[] = [];
-    if (!isOnTrack && target > 0 && weighted < target) {
-      const deficit = target - weighted;
+    if (
+      !result.eligible &&
+      result.weightedScore != null &&
+      target > 0 &&
+      result.weightedScore < target
+    ) {
+      const deficit = target - result.weightedScore;
       const totalWeight =
-        components.exams.reduce((a, e) => a + e.weight, 0) || 1;
-      for (const comp of components.exams) {
-        const share = deficit * (comp.weight / totalWeight);
-        const pointsNeeded = Math.ceil(share / (comp.weight / 100));
-        const eff = effective.get(comp)!;
+        flatWeights.reduce((a, w) => a + w.weightPercent, 0) || 1;
+      for (const r of resolved) {
+        const share = deficit * (r.weight.weightPercent / totalWeight);
+        const pointsNeeded = Math.ceil(
+          share / (r.weight.weightPercent / 100 || 1),
+        );
+        const currentScore = scores[r.weight.examCode] ?? 0;
         subjectGaps.push({
-          system: eff.system,
-          code: eff.code,
-          name: eff.name,
-          weightPct: comp.weight,
-          currentScore: eff.score,
-          requiredScore: eff.score + pointsNeeded,
+          system: r.identity.system,
+          code: r.identity.code,
+          name: r.identity.name,
+          weightPct: r.weight.weightPercent,
+          currentScore,
+          requiredScore: currentScore + pointsNeeded,
           pointsNeeded,
           groupOptions:
-            comp.type === "chooseHighest" ? comp.options : undefined,
+            r.origin.type === "chooseHighest" ? r.origin.options : undefined,
         });
       }
     }
@@ -124,7 +199,7 @@ export class TcasService {
         tags: { hasSome: program.tags },
         OR: [
           { totalMinScore: null },
-          { totalMinScore: { lte: weighted + 5 } },
+          { totalMinScore: { lte: weightedAverage + 5 } },
         ],
       },
       orderBy: { totalMinScore: "asc" },
@@ -135,9 +210,9 @@ export class TcasService {
       programId,
       weightedAverage,
       gap,
-      isOnTrack,
-      meetsGpax,
-      meetsTotalMin,
+      isOnTrack: result.eligible,
+      meetsGpax: result.meetsGpax,
+      meetsTotalMin: result.meetsTotalMin,
       failedPerSubjectMins,
       subjectGaps,
       planB: planBRows.map((p) => ({
@@ -146,6 +221,12 @@ export class TcasService {
         faculty: p.faculty,
         major: p.major,
       })),
+      missingSubjects,
+      warnings,
+      partialScore:
+        result.weightedScore == null
+          ? null
+          : Number(result.weightedScore.toFixed(2)),
     };
   }
 
@@ -186,33 +267,66 @@ export class TcasService {
   }
 }
 
-interface EffectiveScore {
-  system: ExamSystem;
-  code: string;
-  name: string;
-  score: number;
+/**
+ * Keep the first occurrence per key. Used to collapse duplicate
+ * (system, code) rows produced when multiple chooseHighest groups
+ * resolve to the same winning option.
+ */
+function dedupBy<T>(items: T[], key: (item: T) => string): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const item of items) {
+    const k = key(item);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(item);
+  }
+  return out;
 }
 
-// Picks the score a component contributes given the student's scores map.
-// For a single component this is just lookup; for a chooseHighest group it's
-// the max across all options (with the winning option's identity surfaced
-// for the gap row so the UI can label it concretely).
-function effectiveScoreFor(
+interface ResolvedComponent {
+  /** Flat weight passed into the canonical algorithm. */
+  weight: ScoreWeight;
+  /** system/code/name of the underlying exam (for chooseHighest groups,
+   *  this is the winning option). Used for backend-specific labels. */
+  identity: { system: ExamSystem; code: string; name: string };
+  /** The original program component — kept so subjectGaps can re-expose
+   *  `groupOptions` for chooseHighest groups. */
+  origin: ProgramComponent;
+}
+
+/**
+ * Translate one `ProgramComponent` into a single flat weight for the
+ * canonical algorithm. `single` is a direct copy; `chooseHighest` picks
+ * the option with the best score in `scores` (ties → first) so the group
+ * contributes that score × the group's weight, matching the existing
+ * backend behavior.
+ *
+ * The `examCode` used for the flat weight is the `componentKey` of the
+ * chosen identity, ensuring it matches the key the student's score was
+ * filed under in `TcasScores`.
+ */
+function resolveComponentToFlat(
   comp: ProgramComponent,
   scores: TcasScores,
-): EffectiveScore {
+): ResolvedComponent {
   if (comp.type === "single") {
     const key = componentKey(comp.system, comp.code);
     return {
-      system: comp.system,
-      code: comp.code,
-      name: comp.name,
-      score: scores[key] ?? 0,
+      weight: {
+        examCode: key,
+        weightPercent: comp.weight,
+        minSubjectScore: comp.min,
+        // GPAX gets max=4 automatically via the algorithm's maxScoreFor;
+        // explicit here makes the contract visible at the adapter seam.
+        maxScore: isGpaxCode(key) ? 4 : undefined,
+      },
+      identity: { system: comp.system, code: comp.code, name: comp.name },
+      origin: comp,
     };
   }
-  // chooseHighest: pick the option with the highest score. Ties resolve to
-  // the first option to keep output deterministic. If nothing is scored, the
-  // first option still "wins" with 0 — gives the UI something to render.
+  // chooseHighest: pick the option with the highest score. Ties resolve
+  // to the first option to keep output deterministic.
   let bestOption: ExamOption = comp.options[0]!;
   let bestScore = scores[componentKey(bestOption)] ?? 0;
   for (let i = 1; i < comp.options.length; i++) {
@@ -223,10 +337,19 @@ function effectiveScoreFor(
       bestScore = s;
     }
   }
+  const key = componentKey(bestOption);
   return {
-    system: bestOption.system,
-    code: bestOption.code,
-    name: bestOption.name,
-    score: bestScore,
+    weight: {
+      examCode: key,
+      weightPercent: comp.weight,
+      minSubjectScore: comp.min,
+      maxScore: isGpaxCode(key) ? 4 : undefined,
+    },
+    identity: {
+      system: bestOption.system,
+      code: bestOption.code,
+      name: bestOption.name,
+    },
+    origin: comp,
   };
 }

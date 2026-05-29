@@ -8,6 +8,7 @@ export * from "./community";
 export * from "./reports";
 export * from "./tcas";
 export * from "./tcas-import";
+export * from "./score-algorithm";
 export * from "./quiz";
 export * from "./kyc";
 export * from "./chat";
