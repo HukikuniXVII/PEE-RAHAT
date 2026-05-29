@@ -282,6 +282,9 @@ export class CommunityService {
       name: user.displayName,
       avatarUrl: user.avatarUrl,
       verified: !!user.tutorProfile?.isVerified,
+      // tutorId lets the overlay's "ดูรีวิวทั้งหมด →" link route to
+      // /tutors/[TutorProfile.id]. Undefined for student subjects.
+      tutorId: user.tutorProfile?.id,
     };
 
     if (user.tutorProfile) {

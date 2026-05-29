@@ -8,7 +8,9 @@ import {
 } from "@peerahat/types";
 import { Dialog, DialogContent } from "@peerahat/ui";
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, Loader2, Star, X } from "lucide-react";
+import { AlertCircle, ArrowRight, Loader2, Star, X } from "lucide-react";
+import type { Route } from "next";
+import Link from "next/link";
 
 import { createApiClient } from "@/lib/api-client";
 
@@ -310,8 +312,11 @@ function TutorBody({
         />
 
         <div className="px-6 pt-4 pb-6 space-y-5">
-          {/* 4-stat strip — drops responseTime (no data); shows joined-years
-              in its place so all 4 cells have content. */}
+          {/* 4-stat strip. responseTime + handle + year + leaderboard rank
+              are visible in the V2 handoff but those fields don't exist
+              in the DB yet — per scope decision the elements drop out
+              rather than show fabricated values. Stat #4 (years on
+              platform) is the fallback that's always derivable. */}
           <div className="grid grid-cols-4 gap-2">
             <StatCell
               value={stats.rating.toFixed(2)}
@@ -327,7 +332,9 @@ function TutorBody({
             />
           </div>
 
-          {/* Subjects + rate */}
+          {/* Subjects — separated from rate so the layout matches the
+              handoff: chips row first, then "อัตราค่าเรียน" gets its own
+              labeled section below. */}
           {subjectsTaught.length > 0 && (
             <div>
               <SectionLabel>วิชาที่สอน</SectionLabel>
@@ -341,14 +348,24 @@ function TutorBody({
                   </span>
                 ))}
               </div>
-              <p className="thai text-[12.5px] text-ink-soft mt-2 num">
-                <span className="text-grape-deep font-bold">
-                  ฿{hourlyRate.toLocaleString()}
-                </span>{" "}
-                / ชั่วโมง
-              </p>
             </div>
           )}
+
+          {/* Hourly rate — own section with the price right-aligned. */}
+          <div>
+            <SectionLabel>อัตราค่าเรียน</SectionLabel>
+            <div className="flex items-baseline justify-between">
+              <span className="thai text-[12.5px] text-ink-soft">
+                ค่าเรียนต่อชั่วโมง
+              </span>
+              <p className="thai text-[16px] text-grape-deep font-bold num">
+                ฿{hourlyRate.toLocaleString()}{" "}
+                <span className="text-[11.5px] text-ink-soft font-medium">
+                  / ชั่วโมง
+                </span>
+              </p>
+            </div>
+          </div>
 
           {/* Bio */}
           {bio && (
@@ -397,6 +414,20 @@ function TutorBody({
                   </div>
                 ))}
               </div>
+              {/* "ดูรีวิวทั้งหมด" CTA. Only renders when the backend
+                  populated subject.tutorId (always true for tutor mode);
+                  routes to /tutors/[TutorProfile.id]. The full reviews
+                  list on that page is the canonical surface. */}
+              {subject.tutorId && (
+                <Link
+                  href={`/tutors/${subject.tutorId}` as Route}
+                  className="thai text-[12px] font-semibold text-violet-500 hover:text-violet-600 inline-flex items-center gap-1 mt-3"
+                >
+                  ดูรีวิวทั้งหมด{" "}
+                  <span className="num">{stats.totalReviews}</span> รีวิว
+                  <ArrowRight size={12} strokeWidth={2.4} />
+                </Link>
+              )}
             </div>
           )}
 
@@ -431,7 +462,8 @@ function TutorBody({
             </div>
           )}
 
-          {/* Top sheet */}
+          {/* Top sheet — shows rating + reviewCount + soldCount + price,
+              matching the screenshot's "★ 4.95 · 42 รีวิว · ขายได้ 186 เล่ม". */}
           {topSheet && (
             <div>
               <SectionLabel>ชีตขายดีของพี่</SectionLabel>
@@ -441,13 +473,19 @@ function TutorBody({
                   <p className="thai text-[12px] font-bold text-ink truncate">
                     {topSheet.title}
                   </p>
-                  <div className="flex items-center gap-2 text-[10.5px] text-ink-mute mt-0.5">
+                  <div className="flex flex-wrap items-center gap-x-1.5 text-[10.5px] text-ink-mute mt-0.5">
                     <span className="flex items-center gap-0.5 text-accent-600">
                       <Star size={9} fill="currentColor" />
                       <span className="num">{topSheet.rating.toFixed(2)}</span>
                     </span>
                     <span>·</span>
-                    <span className="num">ขาย {topSheet.soldCount} ชุด</span>
+                    <span className="num">
+                      {topSheet.reviewCount.toLocaleString()} รีวิว
+                    </span>
+                    <span>·</span>
+                    <span className="num">
+                      ขายได้ {topSheet.soldCount.toLocaleString()} เล่ม
+                    </span>
                   </div>
                 </div>
                 <p className="thai text-[13px] font-bold text-grape-deep shrink-0 num">

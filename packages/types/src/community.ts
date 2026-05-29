@@ -65,6 +65,9 @@ export interface MiniProfileSubject {
   name: string;            // displayName
   avatarUrl: string | null;
   verified: boolean;       // true iff the user has a TutorProfile and isVerified
+  /** TutorProfile.id when the subject is a tutor — lets the overlay
+   *  link to the full /tutors/[id] page. Undefined for student subjects. */
+  tutorId?: string;
 }
 
 export interface StudentMiniProfile {
