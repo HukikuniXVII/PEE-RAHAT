@@ -16,6 +16,10 @@ import {
   type AdminReportDetail,
   type AdminReportQueueItem,
   type AvatarUploadIntent,
+  type ConfirmDeletionResult,
+  type DeletionEligibility,
+  type RequestDeletionDto,
+  type RequestDeletionResult,
   type ComputePayoutsDto,
   type FailPayoutDto,
   type GeneratePayoutBatchDto,
@@ -331,6 +335,26 @@ export function createApiClient(opts: ApiClientOptions = {}) {
         request<AvatarUploadIntent>(
           API_PATHS.usersAvatarIntent,
           { method: "POST", body: JSON.stringify({ contentType }) },
+          token,
+        ),
+      // NFR-04 (PDPA): self-service account deletion.
+      deletionEligibility: () =>
+        request<DeletionEligibility>(
+          API_PATHS.usersDeletionEligibility,
+          {},
+          token,
+        ),
+      requestDeletion: (dto: RequestDeletionDto) =>
+        request<RequestDeletionResult>(
+          API_PATHS.usersRequestDeletion,
+          { method: "POST", body: JSON.stringify(dto) },
+          token,
+        ),
+      // Public, token-authenticated — the deletion JWT is the authority.
+      confirmDeletion: (deletionToken: string) =>
+        request<ConfirmDeletionResult>(
+          API_PATHS.usersConfirmDeletion,
+          { method: "POST", body: JSON.stringify({ token: deletionToken }) },
           token,
         ),
     },

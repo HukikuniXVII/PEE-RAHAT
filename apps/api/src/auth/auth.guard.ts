@@ -33,8 +33,14 @@ export class SupabaseAuthGuard extends AuthGuard("supabase") {
     if (supabaseId) {
       const user = await this.prisma.user.findUnique({
         where: { supabaseId },
-        select: { suspendedUntil: true },
+        select: { suspendedUntil: true, deletedAt: true },
       });
+      // NFR-04: a deleted (anonymized) account must not be able to act.
+      // The Supabase JWT is stateless, so this guard is the revocation
+      // point — a deleted user is rejected on their very next request.
+      if (user?.deletedAt) {
+        throw new ForbiddenException("บัญชีนี้ถูกลบแล้ว");
+      }
       if (user?.suspendedUntil && user.suspendedUntil.getTime() > Date.now()) {
         throw new ForbiddenException("บัญชีของคุณถูกพักการใช้งานชั่วคราว");
       }

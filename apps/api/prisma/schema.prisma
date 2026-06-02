@@ -38,6 +38,18 @@ model User {
   // year 2099 sentinel.
   suspendedUntil   DateTime?
 
+  // NFR-04 (PDPA): self-service account deletion. Soft-delete + PII
+  // anonymization, never a row drop — accounting/audit records (refund
+  // ledger, payouts, completed bookings for tax) keep a valid FK back to
+  // an anonymized User. deletedAt set = account erased; the auth guard
+  // rejects any request from a deleted user (stateless JWT has no session
+  // table to clear). deletionRequestedAt is stamped when the user submits
+  // the request-deletion form; deletionReason is the (optional) reason
+  // captured at request time. See migration 20260514_user_soft_delete.
+  deletedAt           DateTime?
+  deletionRequestedAt DateTime?
+  deletionReason      String?
+
   tutorProfile              TutorProfile?
   studentProfile            StudentProfile?
   kycSubmissions            KycSubmission[]

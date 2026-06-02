@@ -11,6 +11,12 @@ import {
   type AvatarIntentDto,
   avatarIntentSchema,
   type AvatarUploadIntent,
+  type ConfirmDeletionResult,
+  confirmDeletionSchema,
+  type DeletionEligibility,
+  type RequestDeletionDto,
+  requestDeletionSchema,
+  type RequestDeletionResult,
   type User,
   type UserProfileUpdateDto,
   userProfileUpdateSchema,
@@ -89,5 +95,38 @@ export class UsersController {
     const row = await this.users.findBySupabaseId(user.sub);
     if (!row) throw new BadRequestException("Unknown user");
     return this.storage.signAvatarUpload(row.id, dto.contentType);
+  }
+
+  // ── NFR-04 (PDPA): self-service account deletion ───────────────────
+  @Get("me/deletion-eligibility")
+  deletionEligibility(
+    @CurrentUser() user: SupabaseJwtPayload,
+  ): Promise<DeletionEligibility> {
+    return this.users.getDeletionEligibility(user.sub);
+  }
+
+  @Post("me/request-deletion")
+  requestDeletion(
+    @CurrentUser() user: SupabaseJwtPayload,
+    @Body() raw: unknown,
+  ): Promise<RequestDeletionResult> {
+    const dto: RequestDeletionDto = requestDeletionSchema.parse(raw);
+    return this.users.requestDeletion(user.sub, dto);
+  }
+}
+
+/**
+ * Public, token-authenticated confirm step. Kept on its own controller
+ * (no SupabaseAuthGuard) so the emailed link works even without an active
+ * Supabase session — the 1h deletion JWT in the body is the sole authority.
+ */
+@Controller("users/me")
+export class AccountDeletionController {
+  constructor(private readonly users: UsersService) {}
+
+  @Post("confirm-deletion")
+  confirmDeletion(@Body() raw: unknown): Promise<ConfirmDeletionResult> {
+    const { token } = confirmDeletionSchema.parse(raw);
+    return this.users.confirmDeletion(token);
   }
 }

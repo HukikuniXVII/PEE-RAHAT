@@ -4,6 +4,7 @@ import { UserCircle2 } from "lucide-react";
 import { createApiClient } from "@/lib/api-client";
 import { requireAuth } from "@/lib/auth";
 
+import { DeleteAccountSection } from "./_components/delete-account-section";
 import { ProfileEditForm } from "./_components/profile-edit-form";
 
 // Profile page edits the User-row fields that any signed-in account
@@ -40,6 +41,9 @@ export default async function ProfilePage() {
         </header>
 
         <ProfileEditForm initialUser={me} />
+
+        {/* NFR-04 (PDPA): destructive zone, separated at the very bottom. */}
+        <DeleteAccountSection />
       </div>
     </>
   );

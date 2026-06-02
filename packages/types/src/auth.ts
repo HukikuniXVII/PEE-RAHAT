@@ -46,6 +46,62 @@ export const userProfileUpdateSchema = z.object({
 
 export type UserProfileUpdateDto = z.infer<typeof userProfileUpdateSchema>;
 
+// ─── NFR-04 (PDPA): self-service account deletion ──────────────────────────
+
+/**
+ * Reason a user gives for deleting their account. Optional — the dropdown
+ * maps each code to a Thai label in the UI; the chosen code (plus any free
+ * text) is composed into User.deletionReason for the audit trail.
+ */
+export const DELETION_REASONS = [
+  "no_longer_use",
+  "switched_service",
+  "platform_issue",
+  "other",
+] as const;
+
+export type DeletionReasonCode = (typeof DELETION_REASONS)[number];
+
+/** Body for POST /users/me/request-deletion. Password re-authenticates the
+ *  destructive action server-side (Supabase signInWithPassword). */
+export const requestDeletionSchema = z.object({
+  password: z.string().min(1, "กรุณากรอกรหัสผ่าน").max(72),
+  reasonCode: z.enum(DELETION_REASONS).optional(),
+  reason: z.string().trim().max(500).optional(),
+});
+
+export type RequestDeletionDto = z.infer<typeof requestDeletionSchema>;
+
+/** Body for POST /users/me/confirm-deletion — the 1h deletion JWT from the
+ *  emailed confirmation link. Token is the sole authorization (route is
+ *  public) so the click works even without an active Supabase session. */
+export const confirmDeletionSchema = z.object({
+  token: z.string().min(1),
+});
+
+export type ConfirmDeletionDto = z.infer<typeof confirmDeletionSchema>;
+
+/** GET /users/me/deletion-eligibility. `blockers` are human-readable Thai
+ *  strings the UI renders verbatim; deletion is allowed iff `canDelete`. */
+export interface DeletionEligibility {
+  canDelete: boolean;
+  blockers: string[];
+}
+
+export interface RequestDeletionResult {
+  ok: true;
+  /**
+   * Only populated when the email transport is stubbed (Supabase
+   * service-role key unset, i.e. local dev / tests) so the flow can be
+   * completed without a live inbox. Never set in production.
+   */
+  devConfirmUrl?: string;
+}
+
+export interface ConfirmDeletionResult {
+  ok: true;
+}
+
 export interface AvatarUploadIntent {
   uploadUrl: string;
   objectKey: string;

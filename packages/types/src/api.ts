@@ -18,6 +18,11 @@ export interface Page<T> {
 export const API_PATHS = {
   usersMe: "/users/me",
   usersAvatarIntent: "/users/me/avatar-intent",
+  // NFR-04 (PDPA): self-service account deletion. confirm-deletion is a
+  // public, token-authenticated route (see AccountDeletionController).
+  usersDeletionEligibility: "/users/me/deletion-eligibility",
+  usersRequestDeletion: "/users/me/request-deletion",
+  usersConfirmDeletion: "/users/me/confirm-deletion",
   adminReportsQueue: "/admin/reports/queue",
   adminReportsOverdue: "/admin/reports/overdue",
   adminReportById: (id: string) => `/admin/reports/${id}`,
