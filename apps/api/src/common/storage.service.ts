@@ -220,6 +220,34 @@ export class StorageService {
   }
 
   /**
+   * Bug-report screenshots. Server-side upload (multipart) like report
+   * evidence, but under the `bug-reports/` prefix in the private sheets
+   * bucket — signDownload's prefix routing (anything not `kyc/` → sheets
+   * bucket) serves them via 5-minute signed GETs, and deleteObject routes
+   * cleanup the same way. No userId in the key path: anonymous reports
+   * have no reporter. Dev with no S3 config returns the key unwritten.
+   */
+  async uploadBugScreenshot(
+    body: Buffer,
+    contentType: string,
+  ): Promise<string> {
+    const ext = contentType.split("/")[1]?.split("+")[0] ?? "bin";
+    const objectKey = `bug-reports/${Date.now()}-${randomUUID()}.${ext}`;
+    if (!this.client || !this.config) {
+      return objectKey;
+    }
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.config.sheetsBucket,
+        Key: objectKey,
+        Body: body,
+        ContentType: contentType,
+      }),
+    );
+    return objectKey;
+  }
+
+  /**
    * Report-system evidence cleanup (FR-CM-05 / PDPA): permanently delete
    * one stored object. Bucket is inferred from the key prefix. Dev with no
    * S3 config is a no-op.

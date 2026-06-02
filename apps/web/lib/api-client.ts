@@ -15,6 +15,16 @@ import {
   type AdminPayoutRow,
   type AdminReportDetail,
   type AdminReportQueueItem,
+  type AdminBugReportDetail,
+  type AdminBugReportRow,
+  type AdminUpdateBugReportDto,
+  type BugCategory,
+  type BugScreenshotUploadResult,
+  type BugSeverity,
+  type BugStatus,
+  type CreateBugReportDto,
+  type CreateBugReportResult,
+  type MyBugReport,
   type AvatarUploadIntent,
   type ConfirmDeletionResult,
   type DeletionEligibility,
@@ -358,6 +368,26 @@ export function createApiClient(opts: ApiClientOptions = {}) {
           token,
         ),
     },
+    // Bug reports (product feedback). create + uploadScreenshot work for
+    // logged-out users too (auth optional); mine requires a session.
+    bugReports: {
+      create: (dto: CreateBugReportDto) =>
+        request<CreateBugReportResult>(
+          API_PATHS.bugReports,
+          { method: "POST", body: JSON.stringify(dto) },
+          token,
+        ),
+      uploadScreenshot: (file: File) => {
+        const form = new FormData();
+        form.append("file", file);
+        return requestMultipart<BugScreenshotUploadResult>(
+          API_PATHS.bugReportUploadEvidence,
+          form,
+          token,
+        );
+      },
+      mine: () => request<MyBugReport[]>(API_PATHS.bugReportsMine, {}, token),
+    },
     admin: {
       reports: {
         queue: (
@@ -556,6 +586,33 @@ export function createApiClient(opts: ApiClientOptions = {}) {
           request<{ ok: true }>(
             API_PATHS.adminUserById(id),
             { method: "DELETE" },
+            token,
+          ),
+      },
+      // Bug report triage queue (product feedback) — separate from reports.
+      bugReports: {
+        queue: (
+          opts: {
+            status?: BugStatus;
+            severity?: BugSeverity;
+            category?: BugCategory;
+          } = {},
+        ) =>
+          request<AdminBugReportRow[]>(
+            `${API_PATHS.adminBugReportsQueue}${qs(opts)}`,
+            {},
+            token,
+          ),
+        detail: (id: string) =>
+          request<AdminBugReportDetail>(
+            API_PATHS.adminBugReportById(id),
+            {},
+            token,
+          ),
+        update: (id: string, dto: AdminUpdateBugReportDto) =>
+          request<AdminBugReportDetail>(
+            API_PATHS.adminBugReportById(id),
+            { method: "PATCH", body: JSON.stringify(dto) },
             token,
           ),
       },

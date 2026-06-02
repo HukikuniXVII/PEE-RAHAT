@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 
 import { BookingsModule } from "../bookings/bookings.module";
+import { BugReportsModule } from "../bug-reports/bug-reports.module";
 import { KycModule } from "../kyc/kyc.module";
 import { PaymentsModule } from "../payments/payments.module";
 import { ReportsModule } from "../reports/reports.module";
@@ -13,7 +14,13 @@ import { JobsService } from "./jobs.service";
  * release-for-payout / kyc-archive / report-* job set.
  */
 @Module({
-  imports: [PaymentsModule, KycModule, ReportsModule, BookingsModule],
+  imports: [
+    PaymentsModule,
+    KycModule,
+    ReportsModule,
+    BookingsModule,
+    BugReportsModule,
+  ],
   providers: [JobsService],
 })
 export class JobsModule {}

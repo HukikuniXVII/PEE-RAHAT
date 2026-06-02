@@ -74,6 +74,10 @@ model User {
   // threads (1-on-1 threads still use the explicit student / tutor FKs).
   bookingParticipations     BookingParticipant[]
   chatThreadParticipations  ChatThreadParticipant[] @relation("ChatThreadParticipations")
+  // Bug reports filed by this user (product feedback — distinct from the
+  // content-violation Report system). Nullable FK: anonymous reports carry
+  // no reporter.
+  bugReports                BugReport[]
 }
 
 model StudentProfile {
@@ -1067,6 +1071,79 @@ enum RefundReason {
   group_rejected_by_tutor
   group_invite_expired
   group_payment_incomplete
+}
+
+// ─── Bug reports (product feedback) ─────────────────────────────────────────
+// Deliberately separate from the content-violation Report system above:
+// bug reports are product feedback (a broken link, a payment glitch), not
+// abuse/moderation. Different queue, different lifecycle, no SLA/notifications.
+// Filed from a floating button anywhere in the app; anonymous reports are
+// allowed (reporterId null). See migration 20260514_bug_reports.
+
+enum BugSeverity {
+  minor   // ไม่ค่อยกระทบ
+  normal  // กระทบการใช้งาน
+  blocker // ใช้ไม่ได้เลย
+}
+
+enum BugCategory {
+  ui
+  broken_link
+  payment
+  booking
+  chat
+  performance
+  other
+}
+
+enum BugStatus {
+  open
+  in_progress
+  fixed
+  wont_fix
+  duplicate
+}
+
+enum BugPriority {
+  low
+  normal
+  high
+  urgent
+}
+
+model BugReport {
+  id         String  @id @default(cuid())
+  reporterId String?
+  reporter   User?   @relation(fields: [reporterId], references: [id])
+
+  title       String
+  description String
+  severity    BugSeverity @default(normal)
+  category    BugCategory
+
+  // Auto-captured client context at submit time.
+  pageUrl    String
+  userAgent  String
+  viewport   String // "1920x1080"
+  appVersion String? // NEXT_PUBLIC_APP_VERSION at build time
+
+  // Screenshots (≤3) live under `bug-reports/` in the private sheets bucket
+  // (signDownload prefix-routing serves them). Purged 90 days after the
+  // report resolves and hard-capped at 180 days from creation.
+  screenshotKeys String[]
+  // Opt-in: last 50 console.error/warn entries, captured client-side.
+  consoleLog     String?
+
+  status         BugStatus   @default(open)
+  priority       BugPriority @default(normal)
+  assignedToId   String?
+  resolutionNote String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, priority, createdAt])
+  @@index([reporterId])
 }
 
 model RefundLedger {

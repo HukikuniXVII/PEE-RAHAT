@@ -6,6 +6,7 @@ import { AdminModule } from "./admin/admin.module";
 import { TcasImportModule } from "./admin/tcas-import/tcas-import.module";
 import { AuthModule } from "./auth/auth.module";
 import { BookingsModule } from "./bookings/bookings.module";
+import { BugReportsModule } from "./bug-reports/bug-reports.module";
 import { ChatModule } from "./chat/chat.module";
 import { CommonModule } from "./common/common.module";
 import { CommunityModule } from "./community/community.module";
@@ -46,6 +47,7 @@ import { UsersModule } from "./users/users.module";
     PaymentsModule,
     NotificationsModule,
     ReportsModule,
+    BugReportsModule,
     AdminModule,
     TcasImportModule,
     JobsModule,

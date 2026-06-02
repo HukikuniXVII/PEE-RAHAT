@@ -9,6 +9,7 @@ import { Queue, Worker } from "bullmq";
 import IORedis, { type Redis } from "ioredis";
 
 import { GroupSessionService } from "../bookings/group-session.service";
+import { BugReportCronService } from "../bug-reports/bug-report-cron.service";
 import { KycService } from "../kyc/kyc.service";
 import { PaymentsService } from "../payments/payments.service";
 import { ReportCronService } from "../reports/report-cron.service";
@@ -21,6 +22,8 @@ const REPORT_EVIDENCE_QUEUE = "reports-evidence-cleanup";
 // FR-TH-18: group session failure sweepers.
 const GROUP_INVITE_EXPIRY_QUEUE = "group-invite-expiry";
 const GROUP_PAYMENT_DEADLINE_QUEUE = "group-payment-deadline";
+// Bug-report screenshot retention sweep.
+const BUG_SCREENSHOT_CLEANUP_QUEUE = "bug-screenshot-cleanup";
 
 const RELEASE_FOR_PAYOUT_CRON = "0 3 * * *"; // 03:00 every day
 const KYC_ARCHIVE_CRON = "0 * * * *"; // top of every hour
@@ -29,6 +32,7 @@ const REPORT_STALE_CRON = "30 3 * * *"; // 03:30 every day
 const REPORT_EVIDENCE_CRON = "0 4 * * *"; // 04:00 every day
 const GROUP_INVITE_EXPIRY_CRON = "0 * * * *"; // top of every hour
 const GROUP_PAYMENT_DEADLINE_CRON = "*/30 * * * *"; // every 30 minutes
+const BUG_SCREENSHOT_CLEANUP_CRON = "45 4 * * *"; // 04:45 every day
 
 /**
  * BullMQ scheduler for the recurring back-office jobs:
@@ -65,6 +69,8 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
   private groupPaymentDeadlineQueue?: Queue;
   private groupInviteExpiryWorker?: Worker;
   private groupPaymentDeadlineWorker?: Worker;
+  private bugScreenshotQueue?: Queue;
+  private bugScreenshotWorker?: Worker;
 
   constructor(
     @Inject(PaymentsService) private readonly payments: PaymentsService,
@@ -73,6 +79,8 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
     private readonly reportCron: ReportCronService,
     @Inject(GroupSessionService)
     private readonly groupSessions: GroupSessionService,
+    @Inject(BugReportCronService)
+    private readonly bugReportCron: BugReportCronService,
   ) {}
 
   async onModuleInit() {
@@ -104,6 +112,9 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
       connection: this.connection,
     });
     this.groupPaymentDeadlineQueue = new Queue(GROUP_PAYMENT_DEADLINE_QUEUE, {
+      connection: this.connection,
+    });
+    this.bugScreenshotQueue = new Queue(BUG_SCREENSHOT_CLEANUP_QUEUE, {
       connection: this.connection,
     });
 
@@ -240,6 +251,26 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
       );
     });
 
+    // Bug-report screenshot retention sweep (≤180 days, +90 days post-resolve).
+    this.bugScreenshotWorker = new Worker(
+      BUG_SCREENSHOT_CLEANUP_QUEUE,
+      async () => {
+        const result = await this.bugReportCron.screenshotCleanup();
+        if (result.purged > 0) {
+          this.logger.log(
+            `Bug screenshot cleanup: purged ${result.purged} file(s)`,
+          );
+        }
+        return result;
+      },
+      { connection: this.connection },
+    );
+    this.bugScreenshotWorker.on("failed", (job, err) => {
+      this.logger.error(
+        `${BUG_SCREENSHOT_CLEANUP_QUEUE} ${job?.id} failed: ${err.message}`,
+      );
+    });
+
     // Drop the retired payouts-compute repeatable so it doesn't keep
     // firing against an upgraded API. removeRepeatableByKey is keyed
     // on `${name}:::${cron}:::${tz}` etc; we just sweep the legacy queue
@@ -289,6 +320,11 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
       {},
       { repeat: { pattern: GROUP_PAYMENT_DEADLINE_CRON } },
     );
+    await this.bugScreenshotQueue.add(
+      "tick",
+      {},
+      { repeat: { pattern: BUG_SCREENSHOT_CLEANUP_CRON } },
+    );
 
     this.logger.log(
       `Jobs registered: ${RELEASE_FOR_PAYOUT_QUEUE} (${RELEASE_FOR_PAYOUT_CRON}), ${KYC_ARCHIVE_QUEUE} (${KYC_ARCHIVE_CRON}), ${REPORT_SLA_QUEUE} (${REPORT_SLA_CRON}), ${REPORT_STALE_QUEUE} (${REPORT_STALE_CRON}), ${REPORT_EVIDENCE_QUEUE} (${REPORT_EVIDENCE_CRON}), ${GROUP_INVITE_EXPIRY_QUEUE} (${GROUP_INVITE_EXPIRY_CRON}), ${GROUP_PAYMENT_DEADLINE_QUEUE} (${GROUP_PAYMENT_DEADLINE_CRON})`,
@@ -304,6 +340,7 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
       this.reportEvidenceWorker?.close(),
       this.groupInviteExpiryWorker?.close(),
       this.groupPaymentDeadlineWorker?.close(),
+      this.bugScreenshotWorker?.close(),
       this.releaseQueue?.close(),
       this.kycArchiveQueue?.close(),
       this.reportSlaQueue?.close(),
@@ -311,6 +348,7 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
       this.reportEvidenceQueue?.close(),
       this.groupInviteExpiryQueue?.close(),
       this.groupPaymentDeadlineQueue?.close(),
+      this.bugScreenshotQueue?.close(),
     ]);
     if (this.connection) {
       this.connection.disconnect();

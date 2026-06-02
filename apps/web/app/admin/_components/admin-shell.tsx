@@ -4,6 +4,7 @@ import { cn } from "@peerahat/ui";
 import {
   BadgeCheck,
   Banknote,
+  Bug,
   GraduationCap,
   Landmark,
   Palette,
@@ -31,6 +32,7 @@ const ADMIN_ITEMS = [
   },
   { href: "/admin/payouts", label: "Payouts", icon: Banknote },
   { href: "/admin/reports", label: "Reports Queue", icon: ShieldAlert },
+  { href: "/admin/bug-reports", label: "บั๊กที่แจ้ง", icon: Bug },
   { href: "/admin/tcas/import/criteria", label: "นำเข้า TCAS (AI)", icon: GraduationCap },
   ...(IS_DEV
     ? [{ href: "/admin/design", label: "UI Preview (dev)", icon: Palette }]

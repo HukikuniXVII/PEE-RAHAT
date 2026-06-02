@@ -111,6 +111,12 @@ export const API_PATHS = {
   communityBookmarks: "/community/me/bookmarks",
   communityTrending: "/community/trending",
   communityProfile: (userId: string) => `/community/profile/${userId}`,
+  // Bug reports (product feedback) — separate from /reports.
+  bugReports: "/bug-reports",
+  bugReportsMine: "/bug-reports/mine",
+  bugReportUploadEvidence: "/bug-reports/upload-evidence",
+  adminBugReportsQueue: "/admin/bug-reports/queue",
+  adminBugReportById: (id: string) => `/admin/bug-reports/${id}`,
   reports: "/reports",
   reportsMine: "/reports/mine",
   reportById: (id: string) => `/reports/${id}`,
