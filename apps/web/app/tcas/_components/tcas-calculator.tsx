@@ -17,7 +17,7 @@
 // Data: real UnifiedProgram[] + CalendarFile produced server-side in
 // apps/web/app/tcas/page.tsx (NETSAT KKU + TCAS R3 mytcas).
 
-import { maxScoreFor } from "@peerahat/types";
+import { GPAX_MAX, isGpaxCode, maxScoreFor } from "@peerahat/types";
 import { cn } from "@peerahat/ui";
 import {
   ArrowRight,
@@ -1869,6 +1869,76 @@ function DetailPage({
 // Score input row
 // ────────────────────────────────────────────────────────────────────
 
+// Single per-subject score field. Holds a local string buffer so partial
+// decimals ("3." / "0.0") survive while typing — GPAX is a float (0-4.00),
+// not an integer, and a purely numeric controlled value would snap "3."
+// back to "3" and make decimal entry impossible. Commits a clamped float
+// (0..max) to the parent on every valid keystroke; normalizes the display
+// to the clamped value on blur.
+function ScoreInput({
+  value,
+  max,
+  hint,
+  onCommit,
+}: {
+  value: number | undefined;
+  max: number;
+  hint: string;
+  onCommit: (n: number) => void;
+}) {
+  const [text, setText] = useState<string>(
+    value == null || Number.isNaN(value) ? "" : String(value),
+  );
+
+  // Sync the buffer when the committed value changes from outside (e.g. a
+  // reset). Skipped while the buffer already parses to the same number so
+  // an in-progress decimal ("3.") isn't clobbered by the commit it caused.
+  useEffect(() => {
+    const parsed = text === "" ? Number.NaN : Number(text);
+    const incoming = value == null ? Number.NaN : value;
+    if (Number.isNaN(parsed) && Number.isNaN(incoming)) return;
+    if (parsed !== incoming) {
+      setText(Number.isNaN(incoming) ? "" : String(incoming));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  function clamp(n: number): number {
+    return Math.max(0, Math.min(max, n));
+  }
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={text}
+      onChange={(e) => {
+        const raw = e.target.value;
+        // Digits + at most one decimal point. Rejecting other characters
+        // keeps the field float-only (no letters / minus / second dot).
+        if (raw !== "" && !/^\d*\.?\d*$/.test(raw)) return;
+        setText(raw);
+        if (raw === "" || raw === ".") {
+          onCommit(Number.NaN);
+          return;
+        }
+        const n = Number(raw);
+        if (!Number.isNaN(n)) onCommit(clamp(n));
+      }}
+      onBlur={() => {
+        if (text === "" || text === ".") {
+          setText("");
+          return;
+        }
+        const n = Number(text);
+        setText(Number.isNaN(n) ? "" : String(clamp(n)));
+      }}
+      placeholder={hint}
+      className="font-bold text-[16px] text-grape-deep tabular-nums w-10 text-right bg-transparent outline-none placeholder:text-ink-mute placeholder:font-normal placeholder:text-[12px]"
+    />
+  );
+}
+
 function ScoreInputRow({
   program,
   scores,
@@ -1889,7 +1959,11 @@ function ScoreInputRow({
     if (Number.isNaN(value)) {
       delete next[code];
     } else {
-      next[code] = Math.max(0, Math.min(100, value));
+      // GPAX is on a 0-4 scale; every other exam is 0-100. Previously this
+      // hard-clamped to 100 for every code, which let a GPAX value above 4
+      // slip into state if set from anywhere but the input's own onChange.
+      const max = isGpaxCode(code) ? GPAX_MAX : 100;
+      next[code] = Math.max(0, Math.min(max, value));
     }
     setScores(next);
   }
@@ -1963,34 +2037,11 @@ function ScoreInputRow({
                 <span className="thai text-[10px] px-1 rounded bg-grape-soft text-grape-deep font-bold">
                   {w.weightPercent.toFixed(0)}%
                 </span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={val ?? ""}
-                  onChange={(e) => {
-                    const raw = e.target.value;
-                    if (raw === "") {
-                      setScore(w.examCode, Number.NaN);
-                      return;
-                    }
-                    const n = Number(raw);
-                    if (!Number.isNaN(n)) {
-                      const clamped = Math.min(max, Math.max(0, n));
-                      // Skip the setScore call when the parsed value
-                      // already matches state. Without this, typing "."
-                      // after "3" goes: Number("3.")=3 → setScore(3) →
-                      // new state object → re-render → controlled input
-                      // snaps DOM back to "3" → the dot vanishes →
-                      // decimal entry impossible. Skipping the no-op
-                      // setState lets the DOM keep "3." until the next
-                      // digit makes the parse diverge.
-                      if (val !== clamped) {
-                        setScore(w.examCode, clamped);
-                      }
-                    }
-                  }}
-                  placeholder={hint}
-                  className="font-bold text-[16px] text-grape-deep tabular-nums w-10 text-right bg-transparent outline-none placeholder:text-ink-mute placeholder:font-normal placeholder:text-[12px]"
+                <ScoreInput
+                  value={val}
+                  max={max}
+                  hint={hint}
+                  onCommit={(n) => setScore(w.examCode, n)}
                 />
               </label>
             );
