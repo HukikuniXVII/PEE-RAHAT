@@ -35,6 +35,7 @@ pnpm dev
 
 - Web: http://localhost:3000
 - API: http://localhost:3001/api
+- API docs (Swagger): http://localhost:3001/api/docs
 - MinIO console: http://localhost:9001 (user `minioadmin` / pass `minioadmin`)
 - Postgres: `localhost:5432` db `peerahat`
 

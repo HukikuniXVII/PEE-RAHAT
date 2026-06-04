@@ -10,11 +10,13 @@ See [`requirements.md`](./requirements.md) for the full product spec.
 |---|---|
 | Frontend | Next.js 14 App Router, TypeScript, Tailwind CSS, shadcn/ui |
 | Backend | NestJS (TypeScript) |
-| Database | PostgreSQL via Prisma |
-| Auth | Supabase Auth (JWT validated by NestJS) |
-| Storage | S3-compatible (AWS S3 in prod, MinIO in dev) for KYC + sheets |
+| Database | PostgreSQL via Prisma (Supabase) |
+| Auth | Supabase Auth (JWT validated by NestJS via JWKS) |
+| Storage | S3-compatible (Cloudflare R2 in prod, MinIO in dev) for KYC + sheets |
 | Cache / Queues | Redis + BullMQ |
-| Payments | Manual PromptPay + ZercleSlip verification API; admin-confirmed payouts (auto-gateway integration is off the roadmap — see requirements.md §4.5) |
+| Payments | Manual PromptPay + ZercleSlip verification API; admin-confirmed payouts (auto-gateway is off-roadmap — see requirements.md §4.5) |
+| Real-time | SSE (`GET /notifications/stream`) for live notifications; web push via VAPID |
+| CI/CD | GitHub Actions → ghcr.io Docker images → self-hosted VPS via Cloudflare Tunnel |
 
 ## Repo layout
 
@@ -56,11 +58,13 @@ pnpm dev:web   # http://localhost:3000
 pnpm dev:api   # http://localhost:3001/api
 ```
 
+See [`setup.md`](./setup.md) for test accounts, MinIO policy gotchas, and day-to-day commands.
+
 ### Useful commands
 
 ```bash
 pnpm -r typecheck                         # whole workspace
-pnpm --filter @peerahat/api test          # jest (23 unit tests today)
+pnpm --filter @peerahat/api test          # jest suite
 pnpm --filter @peerahat/api resolve-overlaps --dry-run   # FR-TH-15 cleanup
 ```
 
@@ -68,11 +72,12 @@ pnpm --filter @peerahat/api resolve-overlaps --dry-run   # FR-TH-15 cleanup
 
 The defaults in `.env.example` are production-ready. Notable knobs:
 
-- `BOOKING_DAY_START_HOUR` / `END_HOUR` (default `9` / `21`) — slot picker bounds. Mirrored on the web with `NEXT_PUBLIC_*` so the picker stays in sync without a build flag.
-- `POSTPONE_TUTOR_CUT_SHORT_NOTICE` / `POSTPONE_PLATFORM_FEE_SHORT_NOTICE` (default `50` / `10`) — split percentages applied when a student-initiated postpone is rejected inside the 12 h short-notice window (FR-TH-11). Validated at module init — tutor + platform must sum to ≤ 100.
-- `ZERCLE_SLIP_ENABLED=false` — skip the ZercleSlip API call entirely; slips land in the admin "รออนุมัติ" queue for human approval (FR-PM-01/FR-PM-02).
-- `PLATFORM_COMMISSION_PCT=10` / `WITHHOLDING_TAX_PCT=3` — payout math knobs (flat commission, Thai withholding tax). Validated at startup.
+- `BOOKING_DAY_START_HOUR` / `END_HOUR` (default `9` / `21`) — slot picker bounds. Mirrored on the web with `NEXT_PUBLIC_*`.
+- `POSTPONE_TUTOR_CUT_SHORT_NOTICE` / `POSTPONE_PLATFORM_FEE_SHORT_NOTICE` (default `50` / `10`) — split percentages on short-notice student cancellations (FR-TH-11). Validated at module init — tutor + platform must sum to ≤ 100.
+- `ZERCLE_SLIP_ENABLED=false` — skip ZercleSlip; slips land in the admin "รออนุมัติ" queue (FR-PM-01/02).
+- `PLATFORM_COMMISSION_PCT=10` / `WITHHOLDING_TAX_PCT=3` — payout math (flat commission, Thai withholding tax). Validated at startup.
 - `JOBS_ENABLED=false` — skip BullMQ registration (used by `openapi:export` or any run without Redis).
+- `WEB_PUSH_VAPID_PUBLIC_KEY` / `WEB_PUSH_VAPID_PRIVATE_KEY` / `WEB_PUSH_SUBJECT` — web push delivery. Generate keys with `npx web-push generate-vapid-keys`. Omitting disables push silently without breaking subscribe endpoints.
 
 ## Implemented features (Phase 1)
 
@@ -81,61 +86,123 @@ The defaults in `.env.example` are production-ready. Notable knobs:
 - Booking durations 60 / 90 / 120 min; postpone proposals additionally allow 30 min
 - Server-authoritative overlap guard via `BookingsService.assertNoOverlap` — half-open intervals, raw SQL with `+ interval N minutes` arithmetic, checks both student and tutor calendars at create / propose / confirm time
 - `GET /tutors/:id/availability` + `GET /bookings/mine/busy` feed the picker's grey-out so blocked slots show before submit
-- One-off cleanup script `scripts/resolve-existing-overlaps.ts` for any pre-FR-TH-15 conflicts (refunds the later booking 100 % via `RefundReason='admin_manual'`)
+- One-off cleanup script `scripts/resolve-existing-overlaps.ts` for any pre-FR-TH-15 conflicts
+
+### Group bookings (FR-TH-18)
+- Host student creates a group session and invites others; each invitee RSVPs independently
+- Host pays the full group total (price × attendee count); invitees only confirm attendance, no payment
+- Tutor approves the booking before the host pays
+- Accepted invitees are included in the shared group chat thread
+- `/bookings/group-pending` page shows the tutor's pending group approvals
+- Admin-side: `/admin/bug-reports` triage queue shows group-related disputes
 
 ### Postpone-class negotiation (FR-TH-10..14)
 - Either side opens a 2-hour negotiation chat thread from any paid, future booking
-- BullMQ `postpone-timeout` queue fires at `chatExpiresAt`; resolver classifies outcome (`agreed` / `no_agreement` / `unresponsive` / `tutor_initiated_no_agreement`) by inspecting counterparty messages
+- BullMQ `postpone-timeout` queue fires at `chatExpiresAt`; resolver classifies outcome (`agreed` / `no_agreement` / `unresponsive` / `tutor_initiated_no_agreement`)
 - `RefundPolicyService` centralises every split:
   - **Agreed** → no money moves; booking cloned to new slot, original marked `postponed`
   - **Student short-notice no-agreement** → 50 / 10 / 40 (env-driven)
   - **Tutor unresponsive** or **tutor-initiated declined** → 100 % student refund + `defectCount++`
-- `RefundLedger` records every split; `PaymentIntent.amountThb` reduced in place so the existing payout batch picks up the tutor's portion unchanged
-- Tutor `defectCount` deprioritises ranking — final `orderBy: { defectCount: 'asc' }` tiebreaker in `TutorsService.search` (FR-TH-14)
-- 12 unit tests cover all four refund cases + env validation + boundary rounding
+- `RefundLedger` records every split; tutor `defectCount` deprioritises ranking (FR-TH-14)
 
 ### Tutor unavailability (FR-TH-16)
-- Recurring weekly blocks (`TutorUnavailability` model: `weekday` + `startMinute` + `endMinute` + optional `reason`)
+- Recurring weekly blocks (`TutorUnavailability` model: `weekday` + `startMinute` + `endMinute`)
 - `expandWeeklyRules` helper expands rules into concrete intervals; reused by the busy endpoint and the overlap guard
-- Editor on `/tutors/me/edit`: chip-style list with single-click delete + add form (`ทุกวัน` option splats into 7 rules)
+- Editor on `/tutors/me/edit`: chip-style list with single-click delete + add form
 
 ### Schedule view
-- `/bookings?view=schedule` (default) renders a modern airy week grid — day rows × 30-min columns with sticky headers, today-row indigo accent, pastel event cards with colored left-accent stripes
-- Mobile (<md) collapses to a vertical day-grouped list
-- Toggle to the original list view (`?view=list`)
-- Span resolution is exact: 30 min = 1 cell, 60 = 2, 90 = 3, 120 = 4
+- `/bookings?view=schedule` renders a week grid — day rows × 30-min columns, sticky headers, today-row accent, pastel event cards
+- Mobile collapses to a vertical day-grouped list; **รายการ (list)** is the default view
+- Session type and invited students shown on booking rows (FR-BK-12)
 
 ### Real-time notifications (FR-CM-08)
-- `NotificationsService.notify({ userId, type, category?, title, body, actionUrl?, sourceType?, sourceId? })` — single entry point. Dedups (same `sourceType`+`sourceId` within 5 min) and respects the user's per-type `typeOverrides` before writing the row.
-- `Notification.category` (enum: `bookings` / `payments` / `chat` / `reports` / `reviews` / `account` / `system`) drives the per-category accordion in `/account/notifications` settings.
-- Floating `NotificationBell` (top-right of every authed page, **not** in the nav per spec) + slide-up `NotificationPanel` (desktop drop / mobile sheet). Unread badge maxes at "9+", rose-500 dot, motion/react shake on count-up.
-- `GET /notifications/stream` — SSE, auth via `?token=<supabase-jwt>` (EventSource can't send headers). `SseGateway` keeps an in-memory `Map<userId, Set<Response>>` with 30 s heartbeats; `notify()` fans rows out to every open tab. Client `NotificationSseListener` reconnects on token refresh + 5 s back-off on errors.
+- `NotificationsService.notify(...)` — single entry point with dedup (same `sourceType`+`sourceId` within 5 min) and per-type user overrides
+- `Notification.category` (enum: `bookings` / `payments` / `chat` / `reports` / `reviews` / `account` / `system`) drives the accordion in `/account/notifications`
+- Floating `NotificationBell` (bottom-right) + slide-up `NotificationPanel`; unread badge caps at "9+"
+- `GET /notifications/stream` — SSE, auth via `?token=<supabase-jwt>`. `SseGateway` keeps an in-memory `Map<userId, Set<Response>>` with 30 s heartbeats; `notify()` fans rows out to every open tab
+- **SSE → React Query cache invalidation**: backend mutations push `INVALIDATE:<queryKey>` events over SSE so the browser cache refreshes without polling
+- **Web push (Phase 3)**: `web-push` + VAPID, service-worker handlers, permission prompt after 5 min activity (7-day snooze), `quietHours` (BKK-default tz). `/account/notifications` exposes master toggle, quiet-hours, devices list, and a **ส่งทดสอบ** button
 
-> **Scaling note — SSE gateway is single-instance.** A notification fired on API container A won't reach a stream on API container B. We run one container today so a `Map` is enough; when we go horizontal, swap `SseGateway` for a Redis pub/sub layer (same `emit` / `register` surface, fanned through Redis). This is the only change needed — `notify()` stays untouched.
+> **Scaling note — SSE gateway is single-instance.** A notification on API container A won't reach a stream on container B. Swap `SseGateway` for a Redis pub/sub layer when going horizontal — same `emit`/`register` surface, `notify()` stays untouched.
 
-- **Web push (Phase 3)** — `web-push` + VAPID, service-worker `push` / `notificationclick` handlers, permission prompt after 5 min of activity (7-day snooze), `quietHours` enforced before fan-out (BKK-default tz, wrap-around supported). `PushSubscription` rows are per (user, endpoint); 404/410 from the push server prunes the row, 2xx bumps `lastSeenAt`. `/account/notifications` exposes the master toggle, quiet-hours selects, devices list (with revoke), and a **ส่งทดสอบ** button that fires a `system_test` notification end-to-end (notify → SSE → push). Configure with `WEB_PUSH_VAPID_PUBLIC_KEY`, `WEB_PUSH_VAPID_PRIVATE_KEY`, `WEB_PUSH_SUBJECT` (e.g. `mailto:notifications@peerahat.com`); generate keys with `npx web-push generate-vapid-keys`. With no env set the subscribe endpoints still respond but push delivery is a no-op.
+### Bug reports (user → admin)
+- Floating **รายงานปัญหา** launcher on every authenticated page; opens a modal with category select + free-text
+- `/account/bugs` shows the submitter's own report history and status
+- `/admin/bug-reports` triage queue: status filter, assign, resolve, mark duplicate
+- `BugReport` model records `userId`, `category`, `description`, `status`, `adminNote`
+
+### Account management
+- **Universal profile edit** (`/profile`) — `displayName` + `avatarUrl` via `PATCH /users/me` + presigned-PUT avatar flow
+- **Account deletion** (`/account/delete`, NFR-04) — 2-step confirm, PDPA-compliant anonymization: email → `deleted+<id>@peerahat.local`, `displayName` → "ผู้ใช้ที่ลบบัญชีแล้ว", avatar cleared, Supabase user deleted
+
+### KYC improvements (FR-TH-02)
+- Per-document **ดูตัวอย่าง** button on the upload step shows watermarked SVG samples
+- Tutor intro-video gate removed — every applied tutor is searchable and bookable from day 1; KYC remains required only for verified badge
+
+### TCAS Calculator (FR-TC-01..06)
+- Full multi-system scoring: GPAX/TGAT/TPAT/A-Level/NetSat with per-round logic (`r1_portfolio`, `r2_quota_kku_netsat`, `r3_admission`, `r4_direct`)
+- GPAX field accepts float (max 4.00) — FR-TC-03
+- Canonical executable score algorithm spec in `ALGORITHM.md` + `score-algorithm.spec.ts`
+- Admin TCAS AI bulk import via Gemini (`@google/genai`) at `/admin/tcas/import/criteria`
+
+### Community (FR-CM-01..09)
+- `/community` webboard — posts, replies, upvote, bookmark, report
+- **V2 redesign** with mini-profile overlay on author click (FR-CM-09): banner + avatar seam, university/faculty display
+- **Photo upload** on post composer: photos insert inline as signed S3 URLs
+- `CommunityPost.authorBadge` (university badge) shown on every post card
+
+### Chat (FR-TH-10..14, FR-TH-18)
+- **V2 redesign**: desktop split-screen (thread list + chat room), mobile single-column with back navigation
+- Inline booking proposal from chat thread
+- `PostponePanel` for negotiation within a booking thread
+- Chat bypass filter (FR-PM-08): server-side redact + `redacted: true` flag; client-side inline warning before send
 
 ### Other Phase 1 work shipped
-- Tutor intro video supports YouTube / Vimeo / direct file URLs (auto-rewrite to embed where needed)
-- Real R2/S3 SDK in `StorageService` (NFR-03)
+- Real R2/S3 SDK in `StorageService` (NFR-03); falls back to `https://storage.local` stub in dev when `S3_*` env unset
 - ZercleSlip verification wrapper (FR-PM-02) + EMVCo PromptPay payload generator
-- Admin-confirmed payouts, 15th / 30th (FR-PM-06): `release-for-payout` daily cron flips eligible intents into the queue; admin generates the batch and uploads transfer proof per tutor
+- Admin-confirmed payouts, 15th / 30th (FR-PM-06): `release-for-payout` daily cron; admin generates batch + uploads transfer proof
 - Flat 10 % platform commission (FR-PM-04) + 3 % Thai withholding (FR-PM-07), both env-driven
-- Cron jobs: release-for-payout daily after 24 h report window (FR-PM-05); KYC cold-archive within 24 h (NFR-03)
-- Tutor profile detail, booking stepper, chat, sheet upload, OAuth callback (Google), PWA service worker, shadcn-style UI primitives
+- Google Calendar OAuth + Meet link generation per booking (FR-TH-17)
+- Cron jobs: release-for-payout daily (FR-PM-05); KYC cold-archive hourly (NFR-03)
+- PWA service worker, OAuth callback (Google), shadcn-style UI primitives
+- Slip preview modal in `/admin/payments` (FR-PM-01)
+- Landing page with subtle fade-up animations
 
 ## Testing
 
-`pnpm --filter @peerahat/api test` runs the Jest suite — **23 tests** across two files:
+```bash
+pnpm --filter @peerahat/api test
+```
 
-- `refund-policy.service.spec.ts` (12) — env validation + all four refund cases + rounding edge cases
-- `bookings.service.spec.ts` (11) — `intervalsOverlap` boundary semantics (touching edges, 1-min overlap, 30-min slot adjacency) + `expandWeeklyRules` (multi-day expansion, window boundaries, multi-weekday)
+Test files under `apps/api/src/**/*.spec.ts`:
+
+| File | Coverage |
+|---|---|
+| `refund-policy.service.spec.ts` | env validation + four refund cases + rounding |
+| `bookings.service.spec.ts` | `intervalsOverlap` boundary semantics + `expandWeeklyRules` |
+| `group-session.service.spec.ts` | group booking state machine + invitee RSVP paths |
+| `score-algorithm.spec.ts` | TCAS canonical score + weight-sum invariant |
+| `tcas.service.spec.ts` | program eligibility and round logic |
+| `pricing.spec.ts` | commission + withholding tax + group-price calculations |
+| `reports.service.spec.ts` + 4 others | report lifecycle, priority, rate-limit, resolution, admin |
+| `zercle-slip.service.spec.ts` | slip validation contract + duplicate-dedupe |
+| `google-oauth.service.spec.ts` + `google-calendar.service.spec.ts` | OAuth token flow + slot availability |
+| `crypto.service.spec.ts` | symmetric encrypt/decrypt |
+| `users.service.spec.ts` | PDPA anonymization on account deletion |
+| `tcas-ai-parser.service.spec.ts` | Gemini parse output normalization |
+| `target-resolver.service.spec.ts` | notification target resolution |
 
 Workspace typecheck:
 
 ```bash
 pnpm -r typecheck
 ```
+
+## Deploy
+
+Production runs on a **self-hosted VPS** at `peerahat.com`, fronted by **Cloudflare Tunnel** (no exposed ports). GitHub Actions builds `api` and `web` Docker images in parallel on every `main` push, publishes both `:latest` and `:<sha>` to **ghcr.io**, then deploys via `docker compose` on the VPS.
+
+See [`docs/deploy.md`](./docs/deploy.md) for the full deployment guide.
 
 ## Out of scope (removed from the AI Studio prototype)
 
